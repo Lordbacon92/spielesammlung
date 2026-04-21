@@ -402,7 +402,22 @@
   .check-btn:hover { filter: brightness(1.15); }
 
   /* ── ERA GROUPING ── */
-  .era-section { max-width: 1400px; margin: 0 auto; padding: 8px 20px 0; position: relative; z-index: 1; }
+  .era-section { padding: 8px 0 0; position: relative; z-index: 1; }
+
+  /* Desktop: all platforms in one big flex row */
+  @media (min-width: 601px) {
+    #platformGrid {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 10px !important;
+      padding: 16px 20px !important;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .era-section { padding: 0; }
+    .era-title { display: none; }
+    .era-buttons { display: contents; }
+  }
   .era-title {
     font-family: 'VT323', monospace;
     font-size: 15px;
