@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alex seine Spielesammlung</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c28;
+    --text: #e8e8f0;
+    --text-dim: #888899;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  header { text-align: center; padding: 48px 20px 32px; }
+
+  header::after {
+    content: '';
+    display: block;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #ff4444, #ff8800, #ffff00, #00ff88, #0088ff, #8844ff, transparent);
+    margin-top: 32px;
+    opacity: 0.6;
+  }
+
+  h1 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(14px, 3vw, 26px);
+    letter-spacing: 4px;
+    background: linear-gradient(135deg, #ff8800, #ff4444, #ff00aa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+  }
+
+  .subtitle { font-size: 14px; color: var(--text-dim); letter-spacing: 3px; text-transform: uppercase; }
+
+  /* Loading overlay */
+  #loadingOverlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 8000;
+    gap: 20px;
+    transition: opacity 0.4s;
+  }
+  #loadingOverlay.hidden { opacity: 0; pointer-events: none; }
+
+  .loading-text {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    color: #00cc66;
+    letter-spacing: 3px;
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .loading-bar-wrap {
+    width: 280px;
+    height: 8px;
+    background: #1c1c28;
+    border: 1px solid #333;
+  }
+  .loading-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #00cc66, #00ff88);
+    width: 0%;
+    animation: loadprogress 1.8s ease-out forwards;
+  }
+  @keyframes loadprogress { to { width: 100%; } }
+
+  /* Tabs */
+  .tab-bar { display: flex; justify-content: center; gap: 8px; padding: 24px 20px 0; }
+
+  .tab-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    padding: 10px 24px;
+    border: 2px solid #333;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  }
+  .tab-btn.active { border-color: #ff4444; color: #ff4444; background: rgba(255,68,68,0.08); text-shadow: 0 0 12px #ff4444; }
+  .tab-btn:hover:not(.active) { border-color: #666; color: var(--text); }
+
+  /* Search */
+  .search-wrap { display: flex; justify-content: center; padding: 20px 20px 10px; }
+
+  .search-input {
+    background: var(--surface);
+    border: 2px solid #333;
+    border-right: none;
+    color: var(--text);
+    padding: 10px 20px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    width: 100%;
+    max-width: 360px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: #ff8800; }
+  .search-input::placeholder { color: var(--text-dim); }
+
+  .search-btn {
+    background: #ff8800;
+    border: 2px solid #ff8800;
+    color: #000;
+    padding: 10px 20px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .search-btn:hover { background: #ffaa33; border-color: #ffaa33; }
+
+  /* Add bar */
+  .add-bar { display: flex; justify-content: center; padding: 10px 20px 0; }
+
+  .add-toggle-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 2px;
+    padding: 9px 22px;
+    border: 2px solid #00cc66;
+    background: transparent;
+    color: #00cc66;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .add-toggle-btn:hover, .add-toggle-btn.open { background: rgba(0,204,102,0.12); }
+
+  .add-form {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 12px 20px 4px;
+  }
+  .add-form.open { display: flex; }
+
+  .add-select {
+    background: var(--surface);
+    border: 2px solid #00cc66;
+    color: var(--text);
+    padding: 9px 14px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    outline: none;
+    cursor: pointer;
+    min-width: 180px;
+  }
+  .add-select option { background: #1c1c28; }
+
+  .add-name-input {
+    background: var(--surface);
+    border: 2px solid #00cc66;
+    color: var(--text);
+    padding: 9px 16px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    outline: none;
+    min-width: 260px;
+  }
+  .add-name-input::placeholder { color: var(--text-dim); }
+  .add-name-input:focus { border-color: #00ff88; }
+
+  .add-confirm-btn {
+    background: #00cc66;
+    border: 2px solid #00cc66;
+    color: #000;
+    padding: 9px 22px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .add-confirm-btn:hover { background: #00ff88; border-color: #00ff88; }
+  .add-confirm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Platform grid */
+  .platform-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px 24px;
+    justify-content: center;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .plat-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 8px 16px;
+    border: 2px solid;
+    background: transparent;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.18s;
+    position: relative;
+    overflow: hidden;
+  }
+  .plat-btn::before { content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity 0.18s; background: currentColor; }
+  .plat-btn:hover::before, .plat-btn.active::before { opacity: 0.15; }
+  .plat-btn .count { font-size: 10px; opacity: 0.7; margin-left: 4px; }
+
+  /* Content */
+  .content { max-width: 1400px; margin: 0 auto; padding: 24px; display: none; }
+  .content.visible { display: block; }
+
+  .platform-header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 28px;
+    padding: 20px 24px;
+    background: var(--surface);
+    border-left: 4px solid;
+  }
+
+  .console-img { width: 100px; height: 100px; object-fit: contain; filter: drop-shadow(0 0 12px currentColor); flex-shrink: 0; }
+  .console-img-placeholder { width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; font-size: 48px; flex-shrink: 0; }
+  .header-info h2 { font-family: 'Press Start 2P', monospace; font-size: clamp(10px, 2vw, 16px); margin-bottom: 6px; }
+  .header-info p { font-size: 14px; color: var(--text-dim); letter-spacing: 1px; }
+
+  .games-grid { columns: 3; column-gap: 16px; }
+  @media (max-width: 900px) { .games-grid { columns: 2; } }
+  @media (max-width: 500px) { .games-grid { columns: 1; } }
+
+  .game-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    margin-bottom: 6px;
+    background: var(--surface);
+    border-left: 3px solid;
+    break-inside: avoid;
+    transition: background 0.15s;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .game-item:hover { background: var(--surface2); }
+  .game-bullet { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: currentColor; opacity: 0.7; }
+  .game-name { flex: 1; }
+
+  .game-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
+  .game-item:hover .game-actions { opacity: 1; }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 5px;
+    font-size: 13px;
+    border-radius: 3px;
+    line-height: 1;
+    transition: background 0.15s;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.1); }
+  .icon-btn.del:hover { background: rgba(255,60,60,0.25); }
+  .icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .game-edit-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid #ff8800;
+    color: var(--text);
+    padding: 2px 8px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    outline: none;
+  }
+
+  .no-games { text-align: center; color: var(--text-dim); font-size: 14px; padding: 40px; letter-spacing: 2px; }
+
+  /* Spinner inline */
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: #00cc66;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Search results */
+  .search-results-box { max-width: 1400px; margin: 0 auto; padding: 0 24px 24px; }
+  .search-results-title { font-family: 'Press Start 2P', monospace; font-size: 10px; color: #ff8800; letter-spacing: 2px; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #ff880033; }
+  .search-platform-group { margin-bottom: 24px; }
+  .search-platform-label { font-weight: 700; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; padding: 4px 12px; margin-bottom: 8px; display: inline-block; border-left: 3px solid; }
+  .highlight { background: rgba(255,200,0,0.25); border-radius: 2px; }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 30px; left: 50%;
+    transform: translateX(-50%) translateY(60px);
+    background: #00cc66; color: #000;
+    font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 1px;
+    padding: 10px 24px; border-radius: 2px; transition: transform 0.3s;
+    z-index: 10000; pointer-events: none;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.error { background: #ff4444; color: #fff; }
+
+  /* Modal */
+  #confirmModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 10001; align-items: center; justify-content: center; }
+  #confirmModal.open { display: flex; }
+  .modal-box { background: var(--surface2); border: 2px solid #ff4444; padding: 28px 32px; text-align: center; max-width: 360px; width: 90%; }
+  .modal-box p { font-size: 16px; margin-bottom: 20px; line-height: 1.5; }
+  .modal-btns { display: flex; gap: 12px; justify-content: center; }
+  .modal-btn { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 1px; padding: 8px 24px; border: 2px solid; background: transparent; cursor: pointer; transition: background 0.2s; }
+  .modal-btn.confirm { border-color: #ff4444; color: #ff4444; }
+  .modal-btn.confirm:hover { background: rgba(255,68,68,0.15); }
+  .modal-btn.cancel { border-color: #555; color: var(--text-dim); }
+  .modal-btn.cancel:hover { background: rgba(255,255,255,0.05); }
+
+  footer { text-align: center; padding: 40px 20px; color: var(--text-dim); font-size: 12px; letter-spacing: 2px; border-top: 1px solid #222; margin-top: 40px; }
+
+  /* Colors */
+  .c-atari        { color: #FF6600; border-color: #FF6600; }
+  .c-c64          { color: #A8A8FF; border-color: #A8A8FF; }
+  .c-nes          { color: #E8302A; border-color: #E8302A; }
+  .c-mastersystem { color: #3A8FD8; border-color: #3A8FD8; }
+  .c-snes         { color: #C060E0; border-color: #C060E0; }
+  .c-megadrive    { color: #999999; border-color: #999999; }
+  .c-ps1          { color: #AAAACC; border-color: #AAAACC; }
+  .c-saturn       { color: #4060CC; border-color: #4060CC; }
+  .c-n64          { color: #FF3333; border-color: #FF3333; }
+  .c-gamecube     { color: #9933CC; border-color: #9933CC; }
+  .c-ps2          { color: #4488EE; border-color: #4488EE; }
+  .c-ps3          { color: #8899BB; border-color: #8899BB; }
+  .c-ps4          { color: #2266CC; border-color: #2266CC; }
+  .c-ps5          { color: #DDDDEE; border-color: #DDDDEE; }
+  .c-switch       { color: #FF2222; border-color: #FF2222; }
+  .c-gb           { color: #99AA66; border-color: #99AA66; }
+  .c-gbc          { color: #CC44BB; border-color: #CC44BB; }
+  .c-gba          { color: #9966CC; border-color: #9966CC; }
+  .c-nds          { color: #DD3322; border-color: #DD3322; }
+  .c-3ds          { color: #FF6622; border-color: #FF6622; }
+  .c-parts        { color: #778899; border-color: #778899; }
+  .c-amiga        { color: #DDBB00; border-color: #DDBB00; }
+  .c-pc           { color: #0099FF; border-color: #0099FF; }
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loadingOverlay">
+  <div class="loading-text">LADE SAMMLUNG...</div>
+  <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+</div>
+
+<header>
+  <h1>&#127918; Spielesammlung</h1>
+  <p class="subtitle">Alex seine Spiele</p>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('haben')">&#9654; Haben</button>
+  <button class="tab-btn" onclick="switchTab('brauchen')">&#9673; Brauchen</button>
+</div>
+
+<div class="search-wrap">
+  <input class="search-input" type="text" placeholder="Spiel suchen..." id="searchInput" onkeydown="if(event.key==='Enter')doSearch()">
+  <button class="search-btn" onclick="doSearch()">&#128269; SUCHEN</button>
+</div>
+
+<div class="add-bar">
+  <button class="add-toggle-btn" id="addToggleBtn" onclick="toggleAddForm()">&#65291; Hinzuf&uuml;gen</button>
+</div>
+
+<div class="add-form" id="addForm">
+  <select class="add-select" id="addPlatformSelect"></select>
+  <input class="add-name-input" type="text" id="addNameInput" placeholder="Spieltitel eingeben..." onkeydown="if(event.key==='Enter')confirmAdd()">
+  <button class="add-confirm-btn" id="addConfirmBtn" onclick="confirmAdd()">&#10004; EINTRAGEN</button>
+</div>
+
+<div class="platform-grid" id="platformGrid"></div>
+<div class="content" id="gameContent"></div>
+<div class="search-results-box" id="searchResultsBox" style="display:none"></div>
+
+<footer>GAME COUNT: <span id="totalCount">0</span> SPIELE</footer>
+
+<div id="confirmModal">
+  <div class="modal-box">
+    <p id="modalText"></p>
+    <div class="modal-btns">
+      <button class="modal-btn confirm" id="modalConfirmBtn">L&ouml;schen</button>
+      <button class="modal-btn cancel" onclick="closeModal()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwrSdWi2kd_LR_DrGV049bdu4tSbaIWiX9YJHgzk9qzIp4pUdvuqN6m8Bo-52iWUoZB/exec";
+
+const platforms = {
+  "Atari":        {css:"c-atari",        label:"Atari 2600",      emoji:"🕹️", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Atari-2600-Wood-4Sw-Set.jpg/320px-Atari-2600-Wood-4Sw-Set.jpg"},
+  "Commodore 64": {css:"c-c64",          label:"C64",             emoji:"💾", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Commodore-64-Computer-FL.jpg/320px-Commodore-64-Computer-FL.jpg"},
+  "NES":          {css:"c-nes",          label:"NES",             emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/NES-Console-Set.jpg/320px-NES-Console-Set.jpg"},
+  "Mastersystem": {css:"c-mastersystem", label:"Master System",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Sega-Master-System-Set.jpg/320px-Sega-Master-System-Set.jpg"},
+  "SNES":         {css:"c-snes",         label:"SNES",            emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/SNES-Mod1-Console-Set.jpg/320px-SNES-Mod1-Console-Set.jpg"},
+  "Megadrive":    {css:"c-megadrive",    label:"Mega Drive",      emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Sega-Mega-Drive-JP-Mk1-Console-Set.jpg/320px-Sega-Mega-Drive-JP-Mk1-Console-Set.jpg"},
+  "PS1":          {css:"c-ps1",          label:"PlayStation 1",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/PlayStation1_-_mod_chip_removed.jpg/320px-PlayStation1_-_mod_chip_removed.jpg"},
+  "Saturn":       {css:"c-saturn",       label:"Sega Saturn",     emoji:"🪐", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Sega-Saturn-Console-Set-Mk1.jpg/320px-Sega-Saturn-Console-Set-Mk1.jpg"},
+  "N64":          {css:"c-n64",          label:"Nintendo 64",     emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/N64-Console-Set.jpg/320px-N64-Console-Set.jpg"},
+  "Gamecube":     {css:"c-gamecube",     label:"GameCube",        emoji:"🟣", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/GameCube-Console-Set.jpg/320px-GameCube-Console-Set.jpg"},
+  "Ps2":          {css:"c-ps2",          label:"PlayStation 2",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/PSTwo-Console-Set.jpg/320px-PSTwo-Console-Set.jpg"},
+  "PS3":          {css:"c-ps3",          label:"PlayStation 3",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/PlayStation3_Slimline.jpg/320px-PlayStation3_Slimline.jpg"},
+  "PS4":          {css:"c-ps4",          label:"PlayStation 4",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/PS4-Console-wDS4.jpg/320px-PS4-Console-wDS4.jpg"},
+  "PS5":          {css:"c-ps5",          label:"PlayStation 5",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/PS5_Img.jpg/320px-PS5_Img.jpg"},
+  "Switch":       {css:"c-switch",       label:"Nintendo Switch", emoji:"🔴", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Nintendo-Switch-Console-Docked-wJoyConRB.jpg/320px-Nintendo-Switch-Console-Docked-wJoyConRB.jpg"},
+  "GB":           {css:"c-gb",           label:"Game Boy",        emoji:"🟢", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Game-Boy-FL.jpg/320px-Game-Boy-FL.jpg"},
+  "GBC":          {css:"c-gbc",          label:"Game Boy Color",  emoji:"🟣", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Game-Boy-Color-FL.jpg/320px-Game-Boy-Color-FL.jpg"},
+  "GBA":          {css:"c-gba",          label:"Game Boy Advance",emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Nintendo-Game-Boy-Advance-Purple-FL.jpg/320px-Nintendo-Game-Boy-Advance-Purple-FL.jpg"},
+  "NDS":          {css:"c-nds",          label:"Nintendo DS",     emoji:"📱", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Nintendo-DS-Fat-Blue.jpg/320px-Nintendo-DS-Fat-Blue.jpg"},
+  "3DS":          {css:"c-3ds",          label:"Nintendo 3DS",    emoji:"📱", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Nintendo-3DS-AquaOpen.jpg/320px-Nintendo-3DS-AquaOpen.jpg"},
+  "Konsole/Parts":{css:"c-parts",        label:"Konsolen & Teile",emoji:"🔧", img:""},
+  "Amiga 500":    {css:"c-amiga",        label:"Amiga 500",       emoji:"💿", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Amiga500_system.jpg/320px-Amiga500_system.jpg"},
+  "PC":           {css:"c-pc",           label:"PC",              emoji:"🖥️", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Computer_tower.jpg/320px-Computer_tower.jpg"},
+};
+
+let data = { Haben: {}, Brauchen: {} };
+let currentTab = 'haben';
+let currentPlatform = null;
+
+function getTabKey() { return currentTab === 'haben' ? 'Haben' : 'Brauchen'; }
+function getTabData() { return data[getTabKey()]; }
+
+// ── API calls ──────────────────────────────────────────────────────────────
+async function apiGet() {
+  const res = await fetch(SCRIPT_URL);
+  const json = await res.json();
+  if (json.status !== 'ok') throw new Error(json.message);
+  return json.data;
+}
+
+async function apiPost(payload) {
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (json.status !== 'ok') throw new Error(json.message);
+}
+
+// ── Init: load from Sheets ─────────────────────────────────────────────────
+async function init() {
+  try {
+    data = await apiGet();
+    renderPlatformButtons();
+    setTimeout(() => {
+      document.getElementById('loadingOverlay').classList.add('hidden');
+    }, 400);
+  } catch(e) {
+    document.getElementById('loadingOverlay').innerHTML =
+      '<div class="loading-text" style="color:#ff4444">VERBINDUNG FEHLGESCHLAGEN</div>' +
+      '<div style="color:#888;font-size:13px;margin-top:12px;font-family:Rajdhani,sans-serif">Bitte Seite neu laden</div>';
+    console.error(e);
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = (isError ? 'error' : '') + ' show';
+  setTimeout(() => { t.className = isError ? 'error' : ''; }, 2400);
+}
+
+// ── Modal ──────────────────────────────────────────────────────────────────
+function openModal(text, onConfirm) {
+  document.getElementById('modalText').textContent = text;
+  document.getElementById('modalConfirmBtn').onclick = function() { closeModal(); onConfirm(); };
+  document.getElementById('confirmModal').classList.add('open');
+}
+function closeModal() { document.getElementById('confirmModal').classList.remove('open'); }
+
+// ── Add form ───────────────────────────────────────────────────────────────
+function toggleAddForm() {
+  const form = document.getElementById('addForm');
+  const btn  = document.getElementById('addToggleBtn');
+  const open = form.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  if (open) { populateAddSelect(); setTimeout(() => document.getElementById('addNameInput').focus(), 50); }
+}
+
+function populateAddSelect() {
+  const sel = document.getElementById('addPlatformSelect');
+  sel.innerHTML = '';
+  Object.keys(getTabData()).forEach(function(key) {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = (platforms[key] || {label:key}).label;
+    if (currentPlatform && key === currentPlatform) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+async function confirmAdd() {
+  const platform = document.getElementById('addPlatformSelect').value;
+  const name = document.getElementById('addNameInput').value.trim();
+  if (!name) { showToast('Bitte einen Spieltitel eingeben!', true); return; }
+
+  const btn = document.getElementById('addConfirmBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> SPEICHERN...';
+
+  try {
+    await apiPost({ action: 'add', tab: getTabKey(), platform, game: name });
+    // Update local data
+    if (!data[getTabKey()][platform]) data[getTabKey()][platform] = [];
+    data[getTabKey()][platform].push(name);
+    data[getTabKey()][platform].sort((a,b) => a.localeCompare(b,'de'));
+    document.getElementById('addNameInput').value = '';
+    showToast('"' + name + '" wurde hinzugefuegt');
+    if (currentPlatform === platform) renderGames();
+    renderPlatformButtons();
+  } catch(e) {
+    showToast('Fehler: ' + e.message, true);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '&#10004; EINTRAGEN';
+}
+
+// ── Platform buttons ───────────────────────────────────────────────────────
+function renderPlatformButtons() {
+  const tabData = getTabData();
+  const grid = document.getElementById('platformGrid');
+  grid.innerHTML = '';
+  Object.entries(tabData).forEach(function([key, games]) {
+    if (!games || games.length === 0) return;
+    const cfg = platforms[key] || {css:'c-parts', label:key};
+    const btn = document.createElement('button');
+    btn.className = 'plat-btn ' + cfg.css + (currentPlatform === key ? ' active' : '');
+    btn.dataset.key = key;
+    btn.innerHTML = cfg.label + ' <span class="count">(' + games.length + ')</span>';
+    btn.onclick = function() { selectPlatform(key); };
+    grid.appendChild(btn);
+  });
+  const total = Object.values(tabData).reduce(function(a,b){ return a + b.length; }, 0);
+  document.getElementById('totalCount').textContent = total;
+}
+
+function selectPlatform(key) {
+  currentPlatform = key;
+  document.querySelectorAll('.plat-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.key === key);
+  });
+  renderGames();
+}
+
+// ── Games ──────────────────────────────────────────────────────────────────
+function renderGames() {
+  if (!currentPlatform) return;
+  const games = getTabData()[currentPlatform] || [];
+  const cfg = platforms[currentPlatform] || {css:'c-parts', label:currentPlatform, emoji:'?', img:''};
+  const content = document.getElementById('gameContent');
+  content.classList.add('visible');
+
+  const imgHtml = cfg.img
+    ? '<img class="console-img ' + cfg.css + '" src="' + cfg.img + '" alt="' + cfg.label + '" onerror="this.style.display=\'none\'">'
+    : '<div class="console-img-placeholder">' + cfg.emoji + '</div>';
+
+  const gamesHtml = games.length === 0
+    ? '<div class="no-games">-- NOCH KEINE SPIELE --</div>'
+    : '<div class="games-grid">' + games.map(function(g, i){ return gameItemHtml(g, i, cfg); }).join('') + '</div>';
+
+  content.innerHTML =
+    '<div class="platform-header ' + cfg.css + '">' +
+      imgHtml +
+      '<div class="header-info">' +
+        '<h2 class="' + cfg.css + '">' + cfg.label + '</h2>' +
+        '<p>' + games.length + ' SPIEL' + (games.length !== 1 ? 'E' : '') + '</p>' +
+      '</div>' +
+    '</div>' + gamesHtml;
+
+  content.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function gameItemHtml(name, index, cfg) {
+  const safe = name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return '<div class="game-item ' + cfg.css + '" id="gi-' + index + '">' +
+    '<span class="game-bullet ' + cfg.css + '"></span>' +
+    '<span class="game-name">' + safe + '</span>' +
+    '<span class="game-actions">' +
+      '<button class="icon-btn" title="Bearbeiten" onclick="startEdit(' + index + ')">&#9999;&#65039;</button>' +
+      '<button class="icon-btn del" title="Loeschen" onclick="deleteGame(' + index + ')">&#10005;</button>' +
+    '</span>' +
+  '</div>';
+}
+
+function startEdit(index) {
+  const currentName = getTabData()[currentPlatform][index];
+  const cfg = platforms[currentPlatform] || {css:'c-parts'};
+  const item = document.getElementById('gi-' + index);
+  if (!item) return;
+  const safe = currentName.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  item.innerHTML =
+    '<span class="game-bullet ' + cfg.css + '"></span>' +
+    '<input class="game-edit-input" id="edit-' + index + '" value="' + safe + '" onkeydown="handleEditKey(event,' + index + ')">' +
+    '<span class="game-actions" style="opacity:1">' +
+      '<button class="icon-btn" id="save-' + index + '" title="Speichern" onclick="saveEdit(' + index + ')">&#10004;</button>' +
+      '<button class="icon-btn del" title="Abbrechen" onclick="renderGames()">&#10005;</button>' +
+    '</span>';
+  document.getElementById('edit-' + index).focus();
+}
+
+function handleEditKey(e, index) {
+  if (e.key === 'Enter') saveEdit(index);
+  if (e.key === 'Escape') renderGames();
+}
+
+async function saveEdit(index) {
+  const input = document.getElementById('edit-' + index);
+  if (!input) return;
+  const newName = input.value.trim();
+  if (!newName) { showToast('Name darf nicht leer sein!', true); return; }
+
+  const oldName = getTabData()[currentPlatform][index];
+  if (oldName === newName) { renderGames(); return; }
+
+  const saveBtn = document.getElementById('save-' + index);
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<span class="spinner"></span>'; }
+  input.disabled = true;
+
+  try {
+    await apiPost({ action: 'edit', tab: getTabKey(), platform: currentPlatform, game: oldName, newName });
+    data[getTabKey()][currentPlatform][index] = newName;
+    data[getTabKey()][currentPlatform].sort((a,b) => a.localeCompare(b,'de'));
+    showToast('"' + oldName + '" umbenannt');
+    renderGames();
+    renderPlatformButtons();
+  } catch(e) {
+    showToast('Fehler: ' + e.message, true);
+    renderGames();
+  }
+}
+
+function deleteGame(index) {
+  const name = getTabData()[currentPlatform][index];
+  openModal('"' + name + '" wirklich loeschen?', async function() {
+    try {
+      await apiPost({ action: 'delete', tab: getTabKey(), platform: currentPlatform, game: name });
+      data[getTabKey()][currentPlatform].splice(index, 1);
+      showToast('"' + name + '" geloescht');
+      renderGames();
+      renderPlatformButtons();
+    } catch(e) {
+      showToast('Fehler: ' + e.message, true);
+    }
+  });
+}
+
+// ── Tab switch ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  currentPlatform = null;
+  document.querySelectorAll('.tab-btn').forEach(function(b, i) {
+    b.classList.toggle('active', (i===0 && tab==='haben') || (i===1 && tab==='brauchen'));
+  });
+  document.getElementById('gameContent').classList.remove('visible');
+  document.getElementById('gameContent').innerHTML = '';
+  document.getElementById('searchResultsBox').style.display = 'none';
+  if (document.getElementById('addForm').classList.contains('open')) populateAddSelect();
+  renderPlatformButtons();
+}
+
+// ── Search ─────────────────────────────────────────────────────────────────
+function doSearch() {
+  const term = document.getElementById('searchInput').value.trim().toLowerCase();
+  const box = document.getElementById('searchResultsBox');
+  if (!term) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const tabData = getTabData();
+  let totalFound = 0;
+  let html = '';
+  const esc = function(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+  Object.entries(tabData).forEach(function([key, games]) {
+    const matches = games.filter(function(g){ return g.toLowerCase().includes(term); });
+    if (!matches.length) return;
+    totalFound += matches.length;
+    const cfg = platforms[key] || {css:'c-parts', label:key};
+    const items = matches.map(function(g) {
+      const safe = g.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const display = safe.replace(new RegExp('(' + esc(term) + ')', 'gi'), '<mark class="highlight">$1</mark>');
+      return '<div class="game-item ' + cfg.css + '"><span class="game-bullet ' + cfg.css + '"></span><span class="game-name">' + display + '</span></div>';
+    }).join('');
+    html += '<div class="search-platform-group">' +
+      '<div class="search-platform-label ' + cfg.css + '">' + cfg.label + ' (' + matches.length + ')</div>' +
+      '<div class="games-grid">' + items + '</div>' +
+      '</div>';
+  });
+  box.innerHTML = totalFound === 0
+    ? '<div class="no-games">-- KEINE SPIELE GEFUNDEN --</div>'
+    : '<div class="search-results-title">&#128269; ' + totalFound + ' Treffer fuer "' + term.toUpperCase() + '"</div>' + html;
+  box.style.display = 'block';
+  box.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ── Start ──────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
