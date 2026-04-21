@@ -402,27 +402,7 @@
   .check-btn:hover { filter: brightness(1.15); }
 
   /* ── ERA GROUPING ── */
-  .era-section { padding: 8px 0 0; position: relative; z-index: 1; }
-
-  /* Mobile: era-sections get left padding */
-  @media (max-width: 600px) {
-    .era-section { padding: 8px 20px 0; }
-  }
-
-  /* Desktop: all platforms in one big flex row */
-  @media (min-width: 601px) {
-    #platformGrid {
-      display: flex !important;
-      flex-wrap: wrap !important;
-      gap: 10px !important;
-      padding: 16px 20px !important;
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-    .era-section { padding: 0; }
-    .era-title { display: none; }
-    .era-buttons { display: contents; }
-  }
+  .era-section { max-width: 1400px; margin: 0 auto; padding: 8px 24px 0; position: relative; z-index: 1; }
   .era-title {
     font-family: 'VT323', monospace;
     font-size: 15px;
@@ -444,7 +424,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    padding: 16px 20px;
+    padding: 16px 24px;
     justify-content: center;
     max-width: 1400px;
     margin: 0 auto;
@@ -555,6 +535,8 @@
   }
   .icon-btn:hover { background: rgba(0,0,0,0.07); }
   .icon-btn.del { color: var(--accent); }
+  .move-btn { color: var(--green); font-size: 15px; }
+  .move-btn:hover { background: rgba(39,174,96,0.15) !important; }
   .icon-btn.del:hover { background: rgba(192,57,43,0.12); }
   .icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -1029,15 +1011,19 @@ function ebayUrl(name, platform) {
 function gameItemHtml(name, index, cfg) {
   const safe = name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const soldUrl = ebayUrl(name, cfg.label);
-  // LH_Auction=1, _sop=1 = ending soonest
   const auctionUrl = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(name + ' ' + cfg.label) + '&LH_Auction=1&_sop=1';
-  // LH_BIN=1 = Sofortkauf
   const binUrl = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(name + ' ' + cfg.label) + '&LH_BIN=1';
+
+  const moveBtn = currentTab === 'brauchen'
+    ? '<button class="icon-btn move-btn" title="Zu Haben verschieben" onclick="moveToHaben(' + index + ')">&#10003;</button>'
+    : '';
+
   return '<div class="game-item ' + cfg.css + '" id="gi-' + index + '">' +
     '<span class="game-bullet ' + cfg.css + '"></span>' +
     '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
-    '<a class="scan-btn" href="' + auctionUrl + '" target="_blank" title="Laufende Auktionen, bald endend">Auktion</a>' +
+    '<a class="scan-btn" href="' + auctionUrl + '" target="_blank" title="Laufende Auktionen">Auktion</a>' +
     '<a class="scan-btn sofort-btn" href="' + binUrl + '" target="_blank" title="Sofortkauf">Sofortkauf</a>' +
+    moveBtn +
     '<span class="game-actions">' +
       '<button class="icon-btn" title="Bearbeiten" onclick="startEdit(' + index + ')">&#9999;&#65039;</button>' +
       '<button class="icon-btn del" title="Loeschen" onclick="deleteGame(' + index + ')">&#10005;</button>' +
@@ -1277,6 +1263,33 @@ function toggleTheme() {
     });
   }
 })();
+
+async function moveToHaben(index) {
+  const tabData = getTabData();
+  const name = tabData[currentPlatform][index];
+  const platform = currentPlatform;
+
+  // Check if platform exists in Haben
+  if (!data['Haben'][platform]) data['Haben'][platform] = [];
+
+  try {
+    // Add to Haben
+    await apiPost({ action: 'add', tab: 'Haben', platform, game: name });
+    data['Haben'][platform].push(name);
+    data['Haben'][platform].sort((a,b) => a.localeCompare(b,'de'));
+
+    // Remove from Brauchen
+    await apiPost({ action: 'delete', tab: 'Brauchen', platform, game: name });
+    data['Brauchen'][platform].splice(index, 1);
+
+    showToast('"' + name + '" → Haben ✓');
+    renderGames();
+    renderPlatformButtons();
+    updateValueDisplay();
+  } catch(e) {
+    showToast('Fehler: ' + e.message, true);
+  }
+}
 
 // ── Start ──────────────────────────────────────────────────────────────────────────
 function doEbayCheck() {
