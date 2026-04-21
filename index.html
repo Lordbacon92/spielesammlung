@@ -120,6 +120,56 @@
   .tab-btn.active { border-color: #ff4444; color: #ff4444; background: rgba(255,68,68,0.08); text-shadow: 0 0 12px #ff4444; }
   .tab-btn:hover:not(.active) { border-color: #666; color: var(--text); }
 
+  /* Check tab */
+  .check-box {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    padding: 28px 20px;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+  .check-input {
+    background: var(--surface);
+    border: 2px solid #aa44ff;
+    border-right: none;
+    color: var(--text);
+    padding: 12px 20px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 17px;
+    width: 100%;
+    max-width: 420px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .check-input:focus { border-color: #cc77ff; }
+  .check-input::placeholder { color: var(--text-dim); }
+
+  .check-btn {
+    background: #aa44ff;
+    border: 2px solid #aa44ff;
+    color: #fff;
+    padding: 12px 24px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .check-btn:hover { background: #cc77ff; border-color: #cc77ff; }
+
+  /* Check tab button color */
+  .tab-btn.check-active {
+    border-color: #aa44ff;
+    color: #aa44ff;
+    background: rgba(170,68,255,0.08);
+    text-shadow: 0 0 12px #aa44ff;
+  }
+
   /* Search */
   .search-wrap { display: flex; justify-content: center; padding: 20px 20px 10px; }
 
@@ -423,6 +473,12 @@
 <div class="tab-bar">
   <button class="tab-btn active" onclick="switchTab('haben')">&#9654; Haben</button>
   <button class="tab-btn" onclick="switchTab('brauchen')">&#9673; Brauchen</button>
+  <button class="tab-btn" onclick="switchTab('check')">&#128269; Check</button>
+</div>
+
+<div class="check-box" id="checkBox" style="display:none">
+  <input class="check-input" type="text" id="checkInput" placeholder="Spielname eingeben..." onkeydown="if(event.key==='Enter')doEbayCheck()">
+  <button class="check-btn" onclick="doEbayCheck()">Jetzt suchen</button>
 </div>
 
 <div class="search-wrap">
@@ -731,14 +787,33 @@ function deleteGame(index) {
 function switchTab(tab) {
   currentTab = tab;
   currentPlatform = null;
+
+  // Tab button styles
   document.querySelectorAll('.tab-btn').forEach(function(b, i) {
-    b.classList.toggle('active', (i===0 && tab==='haben') || (i===1 && tab==='brauchen'));
+    b.classList.remove('active','check-active');
+    if (i === 0 && tab === 'haben') b.classList.add('active');
+    else if (i === 1 && tab === 'brauchen') b.classList.add('active');
+    else if (i === 2 && tab === 'check') b.classList.add('check-active');
   });
+
+  const isCheck = tab === 'check';
+  document.getElementById('checkBox').style.display     = isCheck ? 'flex' : 'none';
+  document.getElementById('platformGrid').style.display = isCheck ? 'none' : '';
   document.getElementById('gameContent').classList.remove('visible');
   document.getElementById('gameContent').innerHTML = '';
   document.getElementById('searchResultsBox').style.display = 'none';
-  if (document.getElementById('addForm').classList.contains('open')) populateAddSelect();
-  renderPlatformButtons();
+  document.getElementById('searchInput').parentElement.style.display = isCheck ? 'none' : 'flex';
+  document.getElementById('addToggleBtn').parentElement.style.display = isCheck ? 'none' : 'flex';
+  const addForm = document.getElementById('addForm');
+  if (isCheck) { addForm.classList.remove('open'); document.getElementById('addToggleBtn').classList.remove('open'); }
+  else { addForm.style.display = ''; }
+
+  if (!isCheck) {
+    if (addForm.classList.contains('open')) populateAddSelect();
+    renderPlatformButtons();
+  } else {
+    setTimeout(function(){ document.getElementById('checkInput').focus(); }, 50);
+  }
 }
 
 // ── Search ─────────────────────────────────────────────────────────────────
@@ -773,6 +848,13 @@ function doSearch() {
 }
 
 // ── Start ──────────────────────────────────────────────────────────────────
+function doEbayCheck() {
+  const name = document.getElementById('checkInput').value.trim();
+  if (!name) { document.getElementById('checkInput').focus(); return; }
+  const url = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(name) + '&LH_Sold=1&LH_Complete=1&LH_Auction=1';
+  window.open(url, '_blank');
+}
+
 init();
 </script>
 </body>
