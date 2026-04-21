@@ -120,6 +120,25 @@
   .tab-btn.active { border-color: #ff4444; color: #ff4444; background: rgba(255,68,68,0.08); text-shadow: 0 0 12px #ff4444; }
   .tab-btn:hover:not(.active) { border-color: #666; color: var(--text); }
 
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    background: var(--surface);
+    border-top: 1px solid #1e1e2e;
+    border-bottom: 1px solid #1e1e2e;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    flex-wrap: wrap;
+  }
+  .stats-item { color: var(--text-dim); }
+  .stats-item span { color: #ff8800; }
+  .stats-divider { color: #333; }
+
   /* Check tab */
   .check-box {
     display: flex;
@@ -481,6 +500,12 @@
   <button class="check-btn" onclick="doEbayCheck()">Jetzt suchen</button>
 </div>
 
+<div class="stats-bar">
+  <span class="stats-item">&#127918; <span id="totalCount">0</span> Spiele</span>
+  <span class="stats-divider">|</span>
+  <span class="stats-item">&#128176; Geschätzter Wert: <span id="collectionValue">–</span></span>
+</div>
+
 <div class="search-wrap">
   <input class="search-input" type="text" placeholder="Spiel suchen..." id="searchInput" onkeydown="if(event.key==='Enter')doSearch()">
   <button class="search-btn" onclick="doSearch()">&#128269; SUCHEN</button>
@@ -500,7 +525,7 @@
 <div class="content" id="gameContent"></div>
 <div class="search-results-box" id="searchResultsBox" style="display:none"></div>
 
-<footer>GAME COUNT: <span id="totalCount">0</span> SPIELE <span id="collectionValue" style="color:#ff8800"></span></footer>
+<footer>Alex seine Spielesammlung</footer>
 
 <div id="confirmModal">
   <div class="modal-box">
@@ -934,9 +959,7 @@ function estimateTotalValue() {
 function updateValueDisplay() {
   const total = estimateTotalValue();
   const el = document.getElementById('collectionValue');
-  if (el) {
-    el.textContent = '· GESCHÄTZTER WERT: ~' + total.toLocaleString('de-DE') + ' €';
-  }
+  if (el) el.textContent = '~' + total.toLocaleString('de-DE') + ' €';
 }
 
 // ── Start ──────────────────────────────────────────────────────────────────────
