@@ -293,6 +293,17 @@
   .game-item:hover { background: var(--surface2); }
   .game-bullet { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: currentColor; opacity: 0.7; }
   .game-name { flex: 1; }
+  .game-link {
+    color: inherit;
+    text-decoration: none;
+    flex: 1;
+    transition: opacity 0.15s;
+  }
+  .game-link:hover {
+    opacity: 0.75;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 
   .game-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
   .game-item:hover .game-actions { opacity: 1; }
@@ -636,11 +647,18 @@ function renderGames() {
   content.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
+function ebayUrl(name, platform) {
+  const query = encodeURIComponent(name + ' ' + platform);
+  // LH_Sold=1 = verkaufte Artikel, LH_Complete=1 = beendete Angebote, LH_Auction=1 = nur Auktionen
+  return 'https://www.ebay.de/sch/i.html?_nkw=' + query + '&LH_Sold=1&LH_Complete=1&LH_Auction=1';
+}
+
 function gameItemHtml(name, index, cfg) {
   const safe = name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const url = ebayUrl(name, cfg.label);
   return '<div class="game-item ' + cfg.css + '" id="gi-' + index + '">' +
     '<span class="game-bullet ' + cfg.css + '"></span>' +
-    '<span class="game-name">' + safe + '</span>' +
+    '<a class="game-name game-link" href="' + url + '" target="_blank" title="eBay Marktwert nachschlagen">' + safe + '</a>' +
     '<span class="game-actions">' +
       '<button class="icon-btn" title="Bearbeiten" onclick="startEdit(' + index + ')">&#9999;&#65039;</button>' +
       '<button class="icon-btn del" title="Loeschen" onclick="deleteGame(' + index + ')">&#10005;</button>' +
