@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.lordbacon92.twa",
+        "sha256_cert_fingerprints": ["73:9A:3A:64:95:F8:F1:67:2B:26:89:1C:DF:27:5E:44:1F:B9:61:89:65:66:B1:E4:04:0C:93:F8:F3:05:78:F3"]
+      }
+    }]
