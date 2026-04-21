@@ -500,12 +500,6 @@
   <button class="check-btn" onclick="doEbayCheck()">Jetzt suchen</button>
 </div>
 
-<div class="stats-bar">
-  <span class="stats-item">&#127918; <span id="totalCount">0</span> Spiele</span>
-  <span class="stats-divider">|</span>
-  <span class="stats-item">&#128176; Geschätzter Wert: <span id="collectionValue">–</span></span>
-</div>
-
 <div class="search-wrap">
   <input class="search-input" type="text" placeholder="Spiel suchen..." id="searchInput" onkeydown="if(event.key==='Enter')doSearch()">
   <button class="search-btn" onclick="doSearch()">&#128269; SUCHEN</button>
@@ -525,7 +519,10 @@
 <div class="content" id="gameContent"></div>
 <div class="search-results-box" id="searchResultsBox" style="display:none"></div>
 
-<footer>Alex seine Spielesammlung</footer>
+<footer>
+  <div>&#127918; GAME COUNT: <span id="totalCount">0</span> SPIELE</div>
+  <div style="margin-top:8px">&#128176; GESCHÄTZTER WERT: <span id="collectionValue" style="color:#ff8800">–</span></div>
+</footer>
 
 <div id="confirmModal">
   <div class="modal-box">
