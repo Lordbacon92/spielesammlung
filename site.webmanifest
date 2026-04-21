@@ -1,0 +1,17 @@
+{
+  "name": "Alex seine Spielesammlung",
+  "short_name": "Spielesammlung",
+  "description": "Alex seine Videospielsammlung",
+  "start_url": "/spielesammlung/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#ff4444",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
