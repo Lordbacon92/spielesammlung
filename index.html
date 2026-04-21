@@ -656,16 +656,7 @@
     .add-bar { justify-content: flex-start; }
   }
 
-  .plat-logo {
-    height: 16px;
-    width: auto;
-    object-fit: contain;
-    margin-right: 6px;
-    vertical-align: middle;
-    opacity: 0.75;
-    filter: var(--logo-filter, none);
-  }
-  [data-theme="dark"] { --logo-filter: brightness(0) invert(1); }
+
 
 
 </style>
@@ -738,26 +729,26 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwrSdWi2kd_LR_DrGV049bdu4tSbaIWiX9YJHgzk9qzIp4pUdvuqN6m8Bo-52iWUoZB/exec";
 
 const platforms = {
-  "Atari":        {css:"c-atari",        label:"Atari 2600",      emoji:"🕹️", logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Atari_logo_official.svg/120px-Atari_logo_official.svg.png", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Atari-2600-Wood-4Sw-Set.jpg/320px-Atari-2600-Wood-4Sw-Set.jpg"},
+  "Atari":        {css:"c-atari",        label:"Atari 2600",      emoji:"🕹️", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Atari-2600-Wood-4Sw-Set.jpg/320px-Atari-2600-Wood-4Sw-Set.jpg"},
   "Commodore 64": {css:"c-c64",          label:"C64",             emoji:"💾", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Commodore-64-Computer-FL.jpg/320px-Commodore-64-Computer-FL.jpg"},
-  "NES":          {logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/NintendoLogo.svg/120px-NintendoLogo.svg.png", css:"c-nes",          label:"NES",             emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/NES-Console-Set.jpg/320px-NES-Console-Set.jpg"},
+  "NES":          {css:"c-nes",          label:"NES",             emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/NES-Console-Set.jpg/320px-NES-Console-Set.jpg"},
   "Mastersystem": {css:"c-mastersystem", label:"Master System",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Sega-Master-System-Set.jpg/320px-Sega-Master-System-Set.jpg"},
-  "SNES":          {logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/NintendoLogo.svg/120px-NintendoLogo.svg.png", css:"c-snes",         label:"SNES",            emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/SNES-Mod1-Console-Set.jpg/320px-SNES-Mod1-Console-Set.jpg"},
+  "SNES":         {css:"c-snes",         label:"SNES",            emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/SNES-Mod1-Console-Set.jpg/320px-SNES-Mod1-Console-Set.jpg"},
   "Megadrive":    {css:"c-megadrive",    label:"Mega Drive",      emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Sega-Mega-Drive-JP-Mk1-Console-Set.jpg/320px-Sega-Mega-Drive-JP-Mk1-Console-Set.jpg"},
-  "PS1":          {logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/PlayStation_Logo.svg/120px-PlayStation_Logo.svg.png", css:"c-ps1",          label:"PlayStation 1",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/PlayStation1_-_mod_chip_removed.jpg/320px-PlayStation1_-_mod_chip_removed.jpg"},
+  "PS1":          {css:"c-ps1",          label:"PlayStation 1",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/PlayStation1_-_mod_chip_removed.jpg/320px-PlayStation1_-_mod_chip_removed.jpg"},
   "Saturn":       {css:"c-saturn",       label:"Sega Saturn",     emoji:"🪐", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Sega-Saturn-Console-Set-Mk1.jpg/320px-Sega-Saturn-Console-Set-Mk1.jpg"},
-  "N64":          {logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/NintendoLogo.svg/120px-NintendoLogo.svg.png", css:"c-n64",          label:"Nintendo 64",     emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/N64-Console-Set.jpg/320px-N64-Console-Set.jpg"},
+  "N64":          {css:"c-n64",          label:"Nintendo 64",     emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/N64-Console-Set.jpg/320px-N64-Console-Set.jpg"},
   "Gamecube":     {css:"c-gamecube",     label:"GameCube",        emoji:"🟣", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/GameCube-Console-Set.jpg/320px-GameCube-Console-Set.jpg"},
-  "Ps2":          {logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/PlayStation_Logo.svg/120px-PlayStation_Logo.svg.png", css:"c-ps2",          label:"PlayStation 2",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/PSTwo-Console-Set.jpg/320px-PSTwo-Console-Set.jpg"},
-  "PS3":          {logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/PlayStation_Logo.svg/120px-PlayStation_Logo.svg.png", css:"c-ps3",          label:"PlayStation 3",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/PlayStation3_Slimline.jpg/320px-PlayStation3_Slimline.jpg"},
-  "PS4":          {logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/PlayStation_Logo.svg/120px-PlayStation_Logo.svg.png", css:"c-ps4",          label:"PlayStation 4",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/PS4-Console-wDS4.jpg/320px-PS4-Console-wDS4.jpg"},
-  "PS5":          {logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/PlayStation_Logo.svg/120px-PlayStation_Logo.svg.png", css:"c-ps5",          label:"PlayStation 5",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/PS5_Img.jpg/320px-PS5_Img.jpg"},
+  "Ps2":          {css:"c-ps2",          label:"PlayStation 2",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/PSTwo-Console-Set.jpg/320px-PSTwo-Console-Set.jpg"},
+  "PS3":          {css:"c-ps3",          label:"PlayStation 3",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/PlayStation3_Slimline.jpg/320px-PlayStation3_Slimline.jpg"},
+  "PS4":          {css:"c-ps4",          label:"PlayStation 4",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/PS4-Console-wDS4.jpg/320px-PS4-Console-wDS4.jpg"},
+  "PS5":          {css:"c-ps5",          label:"PlayStation 5",   emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/PS5_Img.jpg/320px-PS5_Img.jpg"},
   "Switch":       {css:"c-switch",       label:"Nintendo Switch", emoji:"🔴", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Nintendo-Switch-Console-Docked-wJoyConRB.jpg/320px-Nintendo-Switch-Console-Docked-wJoyConRB.jpg"},
   "GB":           {css:"c-gb",           label:"Game Boy",        emoji:"🟢", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Game-Boy-FL.jpg/320px-Game-Boy-FL.jpg"},
-  "GBC":          {logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/NintendoLogo.svg/120px-NintendoLogo.svg.png", css:"c-gbc",          label:"Game Boy Color",  emoji:"🟣", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Game-Boy-Color-FL.jpg/320px-Game-Boy-Color-FL.jpg"},
-  "GBA":          {logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/NintendoLogo.svg/120px-NintendoLogo.svg.png", css:"c-gba",          label:"Game Boy Advance",emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Nintendo-Game-Boy-Advance-Purple-FL.jpg/320px-Nintendo-Game-Boy-Advance-Purple-FL.jpg"},
-  "NDS":          {logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/NintendoLogo.svg/120px-NintendoLogo.svg.png", css:"c-nds",          label:"Nintendo DS",     emoji:"📱", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Nintendo-DS-Fat-Blue.jpg/320px-Nintendo-DS-Fat-Blue.jpg"},
-  "3DS":          {logo:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/NintendoLogo.svg/120px-NintendoLogo.svg.png", css:"c-3ds",          label:"Nintendo 3DS",    emoji:"📱", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Nintendo-3DS-AquaOpen.jpg/320px-Nintendo-3DS-AquaOpen.jpg"},
+  "GBC":          {css:"c-gbc",          label:"Game Boy Color",  emoji:"🟣", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Game-Boy-Color-FL.jpg/320px-Game-Boy-Color-FL.jpg"},
+  "GBA":          {css:"c-gba",          label:"Game Boy Advance",emoji:"🎮", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Nintendo-Game-Boy-Advance-Purple-FL.jpg/320px-Nintendo-Game-Boy-Advance-Purple-FL.jpg"},
+  "NDS":          {css:"c-nds",          label:"Nintendo DS",     emoji:"📱", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Nintendo-DS-Fat-Blue.jpg/320px-Nintendo-DS-Fat-Blue.jpg"},
+  "3DS":          {css:"c-3ds",          label:"Nintendo 3DS",    emoji:"📱", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Nintendo-3DS-AquaOpen.jpg/320px-Nintendo-3DS-AquaOpen.jpg"},
   "Konsole/Parts":{css:"c-parts",        label:"Konsolen & Teile",emoji:"🔧", img:""},
   "Amiga 500":    {css:"c-amiga",        label:"Amiga 500",       emoji:"💿", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Amiga500_system.jpg/320px-Amiga500_system.jpg"},
   "PC":           {css:"c-pc",           label:"PC",              emoji:"🖥️", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Computer_tower.jpg/320px-Computer_tower.jpg"},
@@ -939,8 +930,7 @@ function renderPlatformButtons() {
       const btn = document.createElement('button');
       btn.className = 'plat-btn ' + cfg.css + (currentPlatform === key ? ' active' : '');
       btn.dataset.key = key;
-      const logoHtml = cfg.logo ? '<img class="plat-logo" src="' + cfg.logo + '" alt="" loading="lazy" onerror="this.style.display='none'">' : '';
-      btn.innerHTML = logoHtml + cfg.label + ' <span class="count">(' + games.length + ')</span>';
+      btn.innerHTML = cfg.label + ' <span class="count">(' + games.length + ')</span>';
       btn.onclick = function() { selectPlatform(key); };
       btns.appendChild(btn);
       total += games.length;
@@ -962,8 +952,7 @@ function renderPlatformButtons() {
       const btn = document.createElement('button');
       btn.className = 'plat-btn ' + cfg.css + (currentPlatform === key ? ' active' : '');
       btn.dataset.key = key;
-      const logoHtml = cfg.logo ? '<img class="plat-logo" src="' + cfg.logo + '" alt="" loading="lazy" onerror="this.style.display='none'">' : '';
-      btn.innerHTML = logoHtml + cfg.label + ' <span class="count">(' + games.length + ')</span>';
+      btn.innerHTML = cfg.label + ' <span class="count">(' + games.length + ')</span>';
       btn.onclick = function() { selectPlatform(key); };
       btns.appendChild(btn);
       total += games.length;
