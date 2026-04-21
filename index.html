@@ -650,7 +650,9 @@ function toggleAddForm() {
 function populateAddSelect() {
   const sel = document.getElementById('addPlatformSelect');
   sel.innerHTML = '';
-  Object.keys(getTabData()).forEach(function(key) {
+  // Always use all platforms from "Haben" as options
+  const platformKeys = Object.keys(data['Haben']);
+  platformKeys.forEach(function(key) {
     const opt = document.createElement('option');
     opt.value = key;
     opt.textContent = (platforms[key] || {label:key}).label;
