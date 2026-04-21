@@ -382,6 +382,7 @@
     white-space: nowrap;
   }
   .scan-btn:hover { opacity: 1; }
+  .sofort-btn { color: #00cc66; border-color: #00cc66; }
 
   .game-link:hover {
     opacity: 0.7;
@@ -751,11 +752,15 @@ function ebayUrl(name, platform) {
 function gameItemHtml(name, index, cfg) {
   const safe = name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const soldUrl = ebayUrl(name, cfg.label);
-  const liveUrl = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(name + ' ' + cfg.label) + '&LH_Auction=1';
+  // LH_Auction=1, _sop=1 = ending soonest
+  const auctionUrl = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(name + ' ' + cfg.label) + '&LH_Auction=1&_sop=1';
+  // LH_BIN=1 = Sofortkauf
+  const binUrl = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(name + ' ' + cfg.label) + '&LH_BIN=1';
   return '<div class="game-item ' + cfg.css + '" id="gi-' + index + '">' +
     '<span class="game-bullet ' + cfg.css + '"></span>' +
     '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
-    '<a class="scan-btn" href="' + liveUrl + '" target="_blank" title="Laufende Auktionen">Scan</a>' +
+    '<a class="scan-btn" href="' + auctionUrl + '" target="_blank" title="Laufende Auktionen, bald endend">Auktion</a>' +
+    '<a class="scan-btn sofort-btn" href="' + binUrl + '" target="_blank" title="Sofortkauf">Sofortkauf</a>' +
     '<span class="game-actions">' +
       '<button class="icon-btn" title="Bearbeiten" onclick="startEdit(' + index + ')">&#9999;&#65039;</button>' +
       '<button class="icon-btn del" title="Loeschen" onclick="deleteGame(' + index + ')">&#10005;</button>' +
