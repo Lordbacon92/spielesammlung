@@ -674,19 +674,26 @@
     }
   }
 
-  /* Desktop: all platforms in one big flex row */
+  /* Desktop: all platforms in one clean flex row */
   @media (min-width: 601px) {
     #platformGrid {
       display: flex !important;
       flex-wrap: wrap !important;
+      align-items: center !important;
       gap: 10px !important;
       padding: 16px 20px !important;
       max-width: 1400px;
       margin: 0 auto;
     }
-    .era-section { padding: 0; }
-    .era-title { display: none; }
-    .era-buttons { display: contents; }
+    .era-section {
+      padding: 0 !important;
+      margin: 0 !important;
+      display: contents !important;
+    }
+    .era-title { display: none !important; }
+    .era-buttons {
+      display: contents !important;
+    }
   }
 </style>
 </head>
