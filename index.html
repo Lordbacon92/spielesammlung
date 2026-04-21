@@ -668,27 +668,11 @@
   }
   [data-theme="dark"] { --logo-filter: brightness(0) invert(1); }
 
-  /* Scattered game covers */
-  .cover-scatter {
-    position: fixed;
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.06;
-    border-radius: 4px;
-    object-fit: cover;
-  }
-  [data-theme="dark"] .cover-scatter { opacity: 0.04; }
 
 </style>
 </head>
 <body>
 
-<img class="cover-scatter" src="https://upload.wikimedia.org/wikipedia/en/thumb/c/ce/Tetris_logo.png/220px-Tetris_logo.png" style="top:5%;left:1%;width:90px;transform:rotate(-8deg)" alt="">
-<img class="cover-scatter" src="https://upload.wikimedia.org/wikipedia/en/thumb/5/50/Super_Mario_Bros._box.png/220px-Super_Mario_Bros._box.png" style="top:15%;right:0%;width:80px;transform:rotate(6deg)" alt="">
-<img class="cover-scatter" src="https://upload.wikimedia.org/wikipedia/en/thumb/4/4e/Sonic_the_Hedgehog_1_Genesis_box_art.jpg/220px-Sonic_the_Hedgehog_1_Genesis_box_art.jpg" style="top:35%;left:0%;width:85px;transform:rotate(-5deg)" alt="">
-<img class="cover-scatter" src="https://upload.wikimedia.org/wikipedia/en/thumb/1/1f/Street_Fighter_II_SNES_box_art.jpg/220px-Street_Fighter_II_SNES_box_art.jpg" style="top:55%;right:1%;width:75px;transform:rotate(9deg)" alt="">
-<img class="cover-scatter" src="https://upload.wikimedia.org/wikipedia/en/thumb/e/e7/Donkey_Kong_Country_SNES_pak.jpg/220px-Donkey_Kong_Country_SNES_pak.jpg" style="top:70%;left:1%;width:90px;transform:rotate(-7deg)" alt="">
-<img class="cover-scatter" src="https://upload.wikimedia.org/wikipedia/en/thumb/3/3d/The_Legend_of_Zelda_SNES_Super_NES_Box_Art.jpg/220px-The_Legend_of_Zelda_SNES_Super_NES_Box_Art.jpg" style="top:85%;right:0%;width:80px;transform:rotate(5deg)" alt="">
 
 <!-- Theme Toggle -->
 <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙 Dunkel</button>
@@ -936,7 +920,7 @@ function renderPlatformButtons() {
       const btn = document.createElement('button');
       btn.className = 'plat-btn ' + cfg.css + (currentPlatform === key ? ' active' : '');
       btn.dataset.key = key;
-      const logoHtml = cfg.logo ? '<img class="plat-logo" src="' + cfg.logo + '" alt="" onerror="this.style.display='none'">' : '';
+      const logoHtml = cfg.logo ? '<img class="plat-logo" src="' + cfg.logo + '" alt="" loading="lazy" onerror="this.style.display='none'">' : '';
       btn.innerHTML = logoHtml + cfg.label + ' <span class="count">(' + games.length + ')</span>';
       btn.onclick = function() { selectPlatform(key); };
       btns.appendChild(btn);
@@ -959,7 +943,7 @@ function renderPlatformButtons() {
       const btn = document.createElement('button');
       btn.className = 'plat-btn ' + cfg.css + (currentPlatform === key ? ' active' : '');
       btn.dataset.key = key;
-      const logoHtml = cfg.logo ? '<img class="plat-logo" src="' + cfg.logo + '" alt="" onerror="this.style.display='none'">' : '';
+      const logoHtml = cfg.logo ? '<img class="plat-logo" src="' + cfg.logo + '" alt="" loading="lazy" onerror="this.style.display='none'">' : '';
       btn.innerHTML = logoHtml + cfg.label + ' <span class="count">(' + games.length + ')</span>';
       btn.onclick = function() { selectPlatform(key); };
       btns.appendChild(btn);
