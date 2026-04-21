@@ -367,6 +367,22 @@
     display: block;
     transition: opacity 0.15s;
   }
+  .scan-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 2px 7px;
+    border: 1px solid currentColor;
+    color: inherit;
+    text-decoration: none;
+    opacity: 0.45;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  .scan-btn:hover { opacity: 1; }
+
   .game-link:hover {
     opacity: 0.7;
     text-decoration: underline;
@@ -734,10 +750,12 @@ function ebayUrl(name, platform) {
 
 function gameItemHtml(name, index, cfg) {
   const safe = name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const url = ebayUrl(name, cfg.label);
+  const soldUrl = ebayUrl(name, cfg.label);
+  const liveUrl = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(name + ' ' + cfg.label) + '&LH_Auction=1';
   return '<div class="game-item ' + cfg.css + '" id="gi-' + index + '">' +
     '<span class="game-bullet ' + cfg.css + '"></span>' +
-    '<a class="game-name game-link" href="' + url + '" target="_blank" title="eBay Marktwert nachschlagen">' + safe + '</a>' +
+    '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
+    '<a class="scan-btn" href="' + liveUrl + '" target="_blank" title="Laufende Auktionen">Scan</a>' +
     '<span class="game-actions">' +
       '<button class="icon-btn" title="Bearbeiten" onclick="startEdit(' + index + ')">&#9999;&#65039;</button>' +
       '<button class="icon-btn del" title="Loeschen" onclick="deleteGame(' + index + ')">&#10005;</button>' +
