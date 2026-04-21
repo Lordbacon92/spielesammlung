@@ -160,10 +160,9 @@
     height: 100%;
     background: var(--accent);
     width: 0%;
-    animation: loadprogress 1.8s ease-out forwards;
     border-radius: 4px;
+    transition: width 0.3s ease;
   }
-  @keyframes loadprogress { to { width: 100%; } }
 
   /* ── TABS ── */
   .tab-bar {
@@ -679,8 +678,8 @@
 
 <!-- Loading overlay -->
 <div id="loadingOverlay">
-  <div class="loading-text">LADE SAMMLUNG...</div>
-  <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+  <div class="loading-text" id="loadingText">LADE SAMMLUNG...</div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
 </div>
 
 <header>
@@ -790,17 +789,37 @@ async function apiPost(payload) {
 
 // ── Init: load from Sheets ─────────────────────────────────────────────────
 async function init() {
+  const bar = document.getElementById('loadingBar');
+  const txt = document.getElementById('loadingText');
+
+  // Animate bar to 80% quickly, hold there while waiting
+  let pct = 0;
+  const ticker = setInterval(() => {
+    pct = pct < 75 ? pct + 3 : pct < 85 ? pct + 0.2 : pct;
+    if (bar) bar.style.width = pct + '%';
+  }, 80);
+
+  // Timeout warning after 8 seconds
+  const warnTimer = setTimeout(() => {
+    if (txt) txt.textContent = 'VERBINDE...';
+  }, 8000);
+
   try {
     data = await apiGet();
+    clearInterval(ticker);
+    clearTimeout(warnTimer);
+    if (bar) bar.style.width = '100%';
     renderPlatformButtons();
     updateValueDisplay();
     setTimeout(() => {
       document.getElementById('loadingOverlay').classList.add('hidden');
-    }, 400);
+    }, 300);
   } catch(e) {
+    clearInterval(ticker);
+    clearTimeout(warnTimer);
     document.getElementById('loadingOverlay').innerHTML =
-      '<div class="loading-text" style="color:#ff4444">VERBINDUNG FEHLGESCHLAGEN</div>' +
-      '<div style="color:#888;font-size:13px;margin-top:12px;font-family:Rajdhani,sans-serif">Bitte Seite neu laden</div>';
+      '<div class="loading-text" style="color:var(--accent)">VERBINDUNG FEHLGESCHLAGEN</div>' +
+      '<div style="color:var(--text-dim);font-size:13px;margin-top:12px;font-family:Nunito,sans-serif">Bitte Seite neu laden</div>';
     console.error(e);
   }
 }
