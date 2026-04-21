@@ -1,6 +1,6 @@
 {
   "name": "Alex seine Spielesammlung",
-  "short_name": "Spielesammlung",
+  "short_name": "Games",
   "description": "Alex seine Videospielsammlung",
   "start_url": "/spielesammlung/",
   "display": "standalone",
