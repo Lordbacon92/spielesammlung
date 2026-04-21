@@ -854,34 +854,30 @@ async function confirmAdd() {
 }
 
 // ── Platform buttons ───────────────────────────────────────────────────────
+
+const erasHaben = [["🕹️  Ur-Retro", ["Atari", "Commodore 64", "Amiga 500"]], ["👾  8-Bit Ära", ["NES", "Mastersystem", "GB"]], ["🔥  16-Bit Ära", ["SNES", "Megadrive", "GBC"]], ["💿  32/64-Bit Ära", ["PS1", "Saturn", "N64", "GBA"]], ["📀  128-Bit Ära", ["Ps2", "Gamecube", "NDS"]], ["🎮  HD-Ära", ["PS3", "PS4", "3DS"]], ["🚀  Moderne", ["PS5", "Switch"]], ["🖥️  PC", ["PC"]], ["🔧  Konsolen & Teile", ["Konsole/Parts"]]];
+const erasBrauchen = [["👾  8-Bit Ära", ["NES", "Atari"]], ["🔥  16-Bit Ära", ["SNES"]], ["💿  32/64-Bit Ära", ["PS1", "N64"]], ["📀  128-Bit Ära", ["Ps2"]], ["🚀  Moderne", ["Switch"]], ["🔧  Konsolen & Teile", ["Konsole/Parts"]], ["💿  Amiga", ["Amiga 500"]]];
+function getEras() { return getTabKey() === 'Haben' ? erasHaben : erasBrauchen; }
 function renderPlatformButtons() {
   const tabData = getTabData();
   const grid = document.getElementById('platformGrid');
   grid.innerHTML = '';
   grid.style.display = 'block';
   grid.style.padding = '0';
-
   const eras = getEras();
   let total = 0;
-
   eras.forEach(function(era) {
-    const eraName = era[0];
-    const eraPlatforms = era[1];
-    const hasGames = eraPlatforms.some(function(key) {
-      return tabData[key] && tabData[key].length > 0;
-    });
+    const eraName = era[0]; const eraPlatforms = era[1];
+    const hasGames = eraPlatforms.some(function(key) { return tabData[key] && tabData[key].length > 0; });
     if (!hasGames) return;
-
     const section = document.createElement('div');
     section.className = 'era-section';
     const title = document.createElement('div');
     title.className = 'era-title';
     title.textContent = eraName;
     section.appendChild(title);
-
     const btns = document.createElement('div');
     btns.className = 'era-buttons';
-
     eraPlatforms.forEach(function(key) {
       const games = tabData[key];
       if (!games || games.length === 0) return;
@@ -894,16 +890,11 @@ function renderPlatformButtons() {
       btns.appendChild(btn);
       total += games.length;
     });
-
     section.appendChild(btns);
     grid.appendChild(section);
   });
-
-  // Platforms not in any era (fallback)
   const allEraPlatforms = eras.reduce(function(acc, e) { return acc.concat(e[1]); }, []);
-  const remaining = Object.entries(tabData).filter(function(entry) {
-    return entry[1].length > 0 && !allEraPlatforms.includes(entry[0]);
-  });
+  const remaining = Object.entries(tabData).filter(function(entry) { return entry[1].length > 0 && !allEraPlatforms.includes(entry[0]); });
   if (remaining.length > 0) {
     const section = document.createElement('div');
     section.className = 'era-section';
@@ -927,7 +918,6 @@ function renderPlatformButtons() {
     section.appendChild(btns);
     grid.appendChild(section);
   }
-
   document.getElementById('totalCount').textContent = total;
 }
 
