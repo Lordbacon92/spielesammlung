@@ -500,7 +500,7 @@
 <div class="content" id="gameContent"></div>
 <div class="search-results-box" id="searchResultsBox" style="display:none"></div>
 
-<footer>GAME COUNT: <span id="totalCount">0</span> SPIELE</footer>
+<footer>GAME COUNT: <span id="totalCount">0</span> SPIELE <span id="collectionValue" style="color:#ff8800"></span></footer>
 
 <div id="confirmModal">
   <div class="modal-box">
@@ -572,6 +572,7 @@ async function init() {
   try {
     data = await apiGet();
     renderPlatformButtons();
+    updateValueDisplay();
     setTimeout(() => {
       document.getElementById('loadingOverlay').classList.add('hidden');
     }, 400);
@@ -639,6 +640,7 @@ async function confirmAdd() {
     showToast('"' + name + '" wurde hinzugefuegt');
     if (currentPlatform === platform) renderGames();
     renderPlatformButtons();
+    updateValueDisplay();
   } catch(e) {
     showToast('Fehler: ' + e.message, true);
   }
@@ -777,6 +779,7 @@ function deleteGame(index) {
       showToast('"' + name + '" geloescht');
       renderGames();
       renderPlatformButtons();
+      updateValueDisplay();
     } catch(e) {
       showToast('Fehler: ' + e.message, true);
     }
@@ -847,7 +850,96 @@ function doSearch() {
   box.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
-// ── Start ──────────────────────────────────────────────────────────────────
+// ── Wertschätzung ────────────────────────────────────────────────────────────
+// Durchschnittliche Marktwerte pro Plattform (basierend auf typischen eBay-Preisen)
+const platformAvgPrice = {
+  "Atari":         4,
+  "Commodore 64": 10,
+  "NES":          22,
+  "Mastersystem": 12,
+  "SNES":         28,
+  "Megadrive":    18,
+  "PS1":          12,
+  "Saturn":       22,
+  "N64":          30,
+  "Gamecube":     25,
+  "Ps2":          10,
+  "PS3":           8,
+  "PS4":          15,
+  "PS5":          40,
+  "Switch":       42,
+  "GB":           14,
+  "GBC":          18,
+  "GBA":          20,
+  "NDS":          10,
+  "3DS":          22,
+  "Konsole/Parts":55,
+  "Amiga 500":    18,
+  "PC":           20,
+};
+
+// Spiele die bekanntermaßen mehr wert sind (Multiplikator)
+const rareKeywords = [
+  {words: ['ovp','(ovp)'],        mult: 3.5},
+  {words: ['sealed'],             mult: 4.0},
+  {words: ['steelbook'],          mult: 2.2},
+  {words: ['big box'],            mult: 5.0},
+  {words: ['limited'],            mult: 2.5},
+  {words: ['repro'],              mult: 0.3},
+  {words: ['chrono trigger'],     mult: 8.0},
+  {words: ['earthbound'],         mult: 12.0},
+  {words: ['terranigma'],         mult: 6.0},
+  {words: ['secret of mana'],     mult: 4.0},
+  {words: ['secret of evermore'], mult: 3.0},
+  {words: ['illusion of time'],   mult: 3.5},
+  {words: ['conker'],             mult: 7.0},
+  {words: ['panzer dragoon'],     mult: 5.0},
+  {words: ['castlevania'],        mult: 3.0},
+  {words: ['metal gear solid 3 subsistence'], mult: 4.0},
+  {words: ['silent hill'],        mult: 4.0},
+  {words: ['shadow of the colossus'], mult: 3.0},
+  {words: ['kingdom hearts'],     mult: 2.5},
+  {words: ['zelda'],              mult: 3.5},
+  {words: ['pokemon','pokémon'],  mult: 3.5},
+  {words: ['mega man x3'],        mult: 6.0},
+  {words: ['valkyria chronicles'],mult: 3.0},
+  {words: ['elden ring'],         mult: 2.0},
+  {words: ['diablo'],             mult: 3.5},
+  {words: ['monkey island'],      mult: 6.0},
+];
+
+function estimateGamePrice(name, platform) {
+  const base = platformAvgPrice[platform] || 10;
+  const lower = name.toLowerCase();
+  let mult = 1.0;
+  for (const r of rareKeywords) {
+    if (r.words.some(w => lower.includes(w))) {
+      mult = Math.max(mult, r.mult);
+    }
+  }
+  return Math.round(base * mult);
+}
+
+function estimateTotalValue() {
+  let total = 0;
+  const haben = data['Haben'] || {};
+  for (const [platform, games] of Object.entries(haben)) {
+    for (const game of games) {
+      total += estimateGamePrice(game, platform);
+    }
+  }
+  return total;
+}
+
+function updateValueDisplay() {
+  const total = estimateTotalValue();
+  const el = document.getElementById('collectionValue');
+  if (el) {
+    el.textContent = '· GESCHÄTZTER WERT: ~' + total.toLocaleString('de-DE') + ' €';
+  }
+}
+
+// ── Start ──────────────────────────────────────────────────────────────────────
 function doEbayCheck() {
   const name = document.getElementById('checkInput').value.trim();
   if (!name) { document.getElementById('checkInput').focus(); return; }
