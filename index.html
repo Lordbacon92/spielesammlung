@@ -662,6 +662,32 @@
 
 
 
+
+  /* Mobile only */
+  @media (max-width: 600px) {
+    .era-section { padding: 8px 20px 0; }
+    .add-form.open {
+      margin-bottom: 30px;
+      justify-content: flex-start;
+      padding-left: 20px;
+      padding-right: 20px;
+    }
+  }
+
+  /* Desktop: all platforms in one big flex row */
+  @media (min-width: 601px) {
+    #platformGrid {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 10px !important;
+      padding: 16px 20px !important;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .era-section { padding: 0; }
+    .era-title { display: none; }
+    .era-buttons { display: contents; }
+  }
 </style>
 </head>
 <body>
