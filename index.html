@@ -404,6 +404,11 @@
   /* ── ERA GROUPING ── */
   .era-section { padding: 8px 0 0; position: relative; z-index: 1; }
 
+  /* Mobile: era-sections get left padding */
+  @media (max-width: 600px) {
+    .era-section { padding: 8px 20px 0; }
+  }
+
   /* Desktop: all platforms in one big flex row */
   @media (min-width: 601px) {
     #platformGrid {
