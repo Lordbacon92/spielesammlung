@@ -401,6 +401,24 @@
   }
   .check-btn:hover { filter: brightness(1.15); }
 
+  /* ── ERA GROUPING ── */
+  .era-section { max-width: 1400px; margin: 0 auto; padding: 8px 24px 0; position: relative; z-index: 1; }
+  .era-title {
+    font-family: 'VT323', monospace;
+    font-size: 15px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 10px 4px 6px;
+    border-bottom: 2px dashed var(--border);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .era-title::before { content: ''; display: inline-block; width: 8px; height: 8px; background: currentColor; border-radius: 50%; opacity: 0.6; flex-shrink: 0; }
+  .era-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+
   /* ── PLATFORM GRID ── */
   .platform-grid {
     display: flex;
@@ -840,17 +858,76 @@ function renderPlatformButtons() {
   const tabData = getTabData();
   const grid = document.getElementById('platformGrid');
   grid.innerHTML = '';
-  Object.entries(tabData).forEach(function([key, games]) {
-    if (!games || games.length === 0) return;
-    const cfg = platforms[key] || {css:'c-parts', label:key};
-    const btn = document.createElement('button');
-    btn.className = 'plat-btn ' + cfg.css + (currentPlatform === key ? ' active' : '');
-    btn.dataset.key = key;
-    btn.innerHTML = cfg.label + ' <span class="count">(' + games.length + ')</span>';
-    btn.onclick = function() { selectPlatform(key); };
-    grid.appendChild(btn);
+  grid.style.display = 'block';
+  grid.style.padding = '0';
+
+  const eras = getEras();
+  let total = 0;
+
+  eras.forEach(function(era) {
+    const eraName = era[0];
+    const eraPlatforms = era[1];
+    const hasGames = eraPlatforms.some(function(key) {
+      return tabData[key] && tabData[key].length > 0;
+    });
+    if (!hasGames) return;
+
+    const section = document.createElement('div');
+    section.className = 'era-section';
+    const title = document.createElement('div');
+    title.className = 'era-title';
+    title.textContent = eraName;
+    section.appendChild(title);
+
+    const btns = document.createElement('div');
+    btns.className = 'era-buttons';
+
+    eraPlatforms.forEach(function(key) {
+      const games = tabData[key];
+      if (!games || games.length === 0) return;
+      const cfg = platforms[key] || {css:'c-parts', label:key};
+      const btn = document.createElement('button');
+      btn.className = 'plat-btn ' + cfg.css + (currentPlatform === key ? ' active' : '');
+      btn.dataset.key = key;
+      btn.innerHTML = cfg.label + ' <span class="count">(' + games.length + ')</span>';
+      btn.onclick = function() { selectPlatform(key); };
+      btns.appendChild(btn);
+      total += games.length;
+    });
+
+    section.appendChild(btns);
+    grid.appendChild(section);
   });
-  const total = Object.values(tabData).reduce(function(a,b){ return a + b.length; }, 0);
+
+  // Platforms not in any era (fallback)
+  const allEraPlatforms = eras.reduce(function(acc, e) { return acc.concat(e[1]); }, []);
+  const remaining = Object.entries(tabData).filter(function(entry) {
+    return entry[1].length > 0 && !allEraPlatforms.includes(entry[0]);
+  });
+  if (remaining.length > 0) {
+    const section = document.createElement('div');
+    section.className = 'era-section';
+    const title = document.createElement('div');
+    title.className = 'era-title';
+    title.textContent = 'Sonstige';
+    section.appendChild(title);
+    const btns = document.createElement('div');
+    btns.className = 'era-buttons';
+    remaining.forEach(function(entry) {
+      const key = entry[0]; const games = entry[1];
+      const cfg = platforms[key] || {css:'c-parts', label:key};
+      const btn = document.createElement('button');
+      btn.className = 'plat-btn ' + cfg.css + (currentPlatform === key ? ' active' : '');
+      btn.dataset.key = key;
+      btn.innerHTML = cfg.label + ' <span class="count">(' + games.length + ')</span>';
+      btn.onclick = function() { selectPlatform(key); };
+      btns.appendChild(btn);
+      total += games.length;
+    });
+    section.appendChild(btns);
+    grid.appendChild(section);
+  }
+
   document.getElementById('totalCount').textContent = total;
 }
 
