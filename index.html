@@ -860,8 +860,27 @@ async function confirmAdd() {
 
 // ── Platform buttons ───────────────────────────────────────────────────────
 
-const erasHaben = [["🕹️  Ur-Retro", ["Atari", "Commodore 64", "Amiga 500"]], ["👾  8-Bit Ära", ["NES", "Mastersystem", "GB"]], ["🔥  16-Bit Ära", ["SNES", "Megadrive", "GBC"]], ["💿  32/64-Bit Ära", ["PS1", "Saturn", "N64", "GBA"]], ["📀  128-Bit Ära", ["Ps2", "Gamecube", "NDS"]], ["🎮  HD-Ära", ["PS3", "PS4", "3DS"]], ["🚀  Moderne", ["PS5", "Switch"]], ["🖥️  PC", ["PC"]], ["🔧  Konsolen & Teile", ["Konsole/Parts"]]];
-const erasBrauchen = [["👾  8-Bit Ära", ["NES", "Atari"]], ["🔥  16-Bit Ära", ["SNES"]], ["💿  32/64-Bit Ära", ["PS1", "N64"]], ["📀  128-Bit Ära", ["Ps2"]], ["🚀  Moderne", ["Switch"]], ["🔧  Konsolen & Teile", ["Konsole/Parts"]], ["💿  Amiga", ["Amiga 500"]]];
+const erasHaben = [
+  ["1972 – 1983", ["Atari", "Commodore 64", "Amiga 500"]],
+  ["1983 – 1992", ["NES", "Mastersystem", "GB"]],
+  ["1988 – 1996", ["SNES", "Megadrive", "GBC"]],
+  ["1994 – 2002", ["PS1", "Saturn", "N64", "GBA"]],
+  ["2000 – 2006", ["Ps2", "Gamecube", "NDS"]],
+  ["2005 – 2017", ["PS3", "PS4", "3DS"]],
+  ["2017 – heute", ["PS5", "Switch"]],
+  ["PC", ["PC"]],
+  ["Konsolen & Teile", ["Konsole/Parts"]]
+];
+const erasBrauchen = [
+  ["1972 – 1983", ["Atari"]],
+  ["1983 – 1992", ["NES"]],
+  ["1988 – 1996", ["SNES"]],
+  ["1994 – 2002", ["PS1", "N64"]],
+  ["2000 – 2006", ["Ps2"]],
+  ["2017 – heute", ["Switch"]],
+  ["Konsolen & Teile", ["Konsole/Parts"]],
+  ["Amiga", ["Amiga 500"]]
+];
 function getEras() { return getTabKey() === 'Haben' ? erasHaben : erasBrauchen; }
 function renderPlatformButtons() {
   const tabData = getTabData();
