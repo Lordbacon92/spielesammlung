@@ -361,13 +361,34 @@
   /* ── CHECK BOX ── */
   .check-box {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
-    padding: 24px 20px;
+    padding: 20px 20px 8px;
     gap: 0;
     animation: fadeIn 0.2s ease;
+    width: 100%;
   }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+  .check-section {
+    width: 100%;
+    max-width: 500px;
+    margin-bottom: 20px;
+  }
+
+  .check-section-label {
+    font-family: 'VT323', monospace;
+    font-size: 16px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    padding-left: 2px;
+  }
+
+  .check-row {
+    display: flex;
+    width: 100%;
+  }
 
   .check-input {
     background: var(--surface);
@@ -377,8 +398,7 @@
     padding: 11px 18px;
     font-family: 'Nunito', sans-serif;
     font-size: 15px;
-    width: 100%;
-    max-width: 400px;
+    flex: 1;
     outline: none;
     border-radius: var(--radius) 0 0 var(--radius);
     box-shadow: var(--shadow);
@@ -389,10 +409,10 @@
     background: #8e44ad;
     border: 2px solid #8e44ad;
     color: #fff;
-    padding: 11px 22px;
+    padding: 11px 18px;
     font-family: 'Nunito', sans-serif;
     font-weight: 800;
-    font-size: 14px;
+    font-size: 13px;
     cursor: pointer;
     white-space: nowrap;
     border-radius: 0 var(--radius) var(--radius) 0;
@@ -400,6 +420,55 @@
     transition: filter 0.2s;
   }
   .check-btn:hover { filter: brightness(1.15); }
+  .check-btn-live { background: #e67e22; border-color: #e67e22; }
+  .check-btn-save { background: #27ae60; border-color: #27ae60; }
+
+  /* Shortcut buttons */
+  .shortcut-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .shortcut-item {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  .shortcut-btn {
+    background: var(--surface);
+    border: 2px solid #e67e22;
+    border-right: none;
+    color: #e67e22;
+    padding: 6px 14px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: var(--radius) 0 0 var(--radius);
+    white-space: nowrap;
+  }
+  .shortcut-btn:hover { background: #e67e22; color: #fff; }
+
+  .shortcut-del {
+    background: var(--surface);
+    border: 2px solid #e67e22;
+    border-left: none;
+    color: var(--text-dim);
+    padding: 6px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    line-height: 1;
+  }
+  .shortcut-del:hover { background: #c0392b; border-color: #c0392b; color: #fff; }
 
   /* ── ERA GROUPING ── */
   .era-section { max-width: 1400px; margin: 0 auto; padding: 8px 24px 0; position: relative; z-index: 1; }
@@ -793,8 +862,32 @@
 </div>
 
 <div class="check-box" id="checkBox" style="display:none">
-  <input class="check-input" type="text" id="checkInput" placeholder="Spielname eingeben..." onkeydown="if(event.key==='Enter')doEbayCheck()">
-  <button class="check-btn" onclick="doEbayCheck()">Jetzt suchen</button>
+
+  <div class="check-section">
+    <div class="check-section-label">&#128200; Verkaufte Auktionen (Marktpreis)</div>
+    <div class="check-row">
+      <input class="check-input" type="text" id="checkInput" placeholder="Spielname eingeben..." onkeydown="if(event.key==='Enter')doEbayCheck()">
+      <button class="check-btn" onclick="doEbayCheck()">Suchen</button>
+    </div>
+  </div>
+
+  <div class="check-section">
+    <div class="check-section-label">&#9201; Laufende Auktionen (bald endend)</div>
+    <div class="check-row">
+      <input class="check-input" type="text" id="liveInput" placeholder="Spielname eingeben..." onkeydown="if(event.key==='Enter')doLiveCheck()">
+      <button class="check-btn check-btn-live" onclick="doLiveCheck()">Suchen</button>
+    </div>
+  </div>
+
+  <div class="check-section">
+    <div class="check-section-label">&#9733; Schnellsuche Shortcuts</div>
+    <div class="check-row">
+      <input class="check-input" type="text" id="shortcutInput" placeholder="Begriff speichern..." onkeydown="if(event.key==='Enter')addShortcut()">
+      <button class="check-btn check-btn-save" onclick="addShortcut()">&#43; Speichern</button>
+    </div>
+    <div class="shortcut-list" id="shortcutList"></div>
+  </div>
+
 </div>
 
 <div class="search-wrap">
@@ -1268,7 +1361,7 @@ function switchTab(tab) {
     if (addForm.classList.contains('open')) populateAddSelect();
     renderPlatformButtons();
   } else {
-    setTimeout(function(){ document.getElementById('checkInput').focus(); }, 50);
+    setTimeout(function(){ document.getElementById('checkInput').focus(); renderShortcuts(); }, 50);
   }
 }
 
@@ -1486,12 +1579,69 @@ async function moveToHaben(index) {
   }, { passive: true });
 })();
 
-// ── Start ──────────────────────────────────────────────────────────────────────────
+// ── Check Tab functions ───────────────────────────────────────────────────────
 function doEbayCheck() {
   const name = document.getElementById('checkInput').value.trim();
   if (!name) { document.getElementById('checkInput').focus(); return; }
   const url = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(name) + '&LH_Sold=1&LH_Complete=1&LH_Auction=1';
   window.open(url, '_blank');
+}
+
+function doLiveCheck() {
+  const name = document.getElementById('liveInput').value.trim();
+  if (!name) { document.getElementById('liveInput').focus(); return; }
+  // LH_Auction=1 laufende Auktionen, _sop=1 = endend bald
+  const url = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(name) + '&LH_Auction=1&_sop=1';
+  window.open(url, '_blank');
+}
+
+function openLiveSearch(term) {
+  const url = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(term) + '&LH_Auction=1&_sop=1';
+  window.open(url, '_blank');
+}
+
+function getShortcuts() {
+  try { return JSON.parse(localStorage.getItem('ebay_shortcuts') || '[]'); } catch(e) { return []; }
+}
+
+function saveShortcuts(arr) {
+  localStorage.setItem('ebay_shortcuts', JSON.stringify(arr));
+}
+
+function addShortcut() {
+  const input = document.getElementById('shortcutInput');
+  const term = input.value.trim();
+  if (!term) { input.focus(); return; }
+  const shortcuts = getShortcuts();
+  if (shortcuts.includes(term)) { showToast('Shortcut existiert bereits', true); return; }
+  shortcuts.push(term);
+  saveShortcuts(shortcuts);
+  input.value = '';
+  renderShortcuts();
+  showToast('"' + term + '" gespeichert');
+}
+
+function deleteShortcut(term) {
+  const shortcuts = getShortcuts().filter(function(s) { return s !== term; });
+  saveShortcuts(shortcuts);
+  renderShortcuts();
+}
+
+function renderShortcuts() {
+  const list = document.getElementById('shortcutList');
+  if (!list) return;
+  const shortcuts = getShortcuts();
+  if (shortcuts.length === 0) {
+    list.innerHTML = '<span style="font-size:13px;color:var(--text-dim);font-family:Nunito,sans-serif;">Noch keine Shortcuts gespeichert.</span>';
+    return;
+  }
+  list.innerHTML = shortcuts.map(function(term) {
+    const safe = term.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return '<div class="shortcut-item">' +
+      '<button class="shortcut-btn" onclick="openLiveSearch('' + safe.replace(/'/g,"\'") + '')">' + safe + '</button>' +
+      '<button class="shortcut-del" onclick="deleteShortcut('' + safe.replace(/'/g,"\'") + '')" title="Loeschen">&#10006;</button>' +
+      '</div>';
+  }).join('');
 }
 
 init();
