@@ -742,6 +742,50 @@
   [data-theme="dark"] .game-item-wrap.rarity-medium .game-item { border-left-color: #f0b429; border-right-color: #f0b429; background: rgba(240,180,41,0.08); }
   [data-theme="dark"] .game-item-wrap.rarity-common .game-item { border-left-color: #2ecc71; border-right-color: #2ecc71; background: rgba(46,204,113,0.08); }
 
+  /* ── NOTES ── */
+  .note-area {
+    display: none;
+    padding: 6px 12px 8px 24px;
+    background: var(--bg2);
+    border-left: 4px solid;
+    border-radius: 0 0 var(--radius) var(--radius);
+    margin-top: -4px;
+    animation: fadeIn 0.15s ease;
+  }
+  .game-item-wrap.note-open .note-area { display: block; }
+  .game-item-wrap.note-open .game-item { border-radius: 0 var(--radius) 0 0; }
+
+  .note-textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 10px;
+    resize: none;
+    outline: none;
+    min-height: 54px;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+  }
+  .note-textarea:focus { border-color: var(--accent2); }
+  .note-textarea::placeholder { color: var(--text-dim); }
+
+  .note-indicator {
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0.7;
+    flex-shrink: 0;
+    line-height: 1;
+    padding: 2px 3px;
+    border-radius: 4px;
+    transition: opacity 0.15s;
+  }
+  .note-indicator:hover { opacity: 1; }
+
   /* ── CONTEXT MENU ── */
   #rarityContextMenu {
     display: none;
@@ -1298,6 +1342,31 @@ function setRarity(index, rarity) {
   if (wrap) wrap.classList.remove('swiped');
 }
 
+function getNote(name, platform) {
+  return localStorage.getItem('note::' + platform + '::' + name) || '';
+}
+
+function saveNote(index) {
+  const name = getTabData()[currentPlatform][index];
+  const ta = document.getElementById('note-ta-' + index);
+  if (!ta) return;
+  const val = ta.value.trim();
+  const key = 'note::' + currentPlatform + '::' + name;
+  if (val) { localStorage.setItem(key, val); } else { localStorage.removeItem(key); }
+  const ind = document.getElementById('note-ind-' + index);
+  if (ind) { ind.style.display = val ? 'inline' : 'none'; }
+}
+
+function toggleNote(index) {
+  const wrap = document.getElementById('giw-' + index);
+  if (!wrap) return;
+  const isOpen = wrap.classList.toggle('note-open');
+  if (isOpen) {
+    const ta = document.getElementById('note-ta-' + index);
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  }
+}
+
 function gameItemHtml(name, index, cfg) {
   const safe = name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const soldUrl = ebayUrl(name, cfg.label);
@@ -1311,17 +1380,28 @@ function gameItemHtml(name, index, cfg) {
   const rarityVal = getRarity(name, currentPlatform);
   const rarityClass = rarityVal ? ' rarity-' + rarityVal : '';
 
+  const noteVal = getNote(name, currentPlatform);
+  const noteSafe = noteVal.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const noteIndStyle = noteVal ? '' : 'display:none';
+
   const itemHtml =
     '<div class="game-item ' + cfg.css + '" id="gi-' + index + '">' +
       '<span class="game-bullet ' + cfg.css + '"></span>' +
       '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
+      '<span class="note-indicator" id="note-ind-' + index + '" style="' + noteIndStyle + '" onclick="toggleNote(' + index + ')" title="Notiz">&#128203;</span>' +
       '<a class="scan-btn" href="' + auctionUrl + '" target="_blank" title="Laufende Auktionen">Auktion</a>' +
       '<a class="scan-btn sofort-btn" href="' + binUrl + '" target="_blank" title="Sofortkauf">Sofortkauf</a>' +
       moveBtn +
       '<span class="game-actions">' +
+        '<button class="icon-btn" title="Notiz" onclick="toggleNote(' + index + ')">&#128203;</button>' +
         '<button class="icon-btn" title="Bearbeiten" onclick="startEdit(' + index + ')">&#9999;&#65039;</button>' +
         '<button class="icon-btn del" title="Loeschen" onclick="deleteGame(' + index + ')">&#10005;</button>' +
       '</span>' +
+    '</div>';
+
+  const noteHtml =
+    '<div class="note-area ' + cfg.css + '" id="note-' + index + '">' +
+      '<textarea class="note-textarea" id="note-ta-' + index + '" placeholder="Notiz hinzufuegen..." oninput="saveNote(' + index + ')">' + noteSafe + '</textarea>' +
     '</div>';
 
   const swipeHtml =
@@ -1332,8 +1412,9 @@ function gameItemHtml(name, index, cfg) {
       '<button class="swipe-btn clear"  onclick="setRarity(' + index + ',null)"><span class="swipe-icon">&#10006;</span>Reset</button>' +
     '</div>';
 
-  return '<div class="game-item-wrap' + rarityClass + '" id="giw-' + index + '" oncontextmenu="openRarityMenu(event,' + index + ')">' + itemHtml + swipeHtml + '</div>';
+  return '<div class="game-item-wrap' + rarityClass + '" id="giw-' + index + '" oncontextmenu="openRarityMenu(event,' + index + ')">' + itemHtml + noteHtml + swipeHtml + '</div>';
 }
+
 
 function startEdit(index) {
   const currentName = getTabData()[currentPlatform][index];
