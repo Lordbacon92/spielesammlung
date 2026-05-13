@@ -1103,30 +1103,30 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzMZXeOIKEXkmYs2Exfnjd8TXHxCags3B-S_PA5OatwoGJ4WSRohfyio76UuvWWCO-P/exec";
 
 const platforms = {
-  "Atari":        {css:"c-atari",      label:"Atari 2600",      img:"img/atari.png",      color:"#D4874A"},
-  "Commodore 64": {css:"c-c64",        label:"C64",             img:"",                   color:"#A0724A"},
-  "NES":          {css:"c-nes",        label:"NES",             img:"img/nes.png",         color:"#D94040"},
-  "Mastersystem": {css:"c-mastersystem",label:"Master System",  img:"img/mastersystem.png",color:"#2E8BC0"},
-  "SNES":         {css:"c-snes",       label:"SNES",            img:"img/snes.png",        color:"#7B5EA7"},
-  "Megadrive":    {css:"c-megadrive",  label:"Mega Drive",      img:"img/megadrive.png",   color:"#4A90D9"},
-  "PS1":          {css:"c-ps1",        label:"PlayStation 1",   img:"img/ps1.png",         color:"#5B8ADB"},
-  "Saturn":       {css:"c-saturn",     label:"Sega Saturn",     img:"img/saturn.png",      color:"#7A6ED4"},
-  "N64":          {css:"c-n64",        label:"Nintendo 64",     img:"img/n64.png",         color:"#4DB86A"},
-  "Gamecube":     {css:"c-gamecube",   label:"GameCube",        img:"img/gamecube.png",    color:"#7B5EA7"},
-  "Ps2":          {css:"c-ps2",        label:"PlayStation 2",   img:"img/ps2.png",         color:"#3A7BD5"},
-  "PS3":          {css:"c-ps3",        label:"PlayStation 3",   img:"img/ps3.png",         color:"#2E6FBF"},
-  "PS4":          {css:"c-ps4",        label:"PlayStation 4",   img:"img/ps4.png",         color:"#2563AE"},
-  "PS5":          {css:"c-ps5",        label:"PlayStation 5",   img:"img/ps5.png",         color:"#1A56A0"},
-  "Switch":       {css:"c-switch",     label:"Nintendo Switch", img:"img/switch.png",      color:"#E8453C"},
-  "Switch2":      {css:"c-switch2",    label:"Nintendo Switch 2",img:"img/switch.png",      color:"#E8453C"},
-  "GB":           {css:"c-gb",         label:"Game Boy",        img:"img/gb.png",          color:"#7A9E7E"},
-  "GBC":          {css:"c-gbc",        label:"Game Boy Color",  img:"img/gbc.png",         color:"#D4874A"},
-  "GBA":          {css:"c-gba",        label:"Game Boy Advance",img:"img/gba.png",         color:"#A066CC"},
-  "NDS":          {css:"c-nds",        label:"Nintendo DS",     img:"img/nds.png",         color:"#CC6633"},
-  "3DS":          {css:"c-3ds",        label:"Nintendo 3DS",    img:"img/3ds.png",         color:"#CC3366"},
-  "Konsole/Parts":{css:"c-parts",      label:"Konsolen & Teile",img:"img/konsole.png",     color:"#888888"},
-  "Amiga 500":    {css:"c-amiga",      label:"Amiga 500",       img:"img/amiga.png",       color:"#CC8833"},
-  "PC":           {css:"c-pc",         label:"PC",              img:"img/pc.png",          color:"#4A9E8A"},
+  "Atari":        {css:"c-atari",      label:"Atari 2600",      img:"img/atari.png",      color:"#D4874A", ebay:"Atari"},
+  "Commodore 64": {css:"c-c64",        label:"C64",             img:"",                   color:"#A0724A", ebay:"C64"},
+  "NES":          {css:"c-nes",        label:"NES",             img:"img/nes.png",         color:"#D94040", ebay:"NES"},
+  "Mastersystem": {css:"c-mastersystem",label:"Master System",  img:"img/mastersystem.png",color:"#2E8BC0", ebay:"Master System"},
+  "SNES":         {css:"c-snes",       label:"SNES",            img:"img/snes.png",        color:"#7B5EA7", ebay:"snes"},
+  "Megadrive":    {css:"c-megadrive",  label:"Mega Drive",      img:"img/megadrive.png",   color:"#4A90D9", ebay:"Mega Drive"},
+  "PS1":          {css:"c-ps1",        label:"PlayStation 1",   img:"img/ps1.png",         color:"#5B8ADB", ebay:"ps1"},
+  "Saturn":       {css:"c-saturn",     label:"Sega Saturn",     img:"img/saturn.png",      color:"#7A6ED4", ebay:"saturn"},
+  "N64":          {css:"c-n64",        label:"Nintendo 64",     img:"img/n64.png",         color:"#4DB86A", ebay:"n64"},
+  "Gamecube":     {css:"c-gamecube",   label:"GameCube",        img:"img/gamecube.png",    color:"#7B5EA7", ebay:"gamecube"},
+  "Ps2":          {css:"c-ps2",        label:"PlayStation 2",   img:"img/ps2.png",         color:"#3A7BD5", ebay:"ps2"},
+  "PS3":          {css:"c-ps3",        label:"PlayStation 3",   img:"img/ps3.png",         color:"#2E6FBF", ebay:"ps3"},
+  "PS4":          {css:"c-ps4",        label:"PlayStation 4",   img:"img/ps4.png",         color:"#2563AE", ebay:"ps4"},
+  "PS5":          {css:"c-ps5",        label:"PlayStation 5",   img:"img/ps5.png",         color:"#1A56A0", ebay:"ps5"},
+  "Switch":       {css:"c-switch",     label:"Nintendo Switch", img:"img/switch.png",      color:"#E8453C", ebay:"switch"},
+  "Switch2":      {css:"c-switch2",    label:"Nintendo Switch 2",img:"img/switch.png",     color:"#E8453C", ebay:"switch"},
+  "GB":           {css:"c-gb",         label:"Game Boy",        img:"img/gb.png",          color:"#7A9E7E", ebay:"gameboy"},
+  "GBC":          {css:"c-gbc",        label:"Game Boy Color",  img:"img/gbc.png",         color:"#D4874A", ebay:"gameboy color"},
+  "GBA":          {css:"c-gba",        label:"Game Boy Advance",img:"img/gba.png",         color:"#A066CC", ebay:"gba"},
+  "NDS":          {css:"c-nds",        label:"Nintendo DS",     img:"img/nds.png",         color:"#CC6633", ebay:"nds"},
+  "3DS":          {css:"c-3ds",        label:"Nintendo 3DS",    img:"img/3ds.png",         color:"#CC3366", ebay:"3ds"},
+  "Konsole/Parts":{css:"c-parts",      label:"Konsolen & Teile",img:"img/konsole.png",     color:"#888888", ebay:""},
+  "Amiga 500":    {css:"c-amiga",      label:"Amiga 500",       img:"img/amiga.png",       color:"#CC8833", ebay:"amiga"},
+  "PC":           {css:"c-pc",         label:"PC",              img:"img/pc.png",          color:"#4A9E8A", ebay:"PC"},
 };;;
 
 let data = { Haben: {}, Brauchen: {} };
@@ -1366,9 +1366,9 @@ function renderGames() {
   content.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
-function ebayUrl(name, platform) {
-  const query = encodeURIComponent(name + ' ' + platform);
-  // LH_Sold=1 = verkaufte Artikel, LH_Complete=1 = beendete Angebote, LH_Auction=1 = nur Auktionen
+function ebayUrl(name, platformLabel) {
+  const suffix = platformLabel ? ' ' + platformLabel : '';
+  const query = encodeURIComponent(name + suffix);
   return 'https://www.ebay.de/sch/i.html?_nkw=' + query + '&LH_Sold=1&LH_Complete=1&LH_Auction=1';
 }
 
@@ -1430,9 +1430,11 @@ function saveNote(index) {
 
 function gameItemHtml(name, index, cfg) {
   const safe = name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const soldUrl = ebayUrl(name, cfg.label);
-  const auctionUrl = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(name + ' ' + cfg.label) + '&LH_Auction=1&_sop=1';
-  const binUrl = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(name + ' ' + cfg.label) + '&LH_BIN=1';
+  const ebayTerm = (cfg.ebay !== undefined ? cfg.ebay : cfg.label);
+  const ebayQ = name + (ebayTerm ? ' ' + ebayTerm : '');
+  const soldUrl = ebayUrl(name, ebayTerm);
+  const auctionUrl = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(ebayQ) + '&LH_Auction=1&_sop=1';
+  const binUrl = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(ebayQ) + '&LH_BIN=1';
 
   const moveBtn = currentTab === 'brauchen'
     ? '<button class="icon-btn move-btn" title="Zu Haben verschieben" onclick="moveToHaben(' + index + ')">&#10003;</button>'
