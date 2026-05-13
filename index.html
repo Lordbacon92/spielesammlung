@@ -1088,12 +1088,12 @@
   <div class="ctx-separator"></div>
   <button class="ctx-menu-item ctx-note"   onclick="event.stopPropagation();ctxOpenNote()">&#128203; Notiz bearbeiten</button>
 </div>
-<div id="ctxNotePopup" style="display:none">
+<div id="ctxNotePopup" style="display:none" onclick="event.stopPropagation()">
   <div class="ctx-note-title" id="ctxNoteTitle">Notiz</div>
   <textarea class="ctx-note-textarea" id="ctxNoteTextarea" placeholder="Notiz hinzuf&#252;gen..."></textarea>
   <div class="ctx-note-actions">
-    <button class="ctx-note-btn ctx-note-save" onclick="ctxSaveNote()">Speichern</button>
-    <button class="ctx-note-btn ctx-note-cancel" onclick="ctxCloseNote()">Abbrechen</button>
+    <button class="ctx-note-btn ctx-note-save" onclick="event.stopPropagation();ctxSaveNote()">Speichern</button>
+    <button class="ctx-note-btn ctx-note-cancel" onclick="event.stopPropagation();ctxCloseNote()">Abbrechen</button>
   </div>
 </div>
 
@@ -1840,10 +1840,10 @@ function ctxCloseNote() {
 }
 
 document.addEventListener('click', function(e) {
-  const menu   = document.getElementById('rarityContextMenu');
-  const popup  = document.getElementById('ctxNotePopup');
-  if (menu  && !menu.contains(e.target))  closeRarityMenu();
-  if (popup && !popup.contains(e.target) && popup.style.display !== 'none') ctxCloseNote();
+  const menu  = document.getElementById('rarityContextMenu');
+  const popup = document.getElementById('ctxNotePopup');
+  if (menu  && menu.style.display  !== 'none' && !menu.contains(e.target))  closeRarityMenu();
+  if (popup && popup.style.display !== 'none' && !popup.contains(e.target)) ctxCloseNote();
 });
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') { closeRarityMenu(); ctxCloseNote(); }
