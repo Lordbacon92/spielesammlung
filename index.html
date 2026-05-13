@@ -433,8 +433,8 @@
 
   .shortcut-item {
     display: flex;
-    align-items: center;
-    gap: 0;
+    align-items: stretch;
+    border: 2px solid #e67e22;
     border-radius: var(--radius);
     overflow: hidden;
     box-shadow: var(--shadow);
@@ -442,8 +442,7 @@
 
   .shortcut-btn {
     background: var(--surface);
-    border: 2px solid #e67e22;
-    border-right: none;
+    border: none;
     color: #e67e22;
     padding: 6px 14px;
     font-family: 'Nunito', sans-serif;
@@ -451,24 +450,25 @@
     font-size: 13px;
     cursor: pointer;
     transition: all 0.15s;
-    border-radius: var(--radius) 0 0 var(--radius);
     white-space: nowrap;
+    line-height: 1;
   }
   .shortcut-btn:hover { background: #e67e22; color: #fff; }
 
   .shortcut-del {
     background: var(--surface);
-    border: 2px solid #e67e22;
-    border-left: none;
+    border: none;
+    border-left: 2px solid #e67e22;
     color: var(--text-dim);
-    padding: 6px 8px;
+    padding: 6px 9px;
     font-size: 11px;
     cursor: pointer;
     transition: all 0.15s;
-    border-radius: 0 var(--radius) var(--radius) 0;
     line-height: 1;
+    display: flex;
+    align-items: center;
   }
-  .shortcut-del:hover { background: #c0392b; border-color: #c0392b; color: #fff; }
+  .shortcut-del:hover { background: #c0392b; border-left-color: #c0392b; color: #fff; }
 
   /* ── ERA GROUPING ── */
   .era-section { max-width: 1400px; margin: 0 auto; padding: 8px 24px 0; position: relative; z-index: 1; }
@@ -742,6 +742,64 @@
   [data-theme="dark"] .game-item-wrap.rarity-medium .game-item { border-left-color: #f0b429; border-right-color: #f0b429; background: rgba(240,180,41,0.08); }
   [data-theme="dark"] .game-item-wrap.rarity-common .game-item { border-left-color: #2ecc71; border-right-color: #2ecc71; background: rgba(46,204,113,0.08); }
 
+  /* ── CONTEXT MENU ── */
+  #rarityContextMenu {
+    display: none;
+    position: fixed;
+    z-index: 99999;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    min-width: 160px;
+    animation: fadeIn 0.12s ease;
+  }
+
+  .ctx-menu-title {
+    font-family: 'VT323', monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    padding: 8px 14px 6px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
+  .ctx-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.12s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    color: var(--text);
+  }
+  .ctx-menu-item:hover { background: var(--bg2); }
+  .ctx-menu-item .ctx-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .ctx-menu-item.ctx-rare   .ctx-dot { background: #c0392b; }
+  .ctx-menu-item.ctx-medium .ctx-dot { background: #d4a017; }
+  .ctx-menu-item.ctx-common .ctx-dot { background: #27ae60; }
+  .ctx-menu-item.ctx-reset  .ctx-dot { background: var(--text-dim); }
+  .ctx-menu-item.ctx-rare:hover   { background: rgba(192,57,43,0.1); }
+  .ctx-menu-item.ctx-medium:hover { background: rgba(212,160,23,0.1); }
+  .ctx-menu-item.ctx-common:hover { background: rgba(39,174,96,0.1); }
+
   /* ── FOOTER ── */
   footer { text-align: center; padding: 32px 20px; color: var(--text-dim); font-size: 13px; letter-spacing: 1px; border-top: 2px dashed var(--border); margin-top: 40px; font-family: 'VT323', monospace; font-size: 16px; position: relative; z-index: 1; }
 
@@ -922,6 +980,14 @@
       <button class="modal-btn cancel" onclick="closeModal()">Abbrechen</button>
     </div>
   </div>
+</div>
+
+<div id="rarityContextMenu">
+  <div class="ctx-menu-title" id="ctxMenuTitle">...</div>
+  <button class="ctx-menu-item ctx-rare"   onclick="ctxSetRarity('rare')">  <span class="ctx-dot"></span> Selten</button>
+  <button class="ctx-menu-item ctx-medium" onclick="ctxSetRarity('medium')"><span class="ctx-dot"></span> Medium</button>
+  <button class="ctx-menu-item ctx-common" onclick="ctxSetRarity('common')"><span class="ctx-dot"></span> H&#228;ufig</button>
+  <button class="ctx-menu-item ctx-reset"  onclick="ctxSetRarity(null)">    <span class="ctx-dot"></span> Zur&#252;cksetzen</button>
 </div>
 
 <div id="toast"></div>
@@ -1266,7 +1332,7 @@ function gameItemHtml(name, index, cfg) {
       '<button class="swipe-btn clear"  onclick="setRarity(' + index + ',null)"><span class="swipe-icon">&#10006;</span>Reset</button>' +
     '</div>';
 
-  return '<div class="game-item-wrap' + rarityClass + '" id="giw-' + index + '">' + itemHtml + swipeHtml + '</div>';
+  return '<div class="game-item-wrap' + rarityClass + '" id="giw-' + index + '" oncontextmenu="openRarityMenu(event,' + index + ')">' + itemHtml + swipeHtml + '</div>';
 }
 
 function startEdit(index) {
@@ -1531,6 +1597,45 @@ async function moveToHaben(index) {
   }
 }
 
+// ── Desktop right-click context menu ─────────────────────────────────────────
+let ctxIndex = null;
+
+function openRarityMenu(e, index) {
+  e.preventDefault();
+  ctxIndex = index;
+  const name = getTabData()[currentPlatform][index];
+  const safe = name.length > 28 ? name.slice(0, 26) + '...' : name;
+  document.getElementById('ctxMenuTitle').textContent = safe;
+  const menu = document.getElementById('rarityContextMenu');
+  menu.style.display = 'block';
+  // Position near cursor, keep within viewport
+  const mw = 170, mh = 160;
+  let x = e.clientX, y = e.clientY;
+  if (x + mw > window.innerWidth)  x = window.innerWidth - mw - 8;
+  if (y + mh > window.innerHeight) y = window.innerHeight - mh - 8;
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+}
+
+function closeRarityMenu() {
+  document.getElementById('rarityContextMenu').style.display = 'none';
+  ctxIndex = null;
+}
+
+function ctxSetRarity(rarity) {
+  if (ctxIndex === null) return;
+  setRarity(ctxIndex, rarity);
+  closeRarityMenu();
+}
+
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('rarityContextMenu');
+  if (menu && !menu.contains(e.target)) closeRarityMenu();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeRarityMenu();
+});
+
 // ── Swipe-to-reveal (touch) ────────────────────────────────────────────────
 (function() {
   let touchStartX = 0;
@@ -1639,9 +1744,10 @@ function renderShortcuts() {
   }
   list.innerHTML = shortcuts.map(function(term) {
     const safe = term.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const esc = term.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     return '<div class="shortcut-item">' +
-      '<button class="shortcut-btn" onclick="openLiveSearch('' + safe.replace(/'/g,"\'") + '')">' + safe + '</button>' +
-      '<button class="shortcut-del" onclick="deleteShortcut('' + safe.replace(/'/g,"\'") + '')" title="Loeschen">&#10006;</button>' +
+      '<button class="shortcut-btn" onclick="openLiveSearch(\'' + esc + '\')">' + safe + '</button>' +
+      '<button class="shortcut-del" onclick="deleteShortcut(\'' + esc + '\')" title="Loeschen">&#10006;</button>' +
       '</div>';
   }).join('');
 }
