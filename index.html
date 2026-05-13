@@ -8,7 +8,7 @@
 <link rel="icon" type="image/webp" href="favicon.webp">
 <link rel="apple-touch-icon" href="favicon.webp">
 <link rel="manifest" href="site.webmanifest">
-<meta name="theme-color" content="#F2EDE4">
+<meta name="theme-color" content="#111111" id="themeColorMeta">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Games">
@@ -1674,6 +1674,12 @@ function updateValueDisplay() {
 }
 
 // ── Theme ────────────────────────────────────────────────────────────────────
+function updateThemeColor() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const meta = document.getElementById('themeColorMeta');
+  if (meta) meta.setAttribute('content', isDark ? '#111111' : '#F2EDE4');
+}
+
 function toggleTheme() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   document.documentElement.setAttribute('data-theme', isDark ? '' : 'dark');
