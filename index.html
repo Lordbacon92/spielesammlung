@@ -1086,7 +1086,7 @@
   <button class="ctx-menu-item ctx-common" onclick="ctxSetRarity('common')"><span class="ctx-dot"></span> H&#228;ufig</button>
   <button class="ctx-menu-item ctx-reset"  onclick="ctxSetRarity(null)">    <span class="ctx-dot"></span> Zur&#252;cksetzen</button>
   <div class="ctx-separator"></div>
-  <button class="ctx-menu-item ctx-note"   onclick="ctxOpenNote()">&#128203; Notiz bearbeiten</button>
+  <button class="ctx-menu-item ctx-note"   onclick="event.stopPropagation();ctxOpenNote()">&#128203; Notiz bearbeiten</button>
 </div>
 <div id="ctxNotePopup" style="display:none">
   <div class="ctx-note-title" id="ctxNoteTitle">Notiz</div>
@@ -1792,7 +1792,7 @@ function ctxSetRarity(rarity) {
 
 function ctxOpenNote() {
   if (ctxIndex === null) return;
-  const savedIndex = ctxIndex; // save before closeRarityMenu resets it
+  const savedIndex = ctxIndex;
   const name = getTabData()[currentPlatform][savedIndex];
   const note = getNote(name, currentPlatform);
   const safe = name.length > 30 ? name.slice(0, 28) + '...' : name;
@@ -1801,27 +1801,25 @@ function ctxOpenNote() {
   const menu  = document.getElementById('rarityContextMenu');
   const menuRect = menu.getBoundingClientRect();
 
+  // Hide menu without nulling ctxIndex
+  menu.style.display = 'none';
+
   document.getElementById('ctxNoteTitle').textContent = safe;
   document.getElementById('ctxNoteTextarea').value = note;
 
-  closeRarityMenu();
-  ctxIndex = savedIndex; // restore after closeRarityMenu nulled it
-
-  // Use setTimeout to open AFTER the click event has fully propagated
-  // (otherwise the global click handler closes it immediately)
   const pw = 260, ph = 160;
   let x = menuRect.left, y = menuRect.top;
   if (x + pw > window.innerWidth)  x = window.innerWidth - pw - 8;
   if (y + ph > window.innerHeight) y = window.innerHeight - ph - 8;
+  popup.style.left = x + 'px';
+  popup.style.top  = y + 'px';
+  popup.style.display = 'block';
+  ctxIndex = savedIndex;
 
   setTimeout(function() {
-    ctxIndex = savedIndex;
-    popup.style.display = 'block';
-    popup.style.left = x + 'px';
-    popup.style.top  = y + 'px';
     const ta = document.getElementById('ctxNoteTextarea');
     if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
-  }, 10);
+  }, 30);
 }
 
 function ctxSaveNote() {
