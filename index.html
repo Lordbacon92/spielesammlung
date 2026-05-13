@@ -601,6 +601,87 @@
   .modal-btn.cancel { border-color: var(--border); color: var(--text-dim); }
   .modal-btn.cancel:hover { background: var(--bg2); }
 
+  /* ── SWIPE RARITY ── */
+  .game-item-wrap {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    margin-bottom: 5px;
+  }
+
+  .swipe-actions {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: stretch;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    z-index: 2;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    overflow: hidden;
+  }
+
+  .game-item-wrap.swiped .swipe-actions {
+    transform: translateX(0);
+  }
+
+  .game-item-wrap.swiped .game-item {
+    transform: translateX(-162px);
+  }
+
+  .game-item {
+    transition: transform 0.25s ease, box-shadow 0.15s;
+    margin-bottom: 0;
+    position: relative;
+    z-index: 1;
+    width: 100%;
+  }
+
+  .swipe-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 54px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #fff;
+    gap: 4px;
+    transition: filter 0.15s;
+  }
+  .swipe-btn:hover { filter: brightness(1.15); }
+  .swipe-btn:active { filter: brightness(0.9); }
+
+  .swipe-btn .swipe-icon { font-size: 18px; line-height: 1; }
+
+  .swipe-btn.rare   { background: #c0392b; }
+  .swipe-btn.medium { background: #d4a017; }
+  .swipe-btn.common { background: #27ae60; }
+
+  /* Rarity badge on the game item */
+  .rarity-badge {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+  .rarity-badge.rare   { background: rgba(192,57,43,0.15); color: #c0392b; border: 1px solid rgba(192,57,43,0.3); }
+  .rarity-badge.medium { background: rgba(212,160,23,0.15); color: #b8860b; border: 1px solid rgba(212,160,23,0.3); }
+  .rarity-badge.common { background: rgba(39,174,96,0.15);  color: #27ae60; border: 1px solid rgba(39,174,96,0.3); }
+  [data-theme="dark"] .rarity-badge.rare   { color: #e05040; }
+  [data-theme="dark"] .rarity-badge.medium { color: #f0b429; }
+  [data-theme="dark"] .rarity-badge.common { color: #2ecc71; }
+
   /* ── FOOTER ── */
   footer { text-align: center; padding: 32px 20px; color: var(--text-dim); font-size: 13px; letter-spacing: 1px; border-top: 2px dashed var(--border); margin-top: 40px; font-family: 'VT323', monospace; font-size: 16px; position: relative; z-index: 1; }
 
@@ -1041,6 +1122,27 @@ function ebayUrl(name, platform) {
   return 'https://www.ebay.de/sch/i.html?_nkw=' + query + '&LH_Sold=1&LH_Complete=1&LH_Auction=1';
 }
 
+function getRarityBadge(name, platform) {
+  const key = 'rarity::' + platform + '::' + name;
+  return localStorage.getItem(key) || null;
+}
+
+function setRarity(index, rarity) {
+  const name = getTabData()[currentPlatform][index];
+  const key = 'rarity::' + currentPlatform + '::' + name;
+  localStorage.setItem(key, rarity);
+  const label = rarity === 'rare' ? 'Selten' : rarity === 'medium' ? 'Medium' : 'Haeufig';
+  showToast('"' + name + '" -> ' + label);
+  const wrap = document.getElementById('giw-' + index);
+  if (wrap) wrap.classList.remove('swiped');
+  const badge = document.getElementById('gbadge-' + index);
+  if (badge) {
+    badge.className = 'rarity-badge ' + rarity;
+    badge.textContent = label;
+    badge.style.display = '';
+  }
+}
+
 function gameItemHtml(name, index, cfg) {
   const safe = name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const soldUrl = ebayUrl(name, cfg.label);
@@ -1051,24 +1153,43 @@ function gameItemHtml(name, index, cfg) {
     ? '<button class="icon-btn move-btn" title="Zu Haben verschieben" onclick="moveToHaben(' + index + ')">&#10003;</button>'
     : '';
 
-  return '<div class="game-item ' + cfg.css + '" id="gi-' + index + '">' +
-    '<span class="game-bullet ' + cfg.css + '"></span>' +
-    '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
-    '<a class="scan-btn" href="' + auctionUrl + '" target="_blank" title="Laufende Auktionen">Auktion</a>' +
-    '<a class="scan-btn sofort-btn" href="' + binUrl + '" target="_blank" title="Sofortkauf">Sofortkauf</a>' +
-    moveBtn +
-    '<span class="game-actions">' +
-      '<button class="icon-btn" title="Bearbeiten" onclick="startEdit(' + index + ')">&#9999;&#65039;</button>' +
-      '<button class="icon-btn del" title="Loeschen" onclick="deleteGame(' + index + ')">&#10005;</button>' +
-    '</span>' +
-  '</div>';
+  const rarityVal = getRarityBadge(name, currentPlatform);
+  const rarityLabel = rarityVal === 'rare' ? 'Selten' : rarityVal === 'medium' ? 'Medium' : rarityVal === 'common' ? 'Haeufig' : '';
+  const badgeHtml = rarityVal
+    ? '<span class="rarity-badge ' + rarityVal + '" id="gbadge-' + index + '">' + rarityLabel + '</span>'
+    : '<span class="rarity-badge" id="gbadge-' + index + '" style="display:none"></span>';
+
+  const itemHtml =
+    '<div class="game-item ' + cfg.css + '" id="gi-' + index + '">' +
+      '<span class="game-bullet ' + cfg.css + '"></span>' +
+      '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
+      badgeHtml +
+      '<a class="scan-btn" href="' + auctionUrl + '" target="_blank" title="Laufende Auktionen">Auktion</a>' +
+      '<a class="scan-btn sofort-btn" href="' + binUrl + '" target="_blank" title="Sofortkauf">Sofortkauf</a>' +
+      moveBtn +
+      '<span class="game-actions">' +
+        '<button class="icon-btn" title="Bearbeiten" onclick="startEdit(' + index + ')">&#9999;&#65039;</button>' +
+        '<button class="icon-btn del" title="Loeschen" onclick="deleteGame(' + index + ')">&#10005;</button>' +
+      '</span>' +
+    '</div>';
+
+  const swipeHtml =
+    '<div class="swipe-actions">' +
+      '<button class="swipe-btn rare" onclick="setRarity(' + index + ',\'rare\')"><span class="swipe-icon">&#128308;</span>Selten</button>' +
+      '<button class="swipe-btn medium" onclick="setRarity(' + index + ',\'medium\')"><span class="swipe-icon">&#128993;</span>Medium</button>' +
+      '<button class="swipe-btn common" onclick="setRarity(' + index + ',\'common\')"><span class="swipe-icon">&#128994;</span>Haeufig</button>' +
+    '</div>';
+
+  return '<div class="game-item-wrap" id="giw-' + index + '">' + itemHtml + swipeHtml + '</div>';
 }
 
 function startEdit(index) {
   const currentName = getTabData()[currentPlatform][index];
   const cfg = platforms[currentPlatform] || {css:'c-parts'};
+  const wrap = document.getElementById('giw-' + index);
   const item = document.getElementById('gi-' + index);
   if (!item) return;
+  if (wrap) wrap.classList.remove('swiped');
   const safe = currentName.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
   item.innerHTML =
     '<span class="game-bullet ' + cfg.css + '"></span>' +
@@ -1323,6 +1444,56 @@ async function moveToHaben(index) {
     showToast('Fehler: ' + e.message, true);
   }
 }
+
+// ── Swipe-to-reveal (touch) ────────────────────────────────────────────────
+(function() {
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let activeWrap = null;
+
+  function getWrap(el) {
+    while (el && el !== document.body) {
+      if (el.classList && el.classList.contains('game-item-wrap')) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function closeAll(except) {
+    document.querySelectorAll('.game-item-wrap.swiped').forEach(function(w) {
+      if (w !== except) w.classList.remove('swiped');
+    });
+  }
+
+  document.addEventListener('touchstart', function(e) {
+    const wrap = getWrap(e.target);
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    activeWrap = wrap;
+  }, { passive: true });
+
+  document.addEventListener('touchend', function(e) {
+    if (!activeWrap) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) < Math.abs(dy) * 1.5) return; // more vertical than horizontal
+    if (dx < -40) {
+      // swipe left: close
+      activeWrap.classList.remove('swiped');
+    } else if (dx > 40) {
+      // swipe right: open
+      closeAll(activeWrap);
+      activeWrap.classList.add('swiped');
+    }
+    activeWrap = null;
+  }, { passive: true });
+
+  // Close on tap outside
+  document.addEventListener('touchstart', function(e) {
+    const wrap = getWrap(e.target);
+    if (!wrap) closeAll(null);
+  }, { passive: true });
+})();
 
 // ── Start ──────────────────────────────────────────────────────────────────────────
 function doEbayCheck() {
