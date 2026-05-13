@@ -1792,7 +1792,8 @@ function ctxSetRarity(rarity) {
 
 function ctxOpenNote() {
   if (ctxIndex === null) return;
-  const name = getTabData()[currentPlatform][ctxIndex];
+  const savedIndex = ctxIndex; // save before closeRarityMenu resets it
+  const name = getTabData()[currentPlatform][savedIndex];
   const note = getNote(name, currentPlatform);
   const safe = name.length > 30 ? name.slice(0, 28) + '...' : name;
 
@@ -1804,6 +1805,7 @@ function ctxOpenNote() {
   document.getElementById('ctxNoteTextarea').value = note;
 
   closeRarityMenu();
+  ctxIndex = savedIndex; // restore after closeRarityMenu nulled it
 
   popup.style.display = 'block';
   // position near where menu was
