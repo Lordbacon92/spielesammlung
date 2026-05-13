@@ -1770,26 +1770,36 @@ document.addEventListener('keydown', function(e) {
     const dy = e.changedTouches[0].clientY - touchStartY;
     if (Math.abs(dx) < Math.abs(dy) * 1.5) { activeWrap = null; return; }
 
+    const isRarityOpen = activeWrap.classList.contains('swiped');
+    const isNoteOpen   = activeWrap.classList.contains('note-swiped');
+
     if (dx > 40) {
-      // swipe right: show rarity buttons, close note if open
-      closeAllNote(activeWrap);
-      closeAllRarity(activeWrap);
-      if (!activeWrap.classList.contains('swiped')) {
-        activeWrap.classList.add('swiped');
-      } else {
+      // swipe right
+      if (isNoteOpen) {
+        // note is open → just close it
+        activeWrap.classList.remove('note-swiped');
+      } else if (isRarityOpen) {
+        // rarity already open → close it
         activeWrap.classList.remove('swiped');
+      } else {
+        // nothing open → open rarity
+        closeAll(activeWrap);
+        activeWrap.classList.add('swiped');
       }
     } else if (dx < -40) {
-      // swipe left: show note panel, close rarity if open
-      closeAllRarity(activeWrap);
-      closeAllNote(activeWrap);
-      if (!activeWrap.classList.contains('note-swiped')) {
+      // swipe left
+      if (isRarityOpen) {
+        // rarity is open → just close it
+        activeWrap.classList.remove('swiped');
+      } else if (isNoteOpen) {
+        // note already open → close it
+        activeWrap.classList.remove('note-swiped');
+      } else {
+        // nothing open → open note
+        closeAll(activeWrap);
         activeWrap.classList.add('note-swiped');
-        // focus textarea
         const ta = activeWrap.querySelector('.note-panel-textarea');
         if (ta) setTimeout(function(){ ta.focus(); }, 300);
-      } else {
-        activeWrap.classList.remove('note-swiped');
       }
     }
     activeWrap = null;
