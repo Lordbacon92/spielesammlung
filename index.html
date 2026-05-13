@@ -699,6 +699,56 @@
     transform: translateX(216px);
   }
 
+  /* Note panel slides in from right on swipe-left */
+  .note-panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 216px;
+    display: flex;
+    align-items: stretch;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 2;
+    overflow: hidden;
+  }
+
+  .game-item-wrap.note-swiped .note-panel {
+    transform: translateX(0);
+  }
+
+  .game-item-wrap.note-swiped .game-item {
+    transform: translateX(-216px);
+  }
+
+  .note-panel-inner {
+    flex: 1;
+    background: var(--bg2);
+    border-left: 3px solid var(--accent2);
+    display: flex;
+    flex-direction: column;
+    padding: 6px 8px;
+  }
+
+  .note-panel-textarea {
+    flex: 1;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 8px;
+    resize: none;
+    outline: none;
+    min-height: 44px;
+    transition: border-color 0.2s;
+  }
+  .note-panel-textarea:focus { border-color: var(--accent2); }
+  .note-panel-textarea::placeholder { color: var(--text-dim); font-size: 11px; }
+
   .game-item {
     transition: transform 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.15s;
     margin-bottom: 0;
@@ -743,48 +793,14 @@
   [data-theme="dark"] .game-item-wrap.rarity-common .game-item { border-left-color: #2ecc71; border-right-color: #2ecc71; background: rgba(46,204,113,0.08); }
 
   /* ── NOTES ── */
-  .note-area {
-    display: none;
-    padding: 6px 12px 8px 24px;
-    background: var(--bg2);
-    border-left: 4px solid;
-    border-radius: 0 0 var(--radius) var(--radius);
-    margin-top: -4px;
-    animation: fadeIn 0.15s ease;
-  }
-  .game-item-wrap.note-open .note-area { display: block; }
-  .game-item-wrap.note-open .game-item { border-radius: 0 var(--radius) 0 0; }
-
-  .note-textarea {
-    width: 100%;
-    background: var(--surface);
-    border: 1.5px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-family: 'Nunito', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 6px 10px;
-    resize: none;
-    outline: none;
-    min-height: 54px;
-    transition: border-color 0.2s;
-    box-sizing: border-box;
-  }
-  .note-textarea:focus { border-color: var(--accent2); }
-  .note-textarea::placeholder { color: var(--text-dim); }
-
   .note-indicator {
     font-size: 12px;
-    cursor: pointer;
     opacity: 0.7;
     flex-shrink: 0;
     line-height: 1;
     padding: 2px 3px;
     border-radius: 4px;
-    transition: opacity 0.15s;
   }
-  .note-indicator:hover { opacity: 1; }
 
   /* ── CONTEXT MENU ── */
   #rarityContextMenu {
@@ -1357,16 +1373,6 @@ function saveNote(index) {
   if (ind) { ind.style.display = val ? 'inline' : 'none'; }
 }
 
-function toggleNote(index) {
-  const wrap = document.getElementById('giw-' + index);
-  if (!wrap) return;
-  const isOpen = wrap.classList.toggle('note-open');
-  if (isOpen) {
-    const ta = document.getElementById('note-ta-' + index);
-    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
-  }
-}
-
 function gameItemHtml(name, index, cfg) {
   const safe = name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const soldUrl = ebayUrl(name, cfg.label);
@@ -1388,20 +1394,21 @@ function gameItemHtml(name, index, cfg) {
     '<div class="game-item ' + cfg.css + '" id="gi-' + index + '">' +
       '<span class="game-bullet ' + cfg.css + '"></span>' +
       '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
-      '<span class="note-indicator" id="note-ind-' + index + '" style="' + noteIndStyle + '" onclick="toggleNote(' + index + ')" title="Notiz">&#128203;</span>' +
+      '<span class="note-indicator" id="note-ind-' + index + '" style="' + noteIndStyle + '" title="Notiz vorhanden">&#128203;</span>' +
       '<a class="scan-btn" href="' + auctionUrl + '" target="_blank" title="Laufende Auktionen">Auktion</a>' +
       '<a class="scan-btn sofort-btn" href="' + binUrl + '" target="_blank" title="Sofortkauf">Sofortkauf</a>' +
       moveBtn +
       '<span class="game-actions">' +
-        '<button class="icon-btn" title="Notiz" onclick="toggleNote(' + index + ')">&#128203;</button>' +
         '<button class="icon-btn" title="Bearbeiten" onclick="startEdit(' + index + ')">&#9999;&#65039;</button>' +
         '<button class="icon-btn del" title="Loeschen" onclick="deleteGame(' + index + ')">&#10005;</button>' +
       '</span>' +
     '</div>';
 
-  const noteHtml =
-    '<div class="note-area ' + cfg.css + '" id="note-' + index + '">' +
-      '<textarea class="note-textarea" id="note-ta-' + index + '" placeholder="Notiz hinzufuegen..." oninput="saveNote(' + index + ')">' + noteSafe + '</textarea>' +
+  const notePanelHtml =
+    '<div class="note-panel" id="note-' + index + '">' +
+      '<div class="note-panel-inner">' +
+        '<textarea class="note-panel-textarea" id="note-ta-' + index + '" placeholder="Notiz..." oninput="saveNote(' + index + ')">' + noteSafe + '</textarea>' +
+      '</div>' +
     '</div>';
 
   const swipeHtml =
@@ -1412,7 +1419,7 @@ function gameItemHtml(name, index, cfg) {
       '<button class="swipe-btn clear"  onclick="setRarity(' + index + ',null)"><span class="swipe-icon">&#10006;</span>Reset</button>' +
     '</div>';
 
-  return '<div class="game-item-wrap' + rarityClass + '" id="giw-' + index + '" oncontextmenu="openRarityMenu(event,' + index + ')">' + itemHtml + noteHtml + swipeHtml + '</div>';
+  return '<div class="game-item-wrap' + rarityClass + '" id="giw-' + index + '" oncontextmenu="openRarityMenu(event,' + index + ')">' + itemHtml + notePanelHtml + swipeHtml + '</div>';
 }
 
 
@@ -1718,6 +1725,8 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ── Swipe-to-reveal (touch) ────────────────────────────────────────────────
+// Swipe RIGHT → rarity buttons (from left)
+// Swipe LEFT  → note panel (from right)
 (function() {
   let touchStartX = 0;
   let touchStartY = 0;
@@ -1731,10 +1740,21 @@ document.addEventListener('keydown', function(e) {
     return null;
   }
 
-  function closeAll(except) {
+  function closeAllRarity(except) {
     document.querySelectorAll('.game-item-wrap.swiped').forEach(function(w) {
       if (w !== except) w.classList.remove('swiped');
     });
+  }
+
+  function closeAllNote(except) {
+    document.querySelectorAll('.game-item-wrap.note-swiped').forEach(function(w) {
+      if (w !== except) w.classList.remove('note-swiped');
+    });
+  }
+
+  function closeAll(except) {
+    closeAllRarity(except);
+    closeAllNote(except);
   }
 
   document.addEventListener('touchstart', function(e) {
@@ -1748,14 +1768,29 @@ document.addEventListener('keydown', function(e) {
     if (!activeWrap) return;
     const dx = e.changedTouches[0].clientX - touchStartX;
     const dy = e.changedTouches[0].clientY - touchStartY;
-    if (Math.abs(dx) < Math.abs(dy) * 1.5) return; // more vertical than horizontal
-    if (dx < -40) {
-      // swipe left: close
-      activeWrap.classList.remove('swiped');
-    } else if (dx > 40) {
-      // swipe right: open
-      closeAll(activeWrap);
-      activeWrap.classList.add('swiped');
+    if (Math.abs(dx) < Math.abs(dy) * 1.5) { activeWrap = null; return; }
+
+    if (dx > 40) {
+      // swipe right: show rarity buttons, close note if open
+      closeAllNote(activeWrap);
+      closeAllRarity(activeWrap);
+      if (!activeWrap.classList.contains('swiped')) {
+        activeWrap.classList.add('swiped');
+      } else {
+        activeWrap.classList.remove('swiped');
+      }
+    } else if (dx < -40) {
+      // swipe left: show note panel, close rarity if open
+      closeAllRarity(activeWrap);
+      closeAllNote(activeWrap);
+      if (!activeWrap.classList.contains('note-swiped')) {
+        activeWrap.classList.add('note-swiped');
+        // focus textarea
+        const ta = activeWrap.querySelector('.note-panel-textarea');
+        if (ta) setTimeout(function(){ ta.focus(); }, 300);
+      } else {
+        activeWrap.classList.remove('note-swiped');
+      }
     }
     activeWrap = null;
   }, { passive: true });
