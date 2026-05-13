@@ -628,7 +628,7 @@
   }
 
   .game-item-wrap.swiped .game-item {
-    transform: translateX(-162px);
+    transform: translateX(-216px);
   }
 
   .game-item {
@@ -664,23 +664,15 @@
   .swipe-btn.rare   { background: #c0392b; }
   .swipe-btn.medium { background: #d4a017; }
   .swipe-btn.common { background: #27ae60; }
+  .swipe-btn.clear  { background: #7f8c8d; }
 
-  /* Rarity badge on the game item */
-  .rarity-badge {
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-    padding: 1px 6px;
-    border-radius: 4px;
-    flex-shrink: 0;
-    text-transform: uppercase;
-  }
-  .rarity-badge.rare   { background: rgba(192,57,43,0.15); color: #c0392b; border: 1px solid rgba(192,57,43,0.3); }
-  .rarity-badge.medium { background: rgba(212,160,23,0.15); color: #b8860b; border: 1px solid rgba(212,160,23,0.3); }
-  .rarity-badge.common { background: rgba(39,174,96,0.15);  color: #27ae60; border: 1px solid rgba(39,174,96,0.3); }
-  [data-theme="dark"] .rarity-badge.rare   { color: #e05040; }
-  [data-theme="dark"] .rarity-badge.medium { color: #f0b429; }
-  [data-theme="dark"] .rarity-badge.common { color: #2ecc71; }
+  /* ── SWIPE RARITY BORDERS ── */
+  .game-item-wrap.rarity-rare   .game-item { border-right: 4px solid #c0392b; box-shadow: inset 0 0 0 1.5px rgba(192,57,43,0.25), var(--shadow); }
+  .game-item-wrap.rarity-medium .game-item { border-right: 4px solid #d4a017; box-shadow: inset 0 0 0 1.5px rgba(212,160,23,0.25), var(--shadow); }
+  .game-item-wrap.rarity-common .game-item { border-right: 4px solid #27ae60; box-shadow: inset 0 0 0 1.5px rgba(39,174,96,0.25), var(--shadow); }
+  [data-theme="dark"] .game-item-wrap.rarity-rare   .game-item { border-right-color: #e05040; box-shadow: inset 0 0 0 1.5px rgba(224,80,64,0.3), var(--shadow); }
+  [data-theme="dark"] .game-item-wrap.rarity-medium .game-item { border-right-color: #f0b429; box-shadow: inset 0 0 0 1.5px rgba(240,180,41,0.3), var(--shadow); }
+  [data-theme="dark"] .game-item-wrap.rarity-common .game-item { border-right-color: #2ecc71; box-shadow: inset 0 0 0 1.5px rgba(46,204,113,0.3), var(--shadow); }
 
   /* ── FOOTER ── */
   footer { text-align: center; padding: 32px 20px; color: var(--text-dim); font-size: 13px; letter-spacing: 1px; border-top: 2px dashed var(--border); margin-top: 40px; font-family: 'VT323', monospace; font-size: 16px; position: relative; z-index: 1; }
@@ -1122,25 +1114,28 @@ function ebayUrl(name, platform) {
   return 'https://www.ebay.de/sch/i.html?_nkw=' + query + '&LH_Sold=1&LH_Complete=1&LH_Auction=1';
 }
 
-function getRarityBadge(name, platform) {
-  const key = 'rarity::' + platform + '::' + name;
-  return localStorage.getItem(key) || null;
+function getRarity(name, platform) {
+  return localStorage.getItem('rarity::' + platform + '::' + name) || null;
 }
 
 function setRarity(index, rarity) {
   const name = getTabData()[currentPlatform][index];
   const key = 'rarity::' + currentPlatform + '::' + name;
-  localStorage.setItem(key, rarity);
-  const label = rarity === 'rare' ? 'Selten' : rarity === 'medium' ? 'Medium' : 'Haeufig';
-  showToast('"' + name + '" -> ' + label);
   const wrap = document.getElementById('giw-' + index);
-  if (wrap) wrap.classList.remove('swiped');
-  const badge = document.getElementById('gbadge-' + index);
-  if (badge) {
-    badge.className = 'rarity-badge ' + rarity;
-    badge.textContent = label;
-    badge.style.display = '';
+  if (rarity === null) {
+    localStorage.removeItem(key);
+    if (wrap) { wrap.classList.remove('rarity-rare','rarity-medium','rarity-common'); }
+    showToast('"' + name + '" Seltenheit entfernt');
+  } else {
+    localStorage.setItem(key, rarity);
+    if (wrap) {
+      wrap.classList.remove('rarity-rare','rarity-medium','rarity-common');
+      wrap.classList.add('rarity-' + rarity);
+    }
+    const label = rarity === 'rare' ? 'Selten' : rarity === 'medium' ? 'Medium' : 'Haeufig';
+    showToast('"' + name + '" -> ' + label);
   }
+  if (wrap) wrap.classList.remove('swiped');
 }
 
 function gameItemHtml(name, index, cfg) {
@@ -1153,17 +1148,13 @@ function gameItemHtml(name, index, cfg) {
     ? '<button class="icon-btn move-btn" title="Zu Haben verschieben" onclick="moveToHaben(' + index + ')">&#10003;</button>'
     : '';
 
-  const rarityVal = getRarityBadge(name, currentPlatform);
-  const rarityLabel = rarityVal === 'rare' ? 'Selten' : rarityVal === 'medium' ? 'Medium' : rarityVal === 'common' ? 'Haeufig' : '';
-  const badgeHtml = rarityVal
-    ? '<span class="rarity-badge ' + rarityVal + '" id="gbadge-' + index + '">' + rarityLabel + '</span>'
-    : '<span class="rarity-badge" id="gbadge-' + index + '" style="display:none"></span>';
+  const rarityVal = getRarity(name, currentPlatform);
+  const rarityClass = rarityVal ? ' rarity-' + rarityVal : '';
 
   const itemHtml =
     '<div class="game-item ' + cfg.css + '" id="gi-' + index + '">' +
       '<span class="game-bullet ' + cfg.css + '"></span>' +
       '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
-      badgeHtml +
       '<a class="scan-btn" href="' + auctionUrl + '" target="_blank" title="Laufende Auktionen">Auktion</a>' +
       '<a class="scan-btn sofort-btn" href="' + binUrl + '" target="_blank" title="Sofortkauf">Sofortkauf</a>' +
       moveBtn +
@@ -1175,12 +1166,13 @@ function gameItemHtml(name, index, cfg) {
 
   const swipeHtml =
     '<div class="swipe-actions">' +
-      '<button class="swipe-btn rare" onclick="setRarity(' + index + ',\'rare\')"><span class="swipe-icon">&#128308;</span>Selten</button>' +
+      '<button class="swipe-btn rare"   onclick="setRarity(' + index + ',\'rare\')"><span class="swipe-icon">&#128308;</span>Selten</button>' +
       '<button class="swipe-btn medium" onclick="setRarity(' + index + ',\'medium\')"><span class="swipe-icon">&#128993;</span>Medium</button>' +
       '<button class="swipe-btn common" onclick="setRarity(' + index + ',\'common\')"><span class="swipe-icon">&#128994;</span>Haeufig</button>' +
+      '<button class="swipe-btn clear"  onclick="setRarity(' + index + ',null)"><span class="swipe-icon">&#10006;</span>Reset</button>' +
     '</div>';
 
-  return '<div class="game-item-wrap" id="giw-' + index + '">' + itemHtml + swipeHtml + '</div>';
+  return '<div class="game-item-wrap' + rarityClass + '" id="giw-' + index + '">' + itemHtml + swipeHtml + '</div>';
 }
 
 function startEdit(index) {
