@@ -860,6 +860,76 @@
   .ctx-menu-item.ctx-rare:hover   { background: rgba(192,57,43,0.1); }
   .ctx-menu-item.ctx-medium:hover { background: rgba(212,160,23,0.1); }
   .ctx-menu-item.ctx-common:hover { background: rgba(39,174,96,0.1); }
+  .ctx-menu-item.ctx-note { color: var(--text); }
+
+  .ctx-separator {
+    height: 1px;
+    background: var(--border);
+    margin: 3px 0;
+  }
+
+  #ctxNotePopup {
+    position: fixed;
+    z-index: 99999;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: 12px;
+    width: 260px;
+    animation: fadeIn 0.15s ease;
+  }
+
+  .ctx-note-title {
+    font-family: 'VT323', monospace;
+    font-size: 15px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ctx-note-textarea {
+    width: 100%;
+    background: var(--bg2);
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 10px;
+    resize: none;
+    outline: none;
+    height: 80px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+  }
+  .ctx-note-textarea:focus { border-color: var(--accent2); }
+  .ctx-note-textarea::placeholder { color: var(--text-dim); }
+
+  .ctx-note-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    justify-content: flex-end;
+  }
+
+  .ctx-note-btn {
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: none;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .ctx-note-btn:hover { filter: brightness(1.15); }
+  .ctx-note-save   { background: var(--accent2); color: #fff; }
+  .ctx-note-cancel { background: var(--bg2); color: var(--text); border: 1.5px solid var(--border); }
 
   /* ── FOOTER ── */
   footer { text-align: center; padding: 32px 20px; color: var(--text-dim); font-size: 13px; letter-spacing: 1px; border-top: 2px dashed var(--border); margin-top: 40px; font-family: 'VT323', monospace; font-size: 16px; position: relative; z-index: 1; }
@@ -1049,6 +1119,16 @@
   <button class="ctx-menu-item ctx-medium" onclick="ctxSetRarity('medium')"><span class="ctx-dot"></span> Medium</button>
   <button class="ctx-menu-item ctx-common" onclick="ctxSetRarity('common')"><span class="ctx-dot"></span> H&#228;ufig</button>
   <button class="ctx-menu-item ctx-reset"  onclick="ctxSetRarity(null)">    <span class="ctx-dot"></span> Zur&#252;cksetzen</button>
+  <div class="ctx-separator"></div>
+  <button class="ctx-menu-item ctx-note"   onclick="ctxOpenNote()">&#128203; Notiz bearbeiten</button>
+</div>
+<div id="ctxNotePopup" style="display:none">
+  <div class="ctx-note-title" id="ctxNoteTitle">Notiz</div>
+  <textarea class="ctx-note-textarea" id="ctxNoteTextarea" placeholder="Notiz hinzuf&#252;gen..."></textarea>
+  <div class="ctx-note-actions">
+    <button class="ctx-note-btn ctx-note-save" onclick="ctxSaveNote()">Speichern</button>
+    <button class="ctx-note-btn ctx-note-cancel" onclick="ctxCloseNote()">Abbrechen</button>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -1717,12 +1797,66 @@ function ctxSetRarity(rarity) {
   closeRarityMenu();
 }
 
+function ctxOpenNote() {
+  if (ctxIndex === null) return;
+  const name = getTabData()[currentPlatform][ctxIndex];
+  const note = getNote(name, currentPlatform);
+  const safe = name.length > 30 ? name.slice(0, 28) + '...' : name;
+
+  const popup = document.getElementById('ctxNotePopup');
+  const menu  = document.getElementById('rarityContextMenu');
+  const menuRect = menu.getBoundingClientRect();
+
+  document.getElementById('ctxNoteTitle').textContent = safe;
+  document.getElementById('ctxNoteTextarea').value = note;
+
+  closeRarityMenu();
+
+  popup.style.display = 'block';
+  // position near where menu was
+  const pw = 260, ph = 160;
+  let x = menuRect.left, y = menuRect.top;
+  if (x + pw > window.innerWidth)  x = window.innerWidth - pw - 8;
+  if (y + ph > window.innerHeight) y = window.innerHeight - ph - 8;
+  popup.style.left = x + 'px';
+  popup.style.top  = y + 'px';
+
+  setTimeout(function() {
+    const ta = document.getElementById('ctxNoteTextarea');
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  }, 50);
+}
+
+function ctxSaveNote() {
+  if (ctxIndex === null) return;
+  const name = getTabData()[currentPlatform][ctxIndex];
+  const key  = 'note::' + currentPlatform + '::' + name;
+  const val  = document.getElementById('ctxNoteTextarea').value.trim();
+  if (val) { localStorage.setItem(key, val); } else { localStorage.removeItem(key); }
+  // update indicator in DOM
+  const ind = document.getElementById('note-ind-' + ctxIndex);
+  if (ind) { ind.style.display = val ? 'inline' : 'none'; }
+  ctxCloseNote();
+  showToast(val ? 'Notiz gespeichert' : 'Notiz gelöscht');
+}
+
+function ctxCloseNote() {
+  document.getElementById('ctxNotePopup').style.display = 'none';
+  ctxIndex = null;
+}
+
 document.addEventListener('click', function(e) {
-  const menu = document.getElementById('rarityContextMenu');
-  if (menu && !menu.contains(e.target)) closeRarityMenu();
+  const menu   = document.getElementById('rarityContextMenu');
+  const popup  = document.getElementById('ctxNotePopup');
+  if (menu  && !menu.contains(e.target))  closeRarityMenu();
+  if (popup && !popup.contains(e.target) && popup.style.display !== 'none') ctxCloseNote();
 });
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeRarityMenu();
+  if (e.key === 'Escape') { closeRarityMenu(); ctxCloseNote(); }
+  if (e.key === 'Enter' && e.ctrlKey) {
+    const popup = document.getElementById('ctxNotePopup');
+    if (popup && popup.style.display !== 'none') ctxSaveNote();
+  }
 });
 
 // ── Swipe-to-reveal (touch) ────────────────────────────────────────────────
