@@ -1100,7 +1100,7 @@
 <div id="toast"></div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwD2Divo1cIekiOMAr7TtwUof24OTQcn8gb-czYmtcFN5qVRY_zxsd8qeZDd2Wl2JKg/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzMZXeOIKEXkmYs2Exfnjd8TXHxCags3B-S_PA5OatwoGJ4WSRohfyio76UuvWWCO-P/exec";
 
 const platforms = {
   "Atari":        {css:"c-atari",      label:"Atari 2600",      img:"img/atari.png",      color:"#D4874A"},
@@ -1171,7 +1171,11 @@ async function init() {
   }, 5000);
 
   try {
-    data = await apiGet();
+    const loaded = await apiGet();
+    // Separate meta from game data
+    metaCache = loaded['Meta'] || {};
+    delete loaded['Meta'];
+    data = loaded;
     clearInterval(ticker);
     clearTimeout(warnTimer);
     if (bar) bar.style.width = '100%';
@@ -1368,20 +1372,40 @@ function ebayUrl(name, platform) {
   return 'https://www.ebay.de/sch/i.html?_nkw=' + query + '&LH_Sold=1&LH_Complete=1&LH_Auction=1';
 }
 
+// ── Meta (rarity + notes) – synced via Google Sheet ─────────────────────────
+// metaCache: { "platform::game": { rarity, note } }
+let metaCache = {};
+
+function metaKey(name, platform) { return platform + '::' + name; }
+
 function getRarity(name, platform) {
-  return localStorage.getItem('rarity::' + platform + '::' + name) || null;
+  const m = metaCache[metaKey(name, platform)];
+  return m ? (m.rarity || null) : null;
+}
+
+function getNote(name, platform) {
+  const m = metaCache[metaKey(name, platform)];
+  return m ? (m.note || '') : '';
+}
+
+async function syncMeta(platform, name, rarity, note) {
+  const k = metaKey(name, platform);
+  if (!metaCache[k]) metaCache[k] = {};
+  metaCache[k].rarity = rarity;
+  metaCache[k].note   = note !== undefined ? note : (metaCache[k].note || '');
+  try {
+    await apiPost({ action: 'setMeta', platform, game: name, rarity: rarity || '', note: metaCache[k].note });
+  } catch(e) { console.error('Meta sync failed:', e); }
 }
 
 function setRarity(index, rarity) {
   const name = getTabData()[currentPlatform][index];
-  const key = 'rarity::' + currentPlatform + '::' + name;
   const wrap = document.getElementById('giw-' + index);
+  const curNote = getNote(name, currentPlatform);
   if (rarity === null) {
-    localStorage.removeItem(key);
     if (wrap) { wrap.classList.remove('rarity-rare','rarity-medium','rarity-common'); }
     showToast('"' + name + '" Seltenheit entfernt');
   } else {
-    localStorage.setItem(key, rarity);
     if (wrap) {
       wrap.classList.remove('rarity-rare','rarity-medium','rarity-common');
       wrap.classList.add('rarity-' + rarity);
@@ -1390,10 +1414,7 @@ function setRarity(index, rarity) {
     showToast('"' + name + '" -> ' + label);
   }
   if (wrap) wrap.classList.remove('swiped');
-}
-
-function getNote(name, platform) {
-  return localStorage.getItem('note::' + platform + '::' + name) || '';
+  syncMeta(currentPlatform, name, rarity, curNote);
 }
 
 function saveNote(index) {
@@ -1401,10 +1422,10 @@ function saveNote(index) {
   const ta = document.getElementById('note-ta-' + index);
   if (!ta) return;
   const val = ta.value.trim();
-  const key = 'note::' + currentPlatform + '::' + name;
-  if (val) { localStorage.setItem(key, val); } else { localStorage.removeItem(key); }
+  const curRarity = getRarity(name, currentPlatform);
   const ind = document.getElementById('note-ind-' + index);
   if (ind) { ind.style.display = val ? 'inline' : 'none'; }
+  syncMeta(currentPlatform, name, curRarity, val);
 }
 
 function gameItemHtml(name, index, cfg) {
@@ -1802,12 +1823,11 @@ function ctxOpenNote() {
 function ctxSaveNote() {
   if (ctxIndex === null) return;
   const name = getTabData()[currentPlatform][ctxIndex];
-  const key  = 'note::' + currentPlatform + '::' + name;
   const val  = document.getElementById('ctxNoteTextarea').value.trim();
-  if (val) { localStorage.setItem(key, val); } else { localStorage.removeItem(key); }
-  // update indicator in DOM
+  const curRarity = getRarity(name, currentPlatform);
   const ind = document.getElementById('note-ind-' + ctxIndex);
   if (ind) { ind.style.display = val ? 'inline' : 'none'; }
+  syncMeta(currentPlatform, name, curRarity, val);
   ctxCloseNote();
   showToast(val ? 'Notiz gespeichert' : 'Notiz gelöscht');
 }
