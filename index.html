@@ -2311,7 +2311,7 @@ function renderSchnappLinks() {
     links.push({ tag: 'tag-normal', tagText: 'eBay Marktpreis', cls: '',     desc: term + ' · verkaufte Artikel', url: 'https://www.ebay.de/sch/i.html?_nkw=' + qEnc + '&LH_Sold=1&LH_Complete=1' });
   }
   if (schnappChecked['kleinanzeigen'] !== false) {
-    links.push({ tag: 'tag-kleinanzeigen', tagText: 'Kleinanzeigen', cls: 'kleinanzeigen', desc: term + ' · Privatverkäufer', url: 'https://www.kleinanzeigen.de/s-' + qEnc.replace(/%20/g,'-') + '/k0' });
+    links.push({ tag: 'tag-kleinanzeigen', tagText: 'Kleinanzeigen', cls: 'kleinanzeigen', desc: term + ' · Privatverkäufer', url: 'https://www.kleinanzeigen.de/s-' + qEnc.replace(/%20/g,'-') + '/k0?sortierung=2' });
   }
   if (schnappChecked['vinted'] !== false) {
     links.push({ tag: 'tag-vinted', tagText: 'Vinted', cls: 'vinted', desc: term + ' · Vinted Suche', url: 'https://www.vinted.de/catalog?search_text=' + qEnc });
@@ -2387,7 +2387,7 @@ function toggleShortcutPlat(id, color) {
 function openShortcut(term, plats) {
   const enc = encodeURIComponent(term);
   if (plats.ebay)          window.open('https://www.ebay.de/sch/i.html?_nkw=' + enc + '&LH_Auction=1&_sop=1', '_blank');
-  if (plats.kleinanzeigen) window.open('https://www.kleinanzeigen.de/s-' + enc.replace(/%20/g,'-') + '/k0', '_blank');
+  if (plats.kleinanzeigen) window.open('https://www.kleinanzeigen.de/s-' + enc.replace(/%20/g,'-') + '/k0?sortierung=2', '_blank');
   if (plats.vinted)        window.open('https://www.vinted.de/catalog?search_text=' + enc, '_blank');
 }
 
