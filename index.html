@@ -454,7 +454,16 @@
   .check-btn-save { background: var(--green); border-color: var(--green); }
 
   /* Shortcut buttons */
-  .shortcut-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .shortcut-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0 12px;
+    margin-top: 12px;
+    align-items: start;
+  }
+  @media (max-width: 600px) {
+    .shortcut-list { grid-template-columns: 1fr; }
+  }
 
   .shortcut-item {
     display: flex;
@@ -462,19 +471,24 @@
     border: 1.5px solid var(--accent2);
     border-radius: var(--radius);
     overflow: hidden;
+    width: 100%;
   }
 
   .shortcut-btn {
     background: transparent;
     border: none;
     color: var(--accent2);
-    padding: 6px 14px;
+    padding: 6px 10px;
     font-family: var(--font-body);
     font-weight: 600;
     font-size: 13px;
     cursor: pointer;
     transition: all 0.15s;
     white-space: nowrap;
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .shortcut-btn:hover { background: var(--accent2); color: #fff; }
 
@@ -483,12 +497,14 @@
     border: none;
     border-left: 1.5px solid var(--accent2);
     color: var(--text-dim);
-    padding: 6px 9px;
-    font-size: 11px;
+    padding: 3px 6px;
+    font-size: 10px;
     cursor: pointer;
     transition: all 0.15s;
     display: flex;
     align-items: center;
+    line-height: 1;
+    flex-shrink: 0;
   }
   .shortcut-del:hover { background: var(--accent); border-left-color: var(--accent); color: #fff; }
 
@@ -977,6 +993,110 @@
   }
   .check-row .input-mic-wrap:focus-within { border-color: var(--purple); }
 
+  /* ── SCHNÄPPCHEN ── */
+  .schnapp-select {
+    width: 100%;
+    background: var(--surface);
+    border: 1.5px solid var(--accent);
+    color: var(--text);
+    padding: 10px 14px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    cursor: pointer;
+    border-radius: var(--radius);
+  }
+
+  .schnapp-links {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .schnapp-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    text-decoration: none;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+  .schnapp-link:hover { background: var(--surface2); transform: translateX(2px); }
+  .schnapp-link.new          { border-left-color: var(--green); }
+  .schnapp-link.kleinanzeigen { border-left-color: #00AA55; }
+  .schnapp-link.vinted        { border-left-color: #09B694; }
+
+  .schnapp-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    font-weight: 600;
+  }
+  .tag-normal        { background: rgba(192,57,43,0.15);  color: var(--accent); }
+  .tag-new           { background: rgba(30,138,74,0.15);  color: var(--green); }
+  .tag-kleinanzeigen { background: rgba(0,150,80,0.15);   color: #00AA55; }
+  .tag-vinted        { background: rgba(9,182,148,0.15);  color: #09B694; }
+  [data-theme="dark"] .tag-kleinanzeigen { color: #2EDD88; }
+  [data-theme="dark"] .tag-vinted        { color: #0FD4AA; }
+
+  .schnapp-query {
+    flex: 1;
+    opacity: 0.8;
+    font-size: 12px;
+  }
+
+  .schnapp-platforms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .schnapp-plat-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .schnapp-plat-label:hover { border-color: var(--text-dim); color: var(--text); }
+  .schnapp-plat-label input { display: none; }
+  .schnapp-plat-label.checked {
+    color: var(--bg);
+    border-color: transparent;
+  }
+
+  .schnapp-empty {
+    color: var(--text-dim);
+    font-size: 13px;
+    font-family: var(--font-mono);
+    padding: 8px 0;
+    letter-spacing: 1px;
+  }
+
   /* ── TOAST ── */
   #toast {
     position: fixed;
@@ -1101,8 +1221,11 @@
       <div class="input-mic-wrap"><input class="check-input" type="text" id="shortcutInput" placeholder="Begriff speichern..." onkeydown="if(event.key==='Enter')addShortcut()"><button class="mic-btn" onclick="startDictation('shortcutInput')" title="Diktat">&#127908;</button></div>
       <button class="check-btn check-btn-save" onclick="addShortcut()">&#43; Speichern</button>
     </div>
+    <div class="schnapp-platforms" style="margin-top:8px" id="shortcutPlatforms"></div>
     <div class="shortcut-list" id="shortcutList"></div>
   </div>
+
+
 
 </div>
 
@@ -1635,7 +1758,7 @@ function switchTab(tab) {
     if (addForm.classList.contains('open')) populateAddSelect();
     renderPlatformButtons();
   } else {
-    setTimeout(function(){ document.getElementById('checkInput').focus(); renderShortcuts(); }, 50);
+    setTimeout(function(){ document.getElementById('checkInput').focus(); renderShortcuts(); populateSchnappSelect(); }, 50);
   }
 }
 
@@ -1835,28 +1958,51 @@ function startDictation(inputId) {
   recognition.lang = 'de-DE';
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
+  recognition.continuous = false;
 
   activeRecognition = recognition;
   if (btn) btn.classList.add('listening');
 
+  // Auto-stop after 8s fallback
+  let silenceTimer = null;
+  const autoStop = setTimeout(function() {
+    if (activeRecognition) activeRecognition.stop();
+  }, 8000);
+
+  recognition.onspeechend = function() {
+    // Stop 1.5s after speech ends
+    clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(function() {
+      if (activeRecognition) activeRecognition.stop();
+    }, 1500);
+  };
+
   recognition.onresult = function(e) {
+    clearTimeout(autoStop);
+    clearTimeout(silenceTimer);
     const transcript = e.results[0][0].transcript.trim();
     input.value = transcript;
     input.focus();
     showToast('„' + transcript + '“ erkannt');
+    recognition.stop();
   };
 
   recognition.onerror = function(e) {
-    if (e.error !== 'aborted') showToast('Mikrofon-Fehler: ' + e.error);
+    clearTimeout(autoStop);
+    clearTimeout(silenceTimer);
+    if (e.error !== 'aborted' && e.error !== 'no-speech') showToast('Mikrofon-Fehler: ' + e.error);
   };
 
   recognition.onend = function() {
+    clearTimeout(autoStop);
+    clearTimeout(silenceTimer);
     activeRecognition = null;
     if (btn) btn.classList.remove('listening');
   };
 
   recognition.start();
 }
+
 
 // ── Parallax ──────────────────────────────────────────────────────────────────
 (function() {
@@ -2053,6 +2199,137 @@ document.addEventListener('keydown', function(e) {
   }, { passive: true });
 })();
 
+// ── Schnäppchen Suche ────────────────────────────────────────────────────────
+const typoMap = {
+  'playstation': ['plastation', 'playtation', 'plystation', 'playstaion'],
+  'nintendo':    ['nintento', 'nintedo', 'nientdo', 'ninendo'],
+  'gameboy':     ['game boy', 'gamboy', 'gboy'],
+  'gamecube':    ['game cube', 'gamcube', 'gamecub'],
+  'zelda':       ['zelda', 'zelad', 'zedla'],
+  'mario':       ['maro', 'mairo', 'morio'],
+  'sonic':       ['sonci', 'sonik', 'soinc'],
+  'castlevania': ['castlevaina', 'castlevainia', 'castevania'],
+  'pokemon':     ['pokémon', 'pokmon', 'pokemn', 'pokeomn'],
+  'metroid':     ['metord', 'meteoid', 'metriod'],
+  'ps1':         ['ps 1', 'psx', 'psone', 'ps one'],
+  'ps2':         ['ps 2', 'ps2 spiel'],
+  'ps3':         ['ps 3'],
+  'ps4':         ['ps 4'],
+  'ps5':         ['ps 5'],
+  'snes':        ['super nintendo', 'supernes', 'super nes'],
+  'n64':         ['nintendo 64', 'n 64', 'nintendo64'],
+  'gba':         ['game boy advance', 'gameboy advance', 'gba spiel'],
+  'amiga':       ['amgia', 'amig', 'commodore amiga'],
+  'saturn':      ['sega saturn', 'sega satrn', 'satrun'],
+  'megadrive':   ['mega drive', 'megadirve', 'sega mega'],
+};
+
+function generateTypos(query) {
+  const lower = query.toLowerCase();
+  const typos = new Set();
+  Object.keys(typoMap).forEach(function(term) {
+    if (lower.includes(term)) {
+      typoMap[term].forEach(function(t) {
+        typos.add(lower.replace(term, t));
+      });
+    }
+  });
+  // Also add common char swaps for the game title part
+  const words = lower.split(' ');
+  if (words[0] && words[0].length > 4) {
+    const w = words[0];
+    // swap last two chars
+    typos.add([w.slice(0,-2) + w.slice(-1) + w.slice(-2,-1)].concat(words.slice(1)).join(' '));
+    // drop one char in middle
+    const mid = Math.floor(w.length / 2);
+    typos.add([w.slice(0,mid) + w.slice(mid+1)].concat(words.slice(1)).join(' '));
+  }
+  // Remove original query
+  typos.delete(lower);
+  return Array.from(typos).slice(0, 4);
+}
+
+// Saved platform filter for schnäppchen search
+let schnappChecked = { ebay: true, kleinanzeigen: true, vinted: true };
+
+function populateSchnappSelect() {
+  renderSchnappPlatforms();
+  renderSchnappLinks();
+}
+
+function renderSchnappPlatforms() {
+  const wrap = document.getElementById('schnappPlatforms');
+  if (!wrap) return;
+  const plats = [
+    { id: 'ebay',          label: 'eBay',          color: '#E55C00' },
+    { id: 'kleinanzeigen', label: 'Kleinanzeigen', color: '#00AA55' },
+    { id: 'vinted',        label: 'Vinted',        color: '#09B694' }
+  ];
+  wrap.innerHTML = plats.map(function(p) {
+    const checked = schnappChecked[p.id] !== false;
+    const style = checked ? 'background:' + p.color + ';border-color:' + p.color + ';color:#fff' : '';
+    return '<label class="schnapp-plat-label' + (checked ? ' checked' : '') + '" style="' + style + '" id="lbl-' + p.id + '" onclick="toggleSchnappPlat(\'' + p.id + '\',\'' + p.color + '\')">' + p.label + '</label>';
+  }).join('');
+}
+
+function toggleSchnappPlat(id, color) {
+  schnappChecked[id] = !schnappChecked[id];
+  const lbl = document.getElementById('lbl-' + id);
+  if (lbl) {
+    if (schnappChecked[id]) {
+      lbl.classList.add('checked');
+      lbl.style.background = color;
+      lbl.style.borderColor = color;
+      lbl.style.color = '#fff';
+    } else {
+      lbl.classList.remove('checked');
+      lbl.style.background = '';
+      lbl.style.borderColor = '';
+      lbl.style.color = '';
+    }
+  }
+  renderSchnappLinks();
+}
+
+function renderSchnappLinks() {
+  const input = document.getElementById('schnappInput');
+  const container = document.getElementById('schnappLinks');
+  if (!container) return;
+  const term = input ? input.value.trim() : '';
+  if (!term) {
+    container.innerHTML = '<div class="schnapp-empty">Suchbegriff eingeben</div>';
+    return;
+  }
+  const qEnc = encodeURIComponent(term);
+  const links = [];
+
+  if (schnappChecked['ebay'] !== false) {
+    links.push({ tag: 'tag-normal', tagText: 'eBay Auktion',   cls: '',     desc: term + ' · bald endend',       url: 'https://www.ebay.de/sch/i.html?_nkw=' + qEnc + '&LH_Auction=1&_sop=1' });
+    links.push({ tag: 'tag-new',    tagText: 'eBay Neu',        cls: 'new',  desc: term + ' · neu eingestellt',   url: 'https://www.ebay.de/sch/i.html?_nkw=' + qEnc + '&LH_Auction=1&_sop=10' });
+    links.push({ tag: 'tag-normal', tagText: 'eBay Marktpreis', cls: '',     desc: term + ' · verkaufte Artikel', url: 'https://www.ebay.de/sch/i.html?_nkw=' + qEnc + '&LH_Sold=1&LH_Complete=1' });
+  }
+  if (schnappChecked['kleinanzeigen'] !== false) {
+    links.push({ tag: 'tag-kleinanzeigen', tagText: 'Kleinanzeigen', cls: 'kleinanzeigen', desc: term + ' · Privatverkäufer', url: 'https://www.kleinanzeigen.de/s-' + qEnc.replace(/%20/g,'-') + '/k0' });
+  }
+  if (schnappChecked['vinted'] !== false) {
+    links.push({ tag: 'tag-vinted', tagText: 'Vinted', cls: 'vinted', desc: term + ' · Vinted Suche', url: 'https://www.vinted.de/catalog?search_text=' + qEnc });
+  }
+
+  if (links.length === 0) {
+    container.innerHTML = '<div class="schnapp-empty">Keine Plattform ausgewählt</div>';
+    return;
+  }
+
+  container.innerHTML = links.map(function(l) {
+    return '<a class="schnapp-link ' + l.cls + '" href="' + l.url + '" target="_blank">' +
+      '<span class="schnapp-tag ' + l.tag + '">' + l.tagText + '</span>' +
+      '<span class="schnapp-query">' + l.desc.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>' +
+      '<span style="font-size:11px;opacity:0.4">&#8599;</span>' +
+    '</a>';
+  }).join('');
+}
+
+
 // ── Check Tab functions ───────────────────────────────────────────────────────
 function doEbayCheck() {
   const name = document.getElementById('checkInput').value.trim();
@@ -2068,18 +2345,56 @@ function doLiveCheck() {
   const url = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(name) + '&LH_Auction=1&_sop=1';
   window.open(url, '_blank');
 }
+// Shortcut platform selection
+let shortcutPlats = { ebay: true, kleinanzeigen: false, vinted: false };
 
-function openLiveSearch(term) {
-  const url = 'https://www.ebay.de/sch/i.html?_nkw=' + encodeURIComponent(term) + '&LH_Auction=1&_sop=1';
-  window.open(url, '_blank');
+const scPlatDefs = [
+  { id: 'ebay',          label: 'eBay',          color: '#E55C00' },
+  { id: 'kleinanzeigen', label: 'Kleinanzeigen', color: '#00AA55' },
+  { id: 'vinted',        label: 'Vinted',        color: '#09B694' }
+];
+
+function renderShortcutPlatforms() {
+  const wrap = document.getElementById('shortcutPlatforms');
+  if (!wrap) return;
+  wrap.innerHTML = scPlatDefs.map(function(p) {
+    const on = shortcutPlats[p.id] !== false;
+    const style = on ? 'background:' + p.color + ';border-color:' + p.color + ';color:#fff' : '';
+    return '<label class="schnapp-plat-label' + (on ? ' checked' : '') + '" style="' + style + '" id="sc-lbl-' + p.id + '" onclick="toggleShortcutPlat(\'' + p.id + '\',\'' + p.color + '\')">' + p.label + '</label>';
+  }).join('');
+}
+
+function toggleShortcutPlat(id, color) {
+  shortcutPlats[id] = !shortcutPlats[id];
+  const lbl = document.getElementById('sc-lbl-' + id);
+  if (lbl) {
+    if (shortcutPlats[id]) {
+      lbl.classList.add('checked');
+      lbl.style.background = color;
+      lbl.style.borderColor = color;
+      lbl.style.color = '#fff';
+    } else {
+      lbl.classList.remove('checked');
+      lbl.style.background = '';
+      lbl.style.borderColor = '';
+      lbl.style.color = '';
+    }
+  }
+}
+
+function openShortcut(term, plats) {
+  const enc = encodeURIComponent(term);
+  if (plats.ebay)          window.open('https://www.ebay.de/sch/i.html?_nkw=' + enc + '&LH_Auction=1&_sop=1', '_blank');
+  if (plats.kleinanzeigen) window.open('https://www.kleinanzeigen.de/s-' + enc.replace(/%20/g,'-') + '/k0', '_blank');
+  if (plats.vinted)        window.open('https://www.vinted.de/catalog?search_text=' + enc, '_blank');
 }
 
 function getShortcuts() {
-  try { return JSON.parse(localStorage.getItem('ebay_shortcuts') || '[]'); } catch(e) { return []; }
+  try { return JSON.parse(localStorage.getItem('ebay_shortcuts_v2') || '[]'); } catch(e) { return []; }
 }
 
 function saveShortcuts(arr) {
-  localStorage.setItem('ebay_shortcuts', JSON.stringify(arr));
+  localStorage.setItem('ebay_shortcuts_v2', JSON.stringify(arr));
 }
 
 function addShortcut() {
@@ -2087,37 +2402,67 @@ function addShortcut() {
   const term = input.value.trim();
   if (!term) { input.focus(); return; }
   const shortcuts = getShortcuts();
-  if (shortcuts.includes(term)) { showToast('Shortcut existiert bereits', true); return; }
-  shortcuts.push(term);
+  let count = 0;
+  scPlatDefs.forEach(function(p) {
+    if (!shortcutPlats[p.id]) return;
+    // one shortcut per active platform
+    const plats = { ebay: false, kleinanzeigen: false, vinted: false };
+    plats[p.id] = true;
+    shortcuts.push({ term: term, plats: plats });
+    count++;
+  });
+  if (count === 0) { showToast('Bitte mind. eine Plattform auswählen'); return; }
   saveShortcuts(shortcuts);
   input.value = '';
   renderShortcuts();
-  showToast('"' + term + '" gespeichert');
+  showToast('"' + term + '" ×' + count + ' gespeichert');
 }
 
 function deleteShortcut(term) {
-  const shortcuts = getShortcuts().filter(function(s) { return s !== term; });
+  const shortcuts = getShortcuts().filter(function(s) { return s.term !== term; });
+  saveShortcuts(shortcuts);
+  renderShortcuts();
+}
+
+function deleteShortcutAt(index) {
+  const shortcuts = getShortcuts();
+  shortcuts.splice(index, 1);
   saveShortcuts(shortcuts);
   renderShortcuts();
 }
 
 function renderShortcuts() {
+  renderShortcutPlatforms();
   const list = document.getElementById('shortcutList');
   if (!list) return;
   const shortcuts = getShortcuts();
   if (shortcuts.length === 0) {
-    list.innerHTML = '<span style="font-size:13px;color:var(--text-dim);font-family:Nunito,sans-serif;">Noch keine Shortcuts gespeichert.</span>';
+    list.innerHTML = '<div style="grid-column:1/-1;font-size:13px;color:var(--text-dim);font-family:var(--font-body);">Noch keine Shortcuts gespeichert.</div>';
     return;
   }
-  list.innerHTML = shortcuts.map(function(term) {
-    const safe = term.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const esc = term.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+
+  function makeBtn(s, idx) {
+    const safe = s.term.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const esc  = s.term.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const platsJson = JSON.stringify(s.plats || {ebay:true}).replace(/"/g,'&quot;');
     return '<div class="shortcut-item">' +
-      '<button class="shortcut-btn" onclick="openLiveSearch(\'' + esc + '\')">' + safe + '</button>' +
-      '<button class="shortcut-del" onclick="deleteShortcut(\'' + esc + '\')" title="Loeschen">&#10006;</button>' +
-      '</div>';
-  }).join('');
+      '<button class="shortcut-btn" onclick="openShortcut(\''+esc+'\','+platsJson+')">' + safe + '</button>' +
+      '<button class="shortcut-del" onclick="deleteShortcutAt('+idx+')" title="Löschen">&#10006;</button>' +
+    '</div>';
+  }
+
+  let html = '';
+  scPlatDefs.forEach(function(p) {
+    const group = shortcuts.map(function(s,i){return{s:s,i:i};}).filter(function(x){ return x.s.plats && x.s.plats[p.id]; });
+    const header = '<div style="font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:'+p.color+';text-transform:uppercase;margin-bottom:6px;padding-left:2px">'+p.label+'</div>';
+    const items = group.length > 0 ? group.map(function(x){ return makeBtn(x.s, x.i); }).join('') : '<div style="font-size:12px;color:var(--text-dim);font-family:var(--font-body);padding:4px 2px">—</div>';
+    html += '<div>' + header + items + '</div>';
+  });
+  list.innerHTML = html;
 }
+
+
+
 
 init();
 </script>
