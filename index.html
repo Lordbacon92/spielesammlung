@@ -258,6 +258,13 @@
     padding: 16px 20px 8px;
     position: relative;
     z-index: 1;
+    max-width: 600px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .search-wrap .input-mic-wrap {
+    width: 100%;
+    max-width: 400px;
   }
 
   .search-input {
@@ -916,6 +923,60 @@
   .modal-btn.confirm { background: var(--accent); color: #fff; }
   .modal-btn.cancel  { background: var(--bg2); color: var(--text); border: 1px solid var(--border); }
 
+  /* ── MIC BUTTON ── */
+  .mic-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 10px;
+    font-size: 16px;
+    color: var(--text-dim);
+    transition: color 0.15s, transform 0.15s;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    line-height: 1;
+  }
+  .mic-btn:hover { color: var(--text); }
+  .mic-btn.listening {
+    color: var(--accent);
+    animation: mic-pulse 0.8s ease-in-out infinite;
+  }
+  @keyframes mic-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.7; }
+  }
+
+  /* Wrap input+mic together */
+  .input-mic-wrap {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius) 0 0 var(--radius);
+    transition: border-color 0.2s;
+  }
+  .input-mic-wrap:focus-within { border-color: var(--text-dim); }
+  .input-mic-wrap .search-input,
+  .input-mic-wrap .check-input,
+  .input-mic-wrap .add-name-input {
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    flex: 1;
+    box-shadow: none;
+  }
+  .input-mic-wrap .search-input:focus,
+  .input-mic-wrap .check-input:focus,
+  .input-mic-wrap .add-name-input:focus { outline: none; }
+
+  /* Check-input wrap needs different border-radius since btn is separate */
+  .check-row .input-mic-wrap {
+    border-color: var(--purple);
+  }
+  .check-row .input-mic-wrap:focus-within { border-color: var(--purple); }
+
   /* ── TOAST ── */
   #toast {
     position: fixed;
@@ -1021,7 +1082,7 @@
   <div class="check-section">
     <div class="check-section-label">&#128200; Verkaufte Auktionen (Marktpreis)</div>
     <div class="check-row">
-      <input class="check-input" type="text" id="checkInput" placeholder="Spielname eingeben..." onkeydown="if(event.key==='Enter')doEbayCheck()">
+      <div class="input-mic-wrap"><input class="check-input" type="text" id="checkInput" placeholder="Spielname eingeben..." onkeydown="if(event.key==='Enter')doEbayCheck()"><button class="mic-btn" onclick="startDictation('checkInput')" title="Diktat">&#127908;</button></div>
       <button class="check-btn" onclick="doEbayCheck()">Suchen</button>
     </div>
   </div>
@@ -1029,7 +1090,7 @@
   <div class="check-section">
     <div class="check-section-label">&#9201; Laufende Auktionen (bald endend)</div>
     <div class="check-row">
-      <input class="check-input" type="text" id="liveInput" placeholder="Spielname eingeben..." onkeydown="if(event.key==='Enter')doLiveCheck()">
+      <div class="input-mic-wrap"><input class="check-input" type="text" id="liveInput" placeholder="Spielname eingeben..." onkeydown="if(event.key==='Enter')doLiveCheck()"><button class="mic-btn" onclick="startDictation('liveInput')" title="Diktat">&#127908;</button></div>
       <button class="check-btn check-btn-live" onclick="doLiveCheck()">Suchen</button>
     </div>
   </div>
@@ -1037,7 +1098,7 @@
   <div class="check-section">
     <div class="check-section-label">&#9733; Schnellsuche Shortcuts</div>
     <div class="check-row">
-      <input class="check-input" type="text" id="shortcutInput" placeholder="Begriff speichern..." onkeydown="if(event.key==='Enter')addShortcut()">
+      <div class="input-mic-wrap"><input class="check-input" type="text" id="shortcutInput" placeholder="Begriff speichern..." onkeydown="if(event.key==='Enter')addShortcut()"><button class="mic-btn" onclick="startDictation('shortcutInput')" title="Diktat">&#127908;</button></div>
       <button class="check-btn check-btn-save" onclick="addShortcut()">&#43; Speichern</button>
     </div>
     <div class="shortcut-list" id="shortcutList"></div>
@@ -1046,7 +1107,7 @@
 </div>
 
 <div class="search-wrap">
-  <input class="search-input" type="text" placeholder="Spiel suchen..." id="searchInput" onkeydown="if(event.key==='Enter')doSearch()">
+  <div class="input-mic-wrap"><input class="search-input" type="text" placeholder="Spiel suchen..." id="searchInput" onkeydown="if(event.key==='Enter')doSearch()"><button class="mic-btn" onclick="startDictation('searchInput')" title="Diktat">&#127908;</button></div>
   <button class="search-btn" onclick="doSearch()">&#128269; SUCHEN</button>
 </div>
 
@@ -1056,7 +1117,7 @@
 
 <div class="add-form" id="addForm">
   <select class="add-select" id="addPlatformSelect"></select>
-  <input class="add-name-input" type="text" id="addNameInput" placeholder="Spieltitel eingeben..." onkeydown="if(event.key==='Enter')confirmAdd()">
+  <div class="input-mic-wrap"><input class="add-name-input" type="text" id="addNameInput" placeholder="Spieltitel eingeben..." onkeydown="if(event.key==='Enter')confirmAdd()"><button class="mic-btn" onclick="startDictation('addNameInput')" title="Diktat">&#127908;</button></div>
   <button class="add-confirm-btn" id="addConfirmBtn" onclick="confirmAdd()">&#10004; EINTRAGEN</button>
 </div>
 
@@ -1746,6 +1807,55 @@ async function moveToHaben(index) {
   } catch(e) {
     showToast('Fehler: ' + e.message, true);
   }
+}
+
+// ── Dictation (Web Speech API) ────────────────────────────────────────────────
+let activeRecognition = null;
+
+function startDictation(inputId) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showToast('Diktat nicht unterstützt in diesem Browser');
+    return;
+  }
+
+  const input = document.getElementById(inputId);
+  const btn = input ? input.parentElement.querySelector('.mic-btn') : null;
+  if (!input) return;
+
+  // If already listening for this input, stop
+  if (activeRecognition) {
+    activeRecognition.stop();
+    activeRecognition = null;
+    if (btn) btn.classList.remove('listening');
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'de-DE';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  activeRecognition = recognition;
+  if (btn) btn.classList.add('listening');
+
+  recognition.onresult = function(e) {
+    const transcript = e.results[0][0].transcript.trim();
+    input.value = transcript;
+    input.focus();
+    showToast('„' + transcript + '“ erkannt');
+  };
+
+  recognition.onerror = function(e) {
+    if (e.error !== 'aborted') showToast('Mikrofon-Fehler: ' + e.error);
+  };
+
+  recognition.onend = function() {
+    activeRecognition = null;
+    if (btn) btn.classList.remove('listening');
+  };
+
+  recognition.start();
 }
 
 // ── Parallax ──────────────────────────────────────────────────────────────────
