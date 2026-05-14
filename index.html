@@ -462,7 +462,9 @@
     align-items: start;
   }
   @media (max-width: 600px) {
-    .shortcut-list { grid-template-columns: 1fr; }
+    .shortcut-list { grid-template-columns: 1fr; gap: 0; }
+    .shortcut-list > div { margin-bottom: 16px; }
+    .shortcut-list > div:last-child { margin-bottom: 0; }
   }
 
   .shortcut-item {
