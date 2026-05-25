@@ -1256,19 +1256,13 @@
   }
   .login-error.visible { display: block; }
 
-  .login-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 20px 0;
-  }
-
-  /* ── USER BADGE (header) ── */
+  /* ── USER BADGE ── */
   .user-badge {
     position: fixed;
     top: 16px;
     left: 16px;
     z-index: 1000;
-    display: flex;
+    display: none;
     align-items: center;
     gap: 8px;
     background: var(--surface);
@@ -1280,7 +1274,6 @@
     font-weight: 600;
     color: var(--text-dim);
     box-shadow: var(--shadow);
-    cursor: default;
   }
   .user-badge-dot {
     width: 7px; height: 7px;
@@ -1330,7 +1323,6 @@
     <div class="login-logo">GAMES <span>GAMES</span> GAMES</div>
     <div class="login-sub">Spielesammlung</div>
 
-    <!-- LOGIN FORM -->
     <div id="loginForm">
       <div class="login-error" id="loginError"></div>
       <label class="login-label">Benutzername</label>
@@ -1341,7 +1333,6 @@
       <div class="login-switch">Noch kein Konto? <a onclick="showRegister()">Registrieren</a></div>
     </div>
 
-    <!-- REGISTER FORM -->
     <div id="registerForm" style="display:none">
       <div class="login-error" id="registerError"></div>
       <label class="login-label">Benutzername wählen</label>
@@ -1357,10 +1348,10 @@
 </div>
 
 <!-- User Badge -->
-<div class="user-badge" id="userBadge" style="display:none">
+<div class="user-badge" id="userBadge">
   <span class="user-badge-dot"></span>
   <span class="user-badge-name" id="userBadgeName"></span>
-  <button class="user-badge-logout" onclick="doLogout()" title="Abmelden">Logout</button>
+  <button class="user-badge-logout" onclick="doLogout()">Logout</button>
 </div>
 
 <!-- Theme Toggle -->
@@ -1493,8 +1484,234 @@
 <div id="toast"></div>
 
 <script>
-// SCRIPT_URL is set after ALEX_SCRIPT_URL is defined (see auth system below)
-let SCRIPT_URL = "";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzMZXeOIKEXkmYs2Exfnjd8TXHxCags3B-S_PA5OatwoGJ4WSRohfyio76UuvWWCO-P/exec";
+
+// ══════════════════════════════════════════════════════
+// AUTH — Alex is hardcoded; other users stored in localStorage
+// ══════════════════════════════════════════════════════
+const ALEX_USER = 'alex';
+const ALEX_PASS = 'sammeln';
+let currentUser = null; // { username, displayName, usesSheets }
+
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem('sg_users') || '{}'); } catch(e) { return {}; }
+}
+function saveUsers(obj) { localStorage.setItem('sg_users', JSON.stringify(obj)); }
+
+function showLogin() {
+  document.getElementById('loginForm').style.display = '';
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('loginError').classList.remove('visible');
+  setTimeout(() => document.getElementById('loginUser').focus(), 50);
+}
+function showRegister() {
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('registerForm').style.display = '';
+  document.getElementById('registerError').classList.remove('visible');
+  setTimeout(() => document.getElementById('regUser').focus(), 50);
+}
+
+async function doLogin() {
+  const username = document.getElementById('loginUser').value.trim().toLowerCase();
+  const password = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  errEl.classList.remove('visible');
+
+  if (!username || !password) {
+    errEl.textContent = 'Bitte alle Felder ausfüllen.';
+    errEl.classList.add('visible'); return;
+  }
+
+  // Alex: hardcoded check
+  if (username === ALEX_USER) {
+    if (password !== ALEX_PASS) {
+      errEl.textContent = 'Falsches Passwort.';
+      errEl.classList.add('visible');
+      document.getElementById('loginPass').value = '';
+      document.getElementById('loginPass').focus(); return;
+    }
+    currentUser = { username: 'alex', displayName: 'Alex', usesSheets: true };
+    sessionStorage.setItem('sg_session', 'alex');
+    startApp(); return;
+  }
+
+  // Other users: check localStorage
+  const users = getUsers();
+  if (!users[username]) {
+    errEl.textContent = 'Benutzername nicht gefunden.';
+    errEl.classList.add('visible'); return;
+  }
+  if (users[username].password !== password) {
+    errEl.textContent = 'Falsches Passwort.';
+    errEl.classList.add('visible');
+    document.getElementById('loginPass').value = '';
+    document.getElementById('loginPass').focus(); return;
+  }
+
+  currentUser = { username, displayName: users[username].displayName || username, usesSheets: false };
+  sessionStorage.setItem('sg_session', username);
+  startApp();
+}
+
+function doRegister() {
+  const username = document.getElementById('regUser').value.trim().toLowerCase();
+  const password = document.getElementById('regPass').value;
+  const password2 = document.getElementById('regPass2').value;
+  const errEl = document.getElementById('registerError');
+  errEl.classList.remove('visible');
+
+  if (!username || !password || !password2) {
+    errEl.textContent = 'Bitte alle Felder ausfüllen.';
+    errEl.classList.add('visible'); return;
+  }
+  if (username.length < 3) {
+    errEl.textContent = 'Benutzername mindestens 3 Zeichen.';
+    errEl.classList.add('visible'); return;
+  }
+  if (!/^[a-z0-9_]+$/.test(username)) {
+    errEl.textContent = 'Nur Buchstaben, Zahlen und _ erlaubt.';
+    errEl.classList.add('visible'); return;
+  }
+  if (password.length < 4) {
+    errEl.textContent = 'Passwort mindestens 4 Zeichen.';
+    errEl.classList.add('visible'); return;
+  }
+  if (password !== password2) {
+    errEl.textContent = 'Passwörter stimmen nicht überein.';
+    errEl.classList.add('visible'); return;
+  }
+  if (username === ALEX_USER) {
+    errEl.textContent = 'Dieser Benutzername ist vergeben.';
+    errEl.classList.add('visible'); return;
+  }
+
+  const users = getUsers();
+  if (users[username]) {
+    errEl.textContent = 'Benutzername bereits vergeben.';
+    errEl.classList.add('visible'); return;
+  }
+
+  const displayName = username.charAt(0).toUpperCase() + username.slice(1);
+  users[username] = { password, displayName, createdAt: Date.now() };
+  saveUsers(users);
+
+  currentUser = { username, displayName, usesSheets: false };
+  sessionStorage.setItem('sg_session', username);
+  startApp();
+}
+
+function doLogout() {
+  sessionStorage.removeItem('sg_session');
+  currentUser = null;
+  data = { Haben: {}, Brauchen: {} };
+  metaCache = {};
+  currentPlatform = null;
+  document.getElementById('userBadge').style.display = 'none';
+  document.getElementById('gameContent').innerHTML = '';
+  document.getElementById('gameContent').classList.remove('visible');
+  document.getElementById('platformGrid').innerHTML = '';
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  showLogin();
+}
+
+function startApp() {
+  document.getElementById('userBadgeName').textContent = currentUser.displayName;
+  document.getElementById('userBadge').style.display = 'flex';
+  document.getElementById('loginOverlay').classList.add('hidden');
+
+  if (currentUser.usesSheets) {
+    init(); // Alex: load from Google Sheets
+  } else {
+    initUserData(); // Others: load from localStorage
+  }
+}
+
+// ── Load/save for non-Alex users (localStorage) ────────────────────────────
+function loadUserData() {
+  try {
+    const raw = localStorage.getItem('sg_data_' + currentUser.username);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      metaCache = parsed.meta || {};
+      return { Haben: parsed.Haben || {}, Brauchen: parsed.Brauchen || {} };
+    }
+  } catch(e) {}
+  // New user: empty collection with all platforms
+  const empty = {};
+  Object.keys(platforms).forEach(k => { empty[k] = []; });
+  return { Haben: JSON.parse(JSON.stringify(empty)), Brauchen: JSON.parse(JSON.stringify(empty)) };
+}
+
+function saveUserData() {
+  if (!currentUser || currentUser.usesSheets) return;
+  try {
+    localStorage.setItem('sg_data_' + currentUser.username, JSON.stringify({
+      Haben: data.Haben, Brauchen: data.Brauchen, meta: metaCache
+    }));
+  } catch(e) { console.error('Save error:', e); }
+}
+
+function initUserData() {
+  data = loadUserData();
+  renderPlatformButtons();
+  updateValueDisplay();
+  document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+// ── Patch apiPost for non-Sheets users ─────────────────────────────────────
+const _apiPostOriginal = apiPost;
+apiPost = async function(payload) {
+  if (!currentUser || !currentUser.usesSheets) {
+    applyLocalMutation(payload);
+    saveUserData();
+    return;
+  }
+  return _apiPostOriginal(payload);
+};
+
+function applyLocalMutation(payload) {
+  if (payload.action === 'add') {
+    if (!data[payload.tab][payload.platform]) data[payload.tab][payload.platform] = [];
+    data[payload.tab][payload.platform].push(payload.game);
+    data[payload.tab][payload.platform].sort((a,b) => a.localeCompare(b,'de'));
+  } else if (payload.action === 'delete') {
+    if (data[payload.tab][payload.platform])
+      data[payload.tab][payload.platform] = data[payload.tab][payload.platform].filter(g => g !== payload.game);
+  } else if (payload.action === 'edit') {
+    const arr = data[payload.tab][payload.platform];
+    if (arr) {
+      const i = arr.indexOf(payload.game);
+      if (i !== -1) { arr[i] = payload.newName; arr.sort((a,b) => a.localeCompare(b,'de')); }
+    }
+  } else if (payload.action === 'setMeta') {
+    const k = metaKey(payload.game, payload.platform);
+    if (!metaCache[k]) metaCache[k] = {};
+    metaCache[k].rarity = payload.rarity || null;
+    metaCache[k].note   = payload.note || '';
+  }
+}
+
+// ── Session restore on page load ───────────────────────────────────────────
+(function() {
+  const saved = sessionStorage.getItem('sg_session');
+  if (saved) {
+    if (saved === ALEX_USER) {
+      currentUser = { username: 'alex', displayName: 'Alex', usesSheets: true };
+      startApp(); return;
+    }
+    const users = getUsers();
+    if (users[saved]) {
+      currentUser = { username: saved, displayName: users[saved].displayName, usesSheets: false };
+      startApp(); return;
+    }
+  }
+  // No session: show login
+  showLogin();
+})();
+
 
 const platforms = {
   "Atari":        {css:"c-atari",      label:"Atari 2600",      img:"img/atari.png",      color:"#D4874A", ebay:"Atari"},
@@ -1532,8 +1749,6 @@ function getTabData() { return data[getTabKey()]; }
 
 // ── API calls ──────────────────────────────────────────────────────────────
 async function apiGet() {
-  // Only Alex uses Sheets
-  if (!currentUser || !currentUser.usesSheets) throw new Error('No sheets user');
   const res = await fetch(SCRIPT_URL);
   const json = await res.json();
   if (json.status !== 'ok') throw new Error(json.message);
@@ -1541,46 +1756,12 @@ async function apiGet() {
 }
 
 async function apiPost(payload) {
-  // Non-sheets users: handle locally
-  if (!currentUser || !currentUser.usesSheets) {
-    _applyLocalMutation(payload);
-    await saveUserData();
-    return;
-  }
-  // Alex: use Google Sheets
   const res = await fetch(SCRIPT_URL, {
     method: 'POST',
     body: JSON.stringify(payload)
   });
   const json = await res.json();
   if (json.status !== 'ok') throw new Error(json.message);
-}
-
-function _applyLocalMutation(payload) {
-  if (payload.action === 'add') {
-    if (!data[payload.tab][payload.platform]) data[payload.tab][payload.platform] = [];
-    if (!data[payload.tab][payload.platform].includes(payload.game)) {
-      data[payload.tab][payload.platform].push(payload.game);
-      data[payload.tab][payload.platform].sort((a,b) => a.localeCompare(b,'de'));
-    }
-  } else if (payload.action === 'delete') {
-    if (data[payload.tab][payload.platform]) {
-      data[payload.tab][payload.platform] = data[payload.tab][payload.platform].filter(g => g !== payload.game);
-    }
-  } else if (payload.action === 'edit') {
-    if (data[payload.tab][payload.platform]) {
-      const idx = data[payload.tab][payload.platform].indexOf(payload.game);
-      if (idx !== -1) {
-        data[payload.tab][payload.platform][idx] = payload.newName;
-        data[payload.tab][payload.platform].sort((a,b) => a.localeCompare(b,'de'));
-      }
-    }
-  } else if (payload.action === 'setMeta') {
-    const k = metaKey(payload.game, payload.platform);
-    if (!metaCache[k]) metaCache[k] = {};
-    metaCache[k].rarity = payload.rarity || null;
-    metaCache[k].note   = payload.note || '';
-  }
 }
 
 // ── Init: load from Sheets ─────────────────────────────────────────────────
@@ -1825,7 +2006,6 @@ async function syncMeta(platform, name, rarity, note) {
   metaCache[k].note   = note !== undefined ? note : (metaCache[k].note || '');
   try {
     await apiPost({ action: 'setMeta', platform, game: name, rarity: rarity || '', note: metaCache[k].note });
-    // For non-sheets users, apiPost already calls saveUserData
   } catch(e) { console.error('Meta sync failed:', e); }
 }
 
@@ -2711,273 +2891,6 @@ function renderShortcuts() {
 
 
 
-// ══════════════════════════════════════════════════════
-// AUTH SYSTEM — Multi-User Login via Artifact Storage
-// ══════════════════════════════════════════════════════
-
-// Alex's Google Sheets Script URL — only used for the 'alex' account
-const ALEX_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzMZXeOIKEXkmYs2Exfnjd8TXHxCags3B-S_PA5OatwoGJ4WSRohfyio76UuvWWCO-P/exec";
-SCRIPT_URL = ALEX_SCRIPT_URL; // assign the global
-
-let currentUser = null; // { username, usesSheets: bool }
-
-// Simple hash for password storage (not cryptographic, but fine for this use case)
-async function hashPass(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-
-// Storage helpers
-async function storageGet(key) {
-  try { const r = await window.storage.get(key, true); return r ? r.value : null; }
-  catch(e) { return null; }
-}
-async function storageSet(key, val) {
-  try { await window.storage.set(key, val, true); return true; }
-  catch(e) { return false; }
-}
-
-// ── Bootstrap: ensure Alex account exists ─────────────────────────────────
-async function bootstrapAlex() {
-  const existing = await storageGet('user:alex');
-  if (!existing) {
-    const hash = await hashPass('sammeln');
-    await storageSet('user:alex', JSON.stringify({
-      username: 'alex',
-      displayName: 'Alex',
-      passwordHash: hash,
-      usesSheets: true,
-      createdAt: Date.now()
-    }));
-  }
-}
-
-// ── Auth functions ─────────────────────────────────────────────────────────
-function showLogin() {
-  document.getElementById('loginForm').style.display = '';
-  document.getElementById('registerForm').style.display = 'none';
-  document.getElementById('loginError').classList.remove('visible');
-  document.getElementById('loginUser').focus();
-}
-
-function showRegister() {
-  document.getElementById('loginForm').style.display = 'none';
-  document.getElementById('registerForm').style.display = '';
-  document.getElementById('registerError').classList.remove('visible');
-  document.getElementById('regUser').focus();
-}
-
-async function doLogin() {
-  const username = document.getElementById('loginUser').value.trim().toLowerCase();
-  const password = document.getElementById('loginPass').value;
-  const errEl = document.getElementById('loginError');
-
-  if (!username || !password) {
-    errEl.textContent = 'Bitte alle Felder ausfüllen.';
-    errEl.classList.add('visible');
-    return;
-  }
-
-  const raw = await storageGet('user:' + username);
-  if (!raw) {
-    errEl.textContent = 'Benutzername nicht gefunden.';
-    errEl.classList.add('visible');
-    return;
-  }
-
-  let userObj;
-  try { userObj = JSON.parse(raw); } catch(e) {
-    errEl.textContent = 'Fehler beim Laden des Kontos.';
-    errEl.classList.add('visible');
-    return;
-  }
-
-  const hash = await hashPass(password);
-  if (hash !== userObj.passwordHash) {
-    errEl.textContent = 'Falsches Passwort.';
-    errEl.classList.add('visible');
-    document.getElementById('loginPass').value = '';
-    document.getElementById('loginPass').focus();
-    return;
-  }
-
-  // Success
-  currentUser = { username, displayName: userObj.displayName || username, usesSheets: !!userObj.usesSheets };
-  sessionStorage.setItem('loggedInUser', username);
-  errEl.classList.remove('visible');
-  await startApp();
-}
-
-async function doRegister() {
-  const username = document.getElementById('regUser').value.trim().toLowerCase();
-  const password = document.getElementById('regPass').value;
-  const password2 = document.getElementById('regPass2').value;
-  const errEl = document.getElementById('registerError');
-
-  if (!username || !password || !password2) {
-    errEl.textContent = 'Bitte alle Felder ausfüllen.';
-    errEl.classList.add('visible');
-    return;
-  }
-  if (username.length < 3) {
-    errEl.textContent = 'Benutzername mindestens 3 Zeichen.';
-    errEl.classList.add('visible');
-    return;
-  }
-  if (!/^[a-z0-9_]+$/.test(username)) {
-    errEl.textContent = 'Nur Buchstaben, Zahlen, Unterstriche erlaubt.';
-    errEl.classList.add('visible');
-    return;
-  }
-  if (password.length < 4) {
-    errEl.textContent = 'Passwort mindestens 4 Zeichen.';
-    errEl.classList.add('visible');
-    return;
-  }
-  if (password !== password2) {
-    errEl.textContent = 'Passwörter stimmen nicht überein.';
-    errEl.classList.add('visible');
-    return;
-  }
-
-  const existing = await storageGet('user:' + username);
-  if (existing) {
-    errEl.textContent = 'Benutzername bereits vergeben.';
-    errEl.classList.add('visible');
-    return;
-  }
-
-  const hash = await hashPass(password);
-  const ok = await storageSet('user:' + username, JSON.stringify({
-    username,
-    displayName: username.charAt(0).toUpperCase() + username.slice(1),
-    passwordHash: hash,
-    usesSheets: false,
-    createdAt: Date.now()
-  }));
-
-  if (!ok) {
-    errEl.textContent = 'Fehler beim Speichern. Bitte erneut versuchen.';
-    errEl.classList.add('visible');
-    return;
-  }
-
-  // Auto-login after register
-  currentUser = { username, displayName: username.charAt(0).toUpperCase() + username.slice(1), usesSheets: false };
-  sessionStorage.setItem('loggedInUser', username);
-  await startApp();
-}
-
-function doLogout() {
-  sessionStorage.removeItem('loggedInUser');
-  currentUser = null;
-  data = { Haben: {}, Brauchen: {} };
-  document.getElementById('userBadge').style.display = 'none';
-  document.getElementById('loginOverlay').classList.remove('hidden');
-  document.getElementById('loginUser').value = '';
-  document.getElementById('loginPass').value = '';
-  showLogin();
-}
-
-// ── Start the actual app after login ──────────────────────────────────────
-async function startApp() {
-  // Reset loading overlay
-  const overlay = document.getElementById('loadingOverlay');
-  overlay.classList.remove('hidden');
-  overlay.innerHTML = '<div class="loading-text" id="loadingText">LADE SAMMLUNG...</div><div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>';
-
-  // Show user badge
-  document.getElementById('userBadgeName').textContent = currentUser.displayName;
-  document.getElementById('userBadge').style.display = 'flex';
-
-  // Hide login overlay
-  document.getElementById('loginOverlay').classList.add('hidden');
-
-  if (currentUser.usesSheets) {
-    // Alex: load from Google Sheets as before
-    await init();
-  } else {
-    // Other users: load from Artifact Storage
-    await initUserData();
-  }
-}
-
-// ── Load/save data for non-Alex users from Artifact Storage ───────────────
-async function initUserData() {
-  const bar = document.getElementById('loadingBar');
-  const txt = document.getElementById('loadingText');
-  if (txt) txt.textContent = 'LADE SAMMLUNG...';
-
-  let pct = 0;
-  const ticker = setInterval(() => {
-    pct = pct < 85 ? pct + 5 : pct;
-    if (bar) bar.style.width = pct + '%';
-  }, 60);
-
-  try {
-    const raw = await storageGet('gamedata:' + currentUser.username);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      metaCache = parsed.meta || {};
-      data = { Haben: parsed.Haben || {}, Brauchen: parsed.Brauchen || {} };
-    } else {
-      // Brand new user — empty collection with all platforms
-      const emptyPlatforms = {};
-      Object.keys(platforms).forEach(k => { emptyPlatforms[k] = []; });
-      data = { Haben: JSON.parse(JSON.stringify(emptyPlatforms)), Brauchen: JSON.parse(JSON.stringify(emptyPlatforms)) };
-    }
-  } catch(e) {
-    console.error('Error loading user data:', e);
-  }
-
-  clearInterval(ticker);
-  if (bar) bar.style.width = '100%';
-  renderPlatformButtons();
-  updateValueDisplay();
-  setTimeout(() => {
-    document.getElementById('loadingOverlay').classList.add('hidden');
-  }, 300);
-}
-
-// Save current user's data to storage (called after every mutation for non-Alex users)
-async function saveUserData() {
-  if (!currentUser || currentUser.usesSheets) return;
-  try {
-    await storageSet('gamedata:' + currentUser.username, JSON.stringify({
-      Haben: data.Haben,
-      Brauchen: data.Brauchen,
-      meta: metaCache
-    }));
-  } catch(e) { console.error('Save error:', e); }
-}
-
-// ── Override apiPost for non-Sheets users ─────────────────────────────────
-const _originalApiPost = typeof apiPost !== 'undefined' ? apiPost : null;
-
-// ── Entry point ────────────────────────────────────────────────────────────
-async function authInit() {
-  await bootstrapAlex();
-
-  // Check for existing session
-  const savedUser = sessionStorage.getItem('loggedInUser');
-  if (savedUser) {
-    const raw = await storageGet('user:' + savedUser);
-    if (raw) {
-      try {
-        const userObj = JSON.parse(raw);
-        currentUser = { username: savedUser, displayName: userObj.displayName || savedUser, usesSheets: !!userObj.usesSheets };
-        await startApp();
-        return;
-      } catch(e) {}
-    }
-  }
-
-  // Show login
-  document.getElementById('loginOverlay').classList.remove('hidden');
-  setTimeout(() => document.getElementById('loginUser').focus(), 100);
-}
-
-authInit();
 </script>
 </body>
 </html>
