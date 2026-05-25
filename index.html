@@ -1778,58 +1778,26 @@ async function apiPost(payload) {
 function setLoadProgress(pct) {
   const bar = document.getElementById('loadingBar');
   if (bar) bar.style.width = pct + '%';
-  // No scrubbing — video plays normally
-}
-
-function preloadVideo() {
-  return new Promise((resolve) => {
-    const vid = document.getElementById('loadingVideo');
-    if (!vid) { resolve(); return; }
-    if (vid.readyState >= 3) { resolve(); return; }
-    vid.load();
-    const onReady = () => { vid.removeEventListener('canplay', onReady); resolve(); };
-    vid.addEventListener('canplay', onReady);
-    setTimeout(resolve, 3000);
-  });
-}
-
-// Wait for video to finish OR data to load — whichever is LATER
-let _dataReady = false;
-let _videoEnded = false;
-let _onBothReady = null;
-
-function checkBothReady() {
-  if (_dataReady && _videoEnded && _onBothReady) {
-    _onBothReady();
-    _onBothReady = null;
-  }
-}
-
-function whenBothReady(cb) {
-  _onBothReady = cb;
-  checkBothReady();
 }
 
 // ── Init: load from Sheets ─────────────────────────────────────────────────
 async function init() {
   const txt = document.getElementById('loadingText');
 
-  // Prepare video — preload fully on mobile before scrubbing
+  // Just play the video normally
   const vid = document.getElementById('loadingVideo');
   if (vid) {
-    vid.pause();
     vid.currentTime = 0;
-    await preloadVideo();
+    vid.play().catch(() => {}); // catch autoplay block silently
   }
 
-  // Animate progress to 85% while waiting for data
+  // Animate bar to 85% while waiting for data
   let pct = 0;
   const ticker = setInterval(() => {
     pct = pct < 75 ? pct + 2.5 : pct < 85 ? pct + 0.15 : pct;
     setLoadProgress(pct);
   }, 80);
 
-  // Timeout warning after 5 seconds
   const warnTimer = setTimeout(() => {
     if (txt) txt.textContent = 'VERBINDE...';
   }, 5000);
@@ -1842,7 +1810,7 @@ async function init() {
     clearInterval(ticker);
     clearTimeout(warnTimer);
 
-    // Animate to 100% and hold last frame
+    // Animate bar to 100%
     let finPct = pct;
     const finisher = setInterval(() => {
       finPct = Math.min(finPct + 4, 100);
@@ -1853,6 +1821,7 @@ async function init() {
         updateValueDisplay();
         setTimeout(() => {
           document.getElementById('loadingOverlay').classList.add('hidden');
+          if (vid) vid.pause();
         }, 400);
       }
     }, 30);
@@ -3763,7 +3732,7 @@ function onBarcodeFound(ean) {
 }
 </script>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v1.24</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v1.25</div>
 
 </body>
 </html>
