@@ -585,12 +585,155 @@
     box-shadow: var(--shadow);
   }
 
-  .console-img { width: 110px; height: 110px; object-fit: contain; flex-shrink: 0; }
-  .console-img-placeholder { width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 40px; flex-shrink: 0; }
+  .console-img { width: 110px; height: 110px; object-fit: contain; flex-shrink: 0; cursor: pointer; border-radius: var(--radius); transition: opacity 0.2s; }
+  .console-img:hover { opacity: 0.75; }
+  .console-img-placeholder { width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 40px; flex-shrink: 0; cursor: pointer; border: 2px dashed var(--border); border-radius: var(--radius); transition: border-color 0.2s, background 0.2s; }
+  .console-img-placeholder:hover { border-color: var(--accent2); background: var(--surface2); }
+
+  .img-upload-hint {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-top: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .platform-header:hover .img-upload-hint { opacity: 1; }
+
+  /* ── ADD PLATFORM MODAL ── */
+  #addPlatformModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 9000;
+    align-items: center;
+    justify-content: center;
+  }
+  #addPlatformModal.open { display: flex; }
+
+  .add-plat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    width: 90%;
+    max-width: 380px;
+    box-shadow: var(--shadow-lg);
+    animation: fadeIn 0.15s ease;
+  }
+  .add-plat-title {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+  .add-plat-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    display: block;
+    margin-top: 12px;
+  }
+  .add-plat-input {
+    width: 100%;
+    background: var(--bg2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 9px 14px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+  }
+  .add-plat-input:focus { border-color: var(--green); }
+  .add-plat-input::placeholder { color: var(--text-dim); }
+  .add-plat-btns { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; }
+  .add-plat-btn {
+    padding: 8px 20px;
+    border-radius: var(--radius);
+    border: none;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .add-plat-btn:hover { opacity: 0.8; }
+  .add-plat-btn.confirm { background: var(--green); color: #fff; }
+  .add-plat-btn.cancel  { background: var(--bg2); color: var(--text); border: 1px solid var(--border); }
+
   .header-info h2 { font-family: var(--font-head); font-size: clamp(22px, 3vw, 32px); font-weight: 800; margin-bottom: 4px; letter-spacing: 0.5px; }
   .header-info p { font-size: 12px; color: var(--text-dim); letter-spacing: 2px; font-family: var(--font-mono); text-transform: uppercase; }
 
-  /* ── GAMES LIST ── */
+  /* ── LOGIN OVERLAY ── */
+  #loginOverlay {
+    position: fixed; inset: 0; background: var(--bg); z-index: 9500;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    transition: opacity 0.35s;
+  }
+  #loginOverlay.hidden { opacity: 0; pointer-events: none; }
+  .login-box {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius-lg); padding: 36px 32px 32px;
+    width: 100%; max-width: 360px; box-shadow: var(--shadow-lg); animation: fadeIn 0.3s ease;
+  }
+  .login-logo { font-family: var(--font-head); font-size: 28px; font-weight: 800; color: var(--text); margin-bottom: 4px; line-height: 1; }
+  .login-logo span { color: var(--accent); }
+  .login-sub { font-family: var(--font-mono); font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 28px; }
+  .login-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; display: block; }
+  .login-input {
+    width: 100%; background: var(--bg2); border: 1.5px solid var(--border); border-radius: var(--radius);
+    color: var(--text); padding: 10px 14px; font-family: var(--font-body); font-size: 14px; font-weight: 500;
+    outline: none; box-sizing: border-box; transition: border-color 0.2s; margin-bottom: 16px;
+  }
+  .login-input:focus { border-color: var(--accent2); }
+  .login-input::placeholder { color: var(--text-dim); }
+  .login-btn {
+    width: 100%; background: var(--text); border: none; color: var(--bg); padding: 11px;
+    font-family: var(--font-head); font-weight: 700; font-size: 15px; letter-spacing: 2px;
+    text-transform: uppercase; cursor: pointer; border-radius: var(--radius); transition: opacity 0.2s; margin-top: 4px;
+  }
+  .login-btn:hover { opacity: 0.85; }
+  .login-switch { text-align: center; margin-top: 18px; font-size: 13px; color: var(--text-dim); font-family: var(--font-body); }
+  .login-switch a { color: var(--accent2); cursor: pointer; font-weight: 600; text-decoration: none; }
+  .login-switch a:hover { text-decoration: underline; }
+  .login-error {
+    background: rgba(192,57,43,0.1); border: 1px solid rgba(192,57,43,0.3); border-radius: var(--radius);
+    color: var(--accent); font-family: var(--font-body); font-size: 13px; font-weight: 500;
+    padding: 9px 14px; margin-bottom: 16px; display: none;
+  }
+  .login-error.visible { display: block; }
+  .login-info {
+    background: rgba(44,62,122,0.08); border: 1px solid rgba(44,62,122,0.2); border-radius: var(--radius);
+    color: var(--accent2); font-family: var(--font-body); font-size: 12px; padding: 9px 14px; margin-bottom: 16px; line-height: 1.5;
+  }
+  .user-badge {
+    position: fixed; top: 16px; left: 16px; z-index: 1000; display: none;
+    align-items: center; gap: 8px; background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 20px; padding: 6px 14px 6px 10px; font-family: var(--font-body);
+    font-size: 12px; font-weight: 600; color: var(--text-dim); box-shadow: var(--shadow);
+  }
+  .user-badge-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .user-badge-name { color: var(--text); }
+  .user-badge-logout {
+    background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 11px;
+    padding: 0 0 0 6px; font-family: var(--font-body); font-weight: 600; letter-spacing: 0.5px; transition: color 0.15s; line-height: 1;
+  }
+  .user-badge-logout:hover { color: var(--accent); }
+
+
   .games-grid { display: flex; flex-direction: column; gap: 0; }
 
   .game-item {
@@ -1136,165 +1279,6 @@
     z-index: 1;
   }
 
-  /* ── LOGIN OVERLAY ── */
-  #loginOverlay {
-    position: fixed;
-    inset: 0;
-    background: var(--bg);
-    z-index: 9500;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    transition: opacity 0.35s;
-  }
-  #loginOverlay.hidden { opacity: 0; pointer-events: none; }
-
-  .login-box {
-    background: var(--surface);
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 36px 32px 32px;
-    width: 100%;
-    max-width: 360px;
-    box-shadow: var(--shadow-lg);
-    animation: fadeIn 0.3s ease;
-  }
-  .login-logo {
-    font-family: var(--font-head);
-    font-size: 28px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    color: var(--text);
-    margin-bottom: 4px;
-    line-height: 1;
-  }
-  .login-logo span { color: var(--accent); }
-  .login-sub {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 28px;
-  }
-  .login-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 6px;
-    display: block;
-  }
-  .login-input {
-    width: 100%;
-    background: var(--bg2);
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    padding: 10px 14px;
-    font-family: var(--font-body);
-    font-size: 14px;
-    font-weight: 500;
-    outline: none;
-    box-sizing: border-box;
-    transition: border-color 0.2s;
-    margin-bottom: 16px;
-  }
-  .login-input:focus { border-color: var(--accent2); }
-  .login-input::placeholder { color: var(--text-dim); }
-  .login-btn {
-    width: 100%;
-    background: var(--text);
-    border: none;
-    color: var(--bg);
-    padding: 11px;
-    font-family: var(--font-head);
-    font-weight: 700;
-    font-size: 15px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    cursor: pointer;
-    border-radius: var(--radius);
-    transition: opacity 0.2s;
-    margin-top: 4px;
-  }
-  .login-btn:hover { opacity: 0.85; }
-  .login-switch {
-    text-align: center;
-    margin-top: 18px;
-    font-size: 13px;
-    color: var(--text-dim);
-    font-family: var(--font-body);
-  }
-  .login-switch a {
-    color: var(--accent2);
-    cursor: pointer;
-    font-weight: 600;
-    text-decoration: none;
-  }
-  .login-switch a:hover { text-decoration: underline; }
-  .login-error {
-    background: rgba(192,57,43,0.1);
-    border: 1px solid rgba(192,57,43,0.3);
-    border-radius: var(--radius);
-    color: var(--accent);
-    font-family: var(--font-body);
-    font-size: 13px;
-    font-weight: 500;
-    padding: 9px 14px;
-    margin-bottom: 16px;
-    display: none;
-  }
-  .login-error.visible { display: block; }
-  .login-info {
-    background: rgba(44,62,122,0.08);
-    border: 1px solid rgba(44,62,122,0.2);
-    border-radius: var(--radius);
-    color: var(--accent2);
-    font-family: var(--font-body);
-    font-size: 12px;
-    padding: 9px 14px;
-    margin-bottom: 16px;
-    line-height: 1.5;
-  }
-  /* ── USER BADGE ── */
-  .user-badge {
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    z-index: 1000;
-    display: none;
-    align-items: center;
-    gap: 8px;
-    background: var(--surface);
-    border: 1.5px solid var(--border);
-    border-radius: 20px;
-    padding: 6px 14px 6px 10px;
-    font-family: var(--font-body);
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-dim);
-    box-shadow: var(--shadow);
-  }
-  .user-badge-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
-  .user-badge-name { color: var(--text); }
-  .user-badge-logout {
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    cursor: pointer;
-    font-size: 11px;
-    padding: 0 0 0 6px;
-    font-family: var(--font-body);
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    transition: color 0.15s;
-    line-height: 1;
-  }
-  .user-badge-logout:hover { color: var(--accent); }
-
   /* ── RESPONSIVE ── */
   @media (max-width: 600px) {
     header { padding: 36px 16px 20px; }
@@ -1350,6 +1334,24 @@
   <span class="user-badge-name" id="userBadgeName"></span>
   <button class="user-badge-logout" onclick="doLogout()">Logout</button>
 </div>
+
+<!-- Add Platform Modal -->
+<div id="addPlatformModal">
+  <div class="add-plat-box">
+    <div class="add-plat-title">&#43; Plattform hinzufügen</div>
+    <label class="add-plat-label">Name der Plattform</label>
+    <input class="add-plat-input" type="text" id="newPlatformName" placeholder="z.B. Dreamcast" onkeydown="if(event.key==='Enter')confirmAddPlatform()">
+    <label class="add-plat-label">Farbe (optional)</label>
+    <input class="add-plat-input" type="text" id="newPlatformColor" placeholder="#888888">
+    <div class="add-plat-btns">
+      <button class="add-plat-btn cancel" onclick="closeAddPlatformModal()">Abbrechen</button>
+      <button class="add-plat-btn confirm" id="newPlatformConfirmBtn" onclick="confirmAddPlatform()">Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden file input for image upload -->
+<input type="file" id="imgUploadInput" accept="image/*" style="display:none" onchange="handleImgUpload(event)">
 
 <!-- Theme Toggle -->
 <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙 Dunkel</button>
@@ -1437,6 +1439,7 @@
 
 <div class="add-form" id="addForm">
   <select class="add-select" id="addPlatformSelect"></select>
+  <button class="add-confirm-btn" style="background:transparent;border-color:var(--green);color:var(--green);padding:9px 12px;font-size:13px" onclick="openAddPlatformModal()" title="Neue Plattform">&#43; Plattform</button>
   <div class="input-mic-wrap"><input class="add-name-input" type="text" id="addNameInput" placeholder="Spieltitel eingeben..." onkeydown="if(event.key==='Enter')confirmAdd()"><button class="mic-btn" onclick="startDictation('addNameInput')" title="Diktat">&#127908;</button></div>
   <button class="add-confirm-btn" id="addConfirmBtn" onclick="confirmAdd()">&#10004; EINTRAGEN</button>
 </div>
@@ -1726,18 +1729,22 @@ function renderGames() {
   const content = document.getElementById('gameContent');
   content.classList.add('visible');
 
-  const imgHtml = cfg.img
-    ? '<img class="console-img ' + cfg.css + '" src="' + cfg.img + '" alt="' + cfg.label + '" onerror="this.style.display=\'none\'">'
-    : '<div class="console-img-placeholder">' + cfg.emoji + '</div>';
-
   const gamesHtml = games.length === 0
     ? '<div class="no-games">-- NOCH KEINE SPIELE --</div>'
     : '<div class="games-grid">' + games.map(function(g, i){ return gameItemHtml(g, i, cfg); }).join('') + '</div>';
 
   const platColor = cfg.color || 'var(--accent)';
+  const imgSrc = platformImages[currentPlatform] || cfg.img || '';
+  const imgHtml = imgSrc
+    ? '<img class="console-img ' + cfg.css + '" src="' + imgSrc + '" alt="' + cfg.label + '" onclick="triggerImgUpload(\'' + currentPlatform + '\')" title="Bild ändern" onerror="this.style.display=\'none\'">'
+    : '<div class="console-img-placeholder" onclick="triggerImgUpload(\'' + currentPlatform + '\')" title="Bild hochladen">📷</div>';
+
   content.innerHTML =
     '<div class="platform-header" style="border-left-color:' + platColor + '">' +
-      imgHtml +
+      '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
+        imgHtml +
+        '<div class="img-upload-hint">&#9998; Bild ändern</div>' +
+      '</div>' +
       '<div class="header-info">' +
         '<h2 style="color:' + platColor + '">' + cfg.label + '</h2>' +
         '<p>' + games.length + ' SPIEL' + (games.length !== 1 ? 'E' : '') + '</p>' +
@@ -2660,17 +2667,124 @@ function renderShortcuts() {
 
 
 
+
+// ══════════════════════════════════════════════════════
+// PLATFORM IMAGES — loaded from Sheets, cached locally
+// ══════════════════════════════════════════════════════
+let platformImages = {}; // { platformKey: 'data:image/...base64...' }
+
+function triggerImgUpload(platformKey) {
+  const input = document.getElementById('imgUploadInput');
+  input.dataset.platform = platformKey;
+  input.click();
+}
+
+async function handleImgUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const platform = event.target.dataset.platform;
+  if (!platform) return;
+
+  // Resize & convert to base64
+  const base64 = await resizeImageToBase64(file, 300);
+
+  showToast('Bild wird hochgeladen...');
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveImage', platform, imageData: base64 })
+    });
+    platformImages[platform] = base64;
+    showToast('Bild gespeichert ✓');
+    renderGames(); // re-render to show new image
+  } catch(e) {
+    showToast('Fehler beim Hochladen', true);
+  }
+  event.target.value = '';
+}
+
+function resizeImageToBase64(file, maxSize) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > h) { if (w > maxSize) { h = h * maxSize / w; w = maxSize; } }
+        else       { if (h > maxSize) { w = w * maxSize / h; h = maxSize; } }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/webp', 0.85));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function loadPlatformImages() {
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getImages');
+    const json = await res.json();
+    if (json.status === 'ok') platformImages = json.images || {};
+  } catch(e) { console.warn('Could not load platform images:', e); }
+}
+
+// ══════════════════════════════════════════════════════
+// ADD PLATFORM
+// ══════════════════════════════════════════════════════
+function openAddPlatformModal() {
+  document.getElementById('newPlatformName').value = '';
+  document.getElementById('newPlatformColor').value = '';
+  document.getElementById('addPlatformModal').classList.add('open');
+  setTimeout(() => document.getElementById('newPlatformName').focus(), 50);
+}
+function closeAddPlatformModal() {
+  document.getElementById('addPlatformModal').classList.remove('open');
+}
+
+async function confirmAddPlatform() {
+  const name = document.getElementById('newPlatformName').value.trim();
+  const color = document.getElementById('newPlatformColor').value.trim() || '#888888';
+  if (!name) { showToast('Bitte einen Namen eingeben', true); return; }
+
+  const key = name; // use name as key
+  if (platforms[key]) { showToast('Plattform existiert bereits', true); return; }
+
+  const btn = document.getElementById('newPlatformConfirmBtn');
+  btn.disabled = true; btn.textContent = '...';
+
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'addPlatform', platformName: name, color })
+    });
+
+    // Add to local platforms object
+    platforms[key] = { css: 'c-parts', label: name, img: '', color: color, ebay: name };
+
+    // Add to all data tabs so it's selectable
+    if (!data['Haben'][key])    data['Haben'][key] = [];
+    if (!data['Brauchen'][key]) data['Brauchen'][key] = [];
+
+    showToast('"' + name + '" hinzugefügt ✓');
+    closeAddPlatformModal();
+    populateAddSelect();
+    renderPlatformButtons();
+  } catch(e) {
+    showToast('Fehler: ' + e.message, true);
+  }
+  btn.disabled = false; btn.textContent = 'Hinzufügen';
+}
+
 // ══════════════════════════════════════════════════════
 // AUTH SYSTEM
-// Alex: hardcoded credentials, uses Google Sheets
-// Others: stored in Sheets "Users" tab, own data tab
 // ══════════════════════════════════════════════════════
-
 const ALEX_USER = 'alex';
 const ALEX_PASS = 'sammeln';
-let currentUser = null; // { username, displayName, usesSheets }
+let currentUser = null;
 
-// ── UI helpers ─────────────────────────────────────────────────────────────
 function showLogin() {
   document.getElementById('loginForm').style.display = '';
   document.getElementById('registerForm').style.display = 'none';
@@ -2685,19 +2799,15 @@ function showRegister() {
 }
 function setLoginError(id, msg) {
   const el = document.getElementById(id);
-  el.textContent = msg;
-  el.classList.add('visible');
+  el.textContent = msg; el.classList.add('visible');
 }
 
-// ── Login ──────────────────────────────────────────────────────────────────
 async function doLogin() {
   const username = document.getElementById('loginUser').value.trim().toLowerCase();
   const password = document.getElementById('loginPass').value;
   document.getElementById('loginError').classList.remove('visible');
-
   if (!username || !password) { setLoginError('loginError', 'Bitte alle Felder ausfüllen.'); return; }
 
-  // Alex: hardcoded
   if (username === ALEX_USER) {
     if (password !== ALEX_PASS) {
       setLoginError('loginError', 'Falsches Passwort.');
@@ -2709,14 +2819,13 @@ async function doLogin() {
     startApp(); return;
   }
 
-  // Other users: check Sheets "Users" tab
   const btn = document.querySelector('#loginForm .login-btn');
   btn.textContent = '...'; btn.disabled = true;
   try {
     const res = await fetch(SCRIPT_URL + '?action=getUsers');
     const json = await res.json();
     btn.textContent = 'Einloggen'; btn.disabled = false;
-    if (json.status !== 'ok') { setLoginError('loginError', 'Server-Fehler. Bitte erneut versuchen.'); return; }
+    if (json.status !== 'ok') { setLoginError('loginError', 'Server-Fehler.'); return; }
     const users = json.users || {};
     if (!users[username]) { setLoginError('loginError', 'Benutzername nicht gefunden.'); return; }
     if (users[username].password !== password) {
@@ -2729,17 +2838,15 @@ async function doLogin() {
     startApp();
   } catch(e) {
     btn.textContent = 'Einloggen'; btn.disabled = false;
-    setLoginError('loginError', 'Verbindungsfehler. Bitte erneut versuchen.');
+    setLoginError('loginError', 'Verbindungsfehler.');
   }
 }
 
-// ── Register ───────────────────────────────────────────────────────────────
 async function doRegister() {
   const username = document.getElementById('regUser').value.trim().toLowerCase();
   const password = document.getElementById('regPass').value;
   const password2 = document.getElementById('regPass2').value;
   document.getElementById('registerError').classList.remove('visible');
-
   if (!username || !password || !password2) { setLoginError('registerError', 'Bitte alle Felder ausfüllen.'); return; }
   if (username.length < 3) { setLoginError('registerError', 'Benutzername mindestens 3 Zeichen.'); return; }
   if (!/^[a-z0-9_]+$/.test(username)) { setLoginError('registerError', 'Nur Buchstaben, Zahlen und _ erlaubt.'); return; }
@@ -2764,16 +2871,15 @@ async function doRegister() {
     startApp();
   } catch(e) {
     btn.textContent = 'Konto erstellen'; btn.disabled = false;
-    setLoginError('registerError', 'Verbindungsfehler. Bitte erneut versuchen.');
+    setLoginError('registerError', 'Verbindungsfehler.');
   }
 }
 
-// ── Logout ─────────────────────────────────────────────────────────────────
 function doLogout() {
   sessionStorage.removeItem('sg_session');
   currentUser = null;
   data = { Haben: {}, Brauchen: {} };
-  metaCache = {};
+  metaCache = {}; platformImages = {};
   currentPlatform = null;
   document.getElementById('userBadge').style.display = 'none';
   document.getElementById('gameContent').innerHTML = '';
@@ -2781,7 +2887,6 @@ function doLogout() {
   document.getElementById('platformGrid').innerHTML = '';
   document.getElementById('totalCount').textContent = '0';
   document.getElementById('collectionValue').textContent = '–';
-  // Reset loading overlay text in case it was changed
   document.getElementById('loadingText').textContent = 'LADE SAMMLUNG...';
   document.getElementById('loadingBar').style.width = '0%';
   document.getElementById('loadingOverlay').classList.remove('hidden');
@@ -2791,54 +2896,71 @@ function doLogout() {
   showLogin();
 }
 
-// ── Start app after successful login ───────────────────────────────────────
 function startApp() {
   document.getElementById('userBadgeName').textContent = currentUser.displayName;
   document.getElementById('userBadge').style.display = 'flex';
   document.getElementById('loginOverlay').classList.add('hidden');
-  // Reset loading overlay
   document.getElementById('loadingText').textContent = 'LADE SAMMLUNG...';
   document.getElementById('loadingBar').style.width = '0%';
   document.getElementById('loadingOverlay').classList.remove('hidden');
-  init(); // always use init() — for non-Sheets users it reads from their own tab
+  init();
 }
 
-// ── Override apiGet/apiPost to be user-aware ───────────────────────────────
-// Store originals
+// Patch apiGet/apiPost for non-Alex users
 const _apiGet = apiGet;
 const _apiPost = apiPost;
 
 apiGet = async function() {
   if (currentUser && !currentUser.usesSheets) {
-    // Load from user's own Sheets tab
     const res = await fetch(SCRIPT_URL + '?userTab=' + encodeURIComponent(currentUser.sheetsTab));
     const json = await res.json();
     if (json.status !== 'ok') throw new Error(json.message);
-    return json.data;
+    // Merge all known platforms so new users have all options
+    const d = json.data;
+    Object.keys(platforms).forEach(k => {
+      if (!d.Haben[k])    d.Haben[k]    = [];
+      if (!d.Brauchen[k]) d.Brauchen[k] = [];
+    });
+    return d;
   }
   return _apiGet();
 };
 
 apiPost = async function(payload) {
-  if (currentUser && !currentUser.usesSheets) {
-    payload.userTab = currentUser.sheetsTab;
-  }
+  if (currentUser && !currentUser.usesSheets) payload.userTab = currentUser.sheetsTab;
   return _apiPost(payload);
 };
 
-// ── Session restore — runs LAST after all functions are defined ────────────
+// Also patch init() to load images + extra platforms after data
+const _initOriginal = init;
+init = async function() {
+  await Promise.all([loadPlatformImages(), loadExtraPlatforms()]);
+  return _initOriginal();
+};
+
+async function loadExtraPlatforms() {
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getPlatforms');
+    const json = await res.json();
+    if (json.status === 'ok') {
+      (json.platforms || []).forEach(p => {
+        if (!platforms[p.name]) {
+          platforms[p.name] = { css: 'c-parts', label: p.name, img: '', color: p.color || '#888888', ebay: p.name };
+        }
+      });
+    }
+  } catch(e) { console.warn('Could not load extra platforms:', e); }
+}
+
+// Session restore — runs last
 (function restoreSession() {
   try {
     const saved = sessionStorage.getItem('sg_session');
     if (saved) {
       currentUser = JSON.parse(saved);
-      if (currentUser && currentUser.username) {
-        startApp();
-        return;
-      }
+      if (currentUser && currentUser.username) { startApp(); return; }
     }
   } catch(e) {}
-  // No valid session: show login, hide loading
   document.getElementById('loadingOverlay').classList.add('hidden');
   showLogin();
 })();
