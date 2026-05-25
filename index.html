@@ -3511,7 +3511,12 @@ function exportPDF() {
 
   @media print {
     .print-btn { display: none !important; }
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    body { background: #0e0e0e !important; color: #f0ece4 !important; }
+    .cover { background: #0e0e0e !important; }
+    .platform-section { border-color: #2a2a2a !important; }
+    .plat-header { background: #1a1a1a !important; }
+    .game-row.even { background: rgba(255,255,255,0.02) !important; }
   }
 </style>
 </head>
@@ -3557,6 +3562,9 @@ function exportPDF() {
 </div>
 
 <button class="print-btn" onclick="window.print()">&#128438; Als PDF speichern</button>
+<div style="position:fixed;bottom:22mm;right:8mm;font-family:'DM Mono',monospace;font-size:7pt;color:#444;letter-spacing:1px;text-align:right;pointer-events:none">
+  IM DRUCKDIALOG: "HINTERGRUNDGRAFIKEN" AKTIVIEREN
+</div>
 
 </body>
 </html>`;
