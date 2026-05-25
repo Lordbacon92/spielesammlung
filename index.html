@@ -1524,8 +1524,10 @@
 <input type="file" id="imgUploadInput" accept="image/*" style="display:none" onchange="handleImgUpload(event)">
 
 <!-- Theme Toggle -->
-<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙 Dunkel</button>
-<button class="theme-toggle" style="right:120px" onclick="exportPDF()" title="Als PDF exportieren">📄 Export</button>
+<div style="position:fixed;top:16px;right:16px;z-index:1000;display:flex;gap:8px;align-items:center">
+  <button class="theme-toggle" style="position:static" onclick="exportPDF()" title="Als PDF exportieren">📄 Export</button>
+  <button class="theme-toggle" style="position:static" onclick="toggleTheme()" id="themeBtn">🌙 Dunkel</button>
+</div>
 
 <!-- Loading overlay -->
 <div id="loadingOverlay">
