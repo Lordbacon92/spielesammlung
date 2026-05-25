@@ -1777,26 +1777,37 @@ async function apiPost(payload) {
 // ── Video scrub helper ─────────────────────────────────────────────────────
 function setLoadProgress(pct) {
   const bar = document.getElementById('loadingBar');
-  const vid = document.getElementById('loadingVideo');
   if (bar) bar.style.width = pct + '%';
-  if (vid && vid.readyState >= 4 && vid.duration && !isNaN(vid.duration)) {
-    vid.currentTime = (pct / 100) * vid.duration;
-  }
+  // No scrubbing — video plays normally
 }
 
-// Preload video fully before scrubbing (fixes mobile)
 function preloadVideo() {
   return new Promise((resolve) => {
     const vid = document.getElementById('loadingVideo');
     if (!vid) { resolve(); return; }
-    if (vid.readyState >= 4) { resolve(); return; }
-    // Force load
+    if (vid.readyState >= 3) { resolve(); return; }
     vid.load();
-    const onReady = () => { vid.removeEventListener('canplaythrough', onReady); resolve(); };
-    vid.addEventListener('canplaythrough', onReady);
-    // Fallback after 3s if canplaythrough never fires
+    const onReady = () => { vid.removeEventListener('canplay', onReady); resolve(); };
+    vid.addEventListener('canplay', onReady);
     setTimeout(resolve, 3000);
   });
+}
+
+// Wait for video to finish OR data to load — whichever is LATER
+let _dataReady = false;
+let _videoEnded = false;
+let _onBothReady = null;
+
+function checkBothReady() {
+  if (_dataReady && _videoEnded && _onBothReady) {
+    _onBothReady();
+    _onBothReady = null;
+  }
+}
+
+function whenBothReady(cb) {
+  _onBothReady = cb;
+  checkBothReady();
 }
 
 // ── Init: load from Sheets ─────────────────────────────────────────────────
@@ -3093,7 +3104,7 @@ async function doLogin() {
       document.getElementById('loginPass').focus(); return;
     }
     currentUser = { username: 'alex', displayName: 'Alex', usesSheets: true, sheetsTab: null };
-    sessionStorage.setItem('sg_session', JSON.stringify(currentUser));
+    localStorage.setItem('sg_session', JSON.stringify({...currentUser, _expires: Date.now() + 86400000}));
     startApp(); return;
   }
 
@@ -3112,7 +3123,7 @@ async function doLogin() {
       document.getElementById('loginPass').focus(); return;
     }
     currentUser = { username, displayName: users[username].displayName, usesSheets: false, sheetsTab: users[username].tab };
-    sessionStorage.setItem('sg_session', JSON.stringify(currentUser));
+    localStorage.setItem('sg_session', JSON.stringify({...currentUser, _expires: Date.now() + 86400000}));
     startApp();
   } catch(e) {
     btn.textContent = 'Einloggen'; btn.disabled = false;
@@ -3145,7 +3156,7 @@ async function doRegister() {
     if (json.status === 'exists') { setLoginError('registerError', 'Benutzername bereits vergeben.'); return; }
     if (json.status !== 'ok') { setLoginError('registerError', 'Fehler: ' + (json.message || 'Unbekannt')); return; }
     currentUser = { username, displayName: json.displayName, usesSheets: false, sheetsTab: json.tab };
-    sessionStorage.setItem('sg_session', JSON.stringify(currentUser));
+    localStorage.setItem('sg_session', JSON.stringify({...currentUser, _expires: Date.now() + 86400000}));
     startApp();
   } catch(e) {
     btn.textContent = 'Konto erstellen'; btn.disabled = false;
@@ -3154,7 +3165,7 @@ async function doRegister() {
 }
 
 function doLogout() {
-  sessionStorage.removeItem('sg_session');
+  localStorage.removeItem('sg_session');
   currentUser = null;
   data = { Haben: {}, Brauchen: {} };
   metaCache = {}; platformImages = {};
@@ -3637,10 +3648,16 @@ function exportPDF() {
 
 (function restoreSession() {
   try {
-    const saved = sessionStorage.getItem('sg_session');
+    const saved = localStorage.getItem('sg_session');
     if (saved) {
-      currentUser = JSON.parse(saved);
-      if (currentUser && currentUser.username) { startApp(); return; }
+      const parsed = JSON.parse(saved);
+      // Check expiry (24h)
+      if (parsed._expires && Date.now() > parsed._expires) {
+        localStorage.removeItem('sg_session');
+      } else if (parsed && parsed.username) {
+        currentUser = parsed;
+        startApp(); return;
+      }
     }
   } catch(e) {}
   document.getElementById('loadingOverlay').classList.add('hidden');
@@ -3746,7 +3763,7 @@ function onBarcodeFound(ean) {
 }
 </script>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v1.23</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v1.24</div>
 
 </body>
 </html>
