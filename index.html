@@ -156,24 +156,42 @@
   #loadingOverlay {
     position: fixed;
     inset: 0;
-    background: var(--bg);
+    background: #000;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     z-index: 8000;
-    gap: 20px;
-    transition: opacity 0.4s;
+    transition: opacity 0.6s;
   }
   #loadingOverlay.hidden { opacity: 0; pointer-events: none; }
+
+  #loadingVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    inset: 0;
+  }
+
+  .loading-overlay-ui {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding-bottom: 40px;
+  }
 
   .loading-text {
     font-family: var(--font-head);
     font-size: 18px;
     font-weight: 700;
-    color: var(--accent);
+    color: #fff;
     letter-spacing: 6px;
     text-transform: uppercase;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.8);
     animation: blink 1.2s step-end infinite;
   }
   @keyframes blink { 50% { opacity: 0; } }
@@ -181,7 +199,7 @@
   .loading-bar-wrap {
     width: 200px;
     height: 3px;
-    background: var(--border);
+    background: rgba(255,255,255,0.2);
     border-radius: 2px;
     overflow: hidden;
   }
@@ -190,7 +208,7 @@
     background: var(--accent);
     width: 0%;
     border-radius: 2px;
-    transition: width 0.3s ease;
+    transition: width 0.15s ease;
   }
 
   /* ── TABS ── */
@@ -1531,8 +1549,11 @@
 
 <!-- Loading overlay -->
 <div id="loadingOverlay">
-  <div class="loading-text" id="loadingText">LADE SAMMLUNG...</div>
-  <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
+  <video id="loadingVideo" muted playsinline preload="auto" src="Ladebildschirm.mp4"></video>
+  <div class="loading-overlay-ui">
+    <div class="loading-text" id="loadingText">LADE SAMMLUNG...</div>
+    <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
+  </div>
 </div>
 
 <!-- Parallax pixel background -->
@@ -1754,16 +1775,32 @@ async function apiPost(payload) {
   if (json.status !== 'ok') throw new Error(json.message);
 }
 
+// ── Video scrub helper ─────────────────────────────────────────────────────
+function setLoadProgress(pct) {
+  const bar = document.getElementById('loadingBar');
+  const vid = document.getElementById('loadingVideo');
+  if (bar) bar.style.width = pct + '%';
+  if (vid && vid.duration && !isNaN(vid.duration)) {
+    vid.currentTime = (pct / 100) * vid.duration;
+  }
+}
+
 // ── Init: load from Sheets ─────────────────────────────────────────────────
 async function init() {
-  const bar = document.getElementById('loadingBar');
   const txt = document.getElementById('loadingText');
 
-  // Animate bar to 80% quickly, hold there while waiting
+  // Prepare video — pause it so we can scrub manually
+  const vid = document.getElementById('loadingVideo');
+  if (vid) {
+    vid.pause();
+    vid.currentTime = 0;
+  }
+
+  // Animate progress to 85% while waiting for data
   let pct = 0;
   const ticker = setInterval(() => {
-    pct = pct < 75 ? pct + 3 : pct < 85 ? pct + 0.2 : pct;
-    if (bar) bar.style.width = pct + '%';
+    pct = pct < 75 ? pct + 2.5 : pct < 85 ? pct + 0.15 : pct;
+    setLoadProgress(pct);
   }, 80);
 
   // Timeout warning after 5 seconds
@@ -1773,26 +1810,35 @@ async function init() {
 
   try {
     const loaded = await apiGet();
-    // Separate meta from game data
     metaCache = loaded['Meta'] || {};
     delete loaded['Meta'];
     data = loaded;
     clearInterval(ticker);
     clearTimeout(warnTimer);
-    if (bar) bar.style.width = '100%';
-    renderPlatformButtons();
-    updateValueDisplay();
-    setTimeout(() => {
-      document.getElementById('loadingOverlay').classList.add('hidden');
-    }, 300);
+
+    // Animate to 100% and hold last frame
+    let finPct = pct;
+    const finisher = setInterval(() => {
+      finPct = Math.min(finPct + 4, 100);
+      setLoadProgress(finPct);
+      if (finPct >= 100) {
+        clearInterval(finisher);
+        renderPlatformButtons();
+        updateValueDisplay();
+        setTimeout(() => {
+          document.getElementById('loadingOverlay').classList.add('hidden');
+        }, 400);
+      }
+    }, 30);
+
   } catch(e) {
     clearInterval(ticker);
     clearTimeout(warnTimer);
     const errMsg = e && e.message ? e.message : String(e);
     document.getElementById('loadingOverlay').innerHTML =
       '<div class="loading-text" style="color:var(--accent)">FEHLER</div>' +
-      '<div style="color:var(--text-dim);font-size:12px;margin-top:12px;font-family:Nunito,sans-serif;padding:0 20px;text-align:center;word-break:break-all">' + errMsg + '</div>' +
-      '<div style="color:var(--text-dim);font-size:11px;margin-top:16px;font-family:Nunito,sans-serif">Seite neu laden zum Wiederholen</div>';
+      '<div style="color:#fff;font-size:12px;margin-top:12px;font-family:sans-serif;padding:0 20px;text-align:center;word-break:break-all">' + errMsg + '</div>' +
+      '<div style="color:#888;font-size:11px;margin-top:16px;font-family:sans-serif">Seite neu laden zum Wiederholen</div>';
     console.error(e);
   }
 }
@@ -3105,7 +3151,9 @@ function doLogout() {
   document.getElementById('totalCount').textContent = '0';
   document.getElementById('collectionValue').textContent = '–';
   document.getElementById('loadingText').textContent = 'LADE SAMMLUNG...';
-  document.getElementById('loadingBar').style.width = '0%';
+  setLoadProgress(0);
+  const vid = document.getElementById('loadingVideo');
+  if (vid) vid.currentTime = 0;
   document.getElementById('loadingOverlay').classList.remove('hidden');
   document.getElementById('loginOverlay').classList.remove('hidden');
   document.getElementById('loginUser').value = '';
@@ -3118,7 +3166,9 @@ function startApp() {
   document.getElementById('userBadge').style.display = 'flex';
   document.getElementById('loginOverlay').classList.add('hidden');
   document.getElementById('loadingText').textContent = 'LADE SAMMLUNG...';
-  document.getElementById('loadingBar').style.width = '0%';
+  setLoadProgress(0);
+  const vid = document.getElementById('loadingVideo');
+  if (vid) vid.currentTime = 0;
   document.getElementById('loadingOverlay').classList.remove('hidden');
   init();
 }
@@ -3681,7 +3731,7 @@ function onBarcodeFound(ean) {
 }
 </script>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v1.20</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v1.21</div>
 
 </body>
 </html>
