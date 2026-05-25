@@ -1160,7 +1160,6 @@
     box-shadow: var(--shadow-lg);
     animation: fadeIn 0.3s ease;
   }
-
   .login-logo {
     font-family: var(--font-head);
     font-size: 28px;
@@ -1171,7 +1170,6 @@
     line-height: 1;
   }
   .login-logo span { color: var(--accent); }
-
   .login-sub {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -1180,7 +1178,6 @@
     color: var(--text-dim);
     margin-bottom: 28px;
   }
-
   .login-label {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -1190,7 +1187,6 @@
     margin-bottom: 6px;
     display: block;
   }
-
   .login-input {
     width: 100%;
     background: var(--bg2);
@@ -1208,7 +1204,6 @@
   }
   .login-input:focus { border-color: var(--accent2); }
   .login-input::placeholder { color: var(--text-dim); }
-
   .login-btn {
     width: 100%;
     background: var(--text);
@@ -1226,7 +1221,6 @@
     margin-top: 4px;
   }
   .login-btn:hover { opacity: 0.85; }
-
   .login-switch {
     text-align: center;
     margin-top: 18px;
@@ -1241,7 +1235,6 @@
     text-decoration: none;
   }
   .login-switch a:hover { text-decoration: underline; }
-
   .login-error {
     background: rgba(192,57,43,0.1);
     border: 1px solid rgba(192,57,43,0.3);
@@ -1255,7 +1248,17 @@
     display: none;
   }
   .login-error.visible { display: block; }
-
+  .login-info {
+    background: rgba(44,62,122,0.08);
+    border: 1px solid rgba(44,62,122,0.2);
+    border-radius: var(--radius);
+    color: var(--accent2);
+    font-family: var(--font-body);
+    font-size: 12px;
+    padding: 9px 14px;
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
   /* ── USER BADGE ── */
   .user-badge {
     position: fixed;
@@ -1275,12 +1278,7 @@
     color: var(--text-dim);
     box-shadow: var(--shadow);
   }
-  .user-badge-dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--green);
-    flex-shrink: 0;
-  }
+  .user-badge-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
   .user-badge-name { color: var(--text); }
   .user-badge-logout {
     background: none;
@@ -1322,7 +1320,6 @@
   <div class="login-box">
     <div class="login-logo">GAMES <span>GAMES</span> GAMES</div>
     <div class="login-sub">Spielesammlung</div>
-
     <div id="loginForm">
       <div class="login-error" id="loginError"></div>
       <label class="login-label">Benutzername</label>
@@ -1332,9 +1329,9 @@
       <button class="login-btn" onclick="doLogin()">Einloggen</button>
       <div class="login-switch">Noch kein Konto? <a onclick="showRegister()">Registrieren</a></div>
     </div>
-
     <div id="registerForm" style="display:none">
       <div class="login-error" id="registerError"></div>
+      <div class="login-info">Deine Sammlung wird in Google Sheets gespeichert und ist auf allen Geräten verfügbar.</div>
       <label class="login-label">Benutzername wählen</label>
       <input class="login-input" type="text" id="regUser" placeholder="Benutzername" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('regPass').focus()">
       <label class="login-label">Passwort wählen</label>
@@ -1485,233 +1482,6 @@
 
 <script>
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzMZXeOIKEXkmYs2Exfnjd8TXHxCags3B-S_PA5OatwoGJ4WSRohfyio76UuvWWCO-P/exec";
-
-// ══════════════════════════════════════════════════════
-// AUTH — Alex is hardcoded; other users stored in localStorage
-// ══════════════════════════════════════════════════════
-const ALEX_USER = 'alex';
-const ALEX_PASS = 'sammeln';
-let currentUser = null; // { username, displayName, usesSheets }
-
-function getUsers() {
-  try { return JSON.parse(localStorage.getItem('sg_users') || '{}'); } catch(e) { return {}; }
-}
-function saveUsers(obj) { localStorage.setItem('sg_users', JSON.stringify(obj)); }
-
-function showLogin() {
-  document.getElementById('loginForm').style.display = '';
-  document.getElementById('registerForm').style.display = 'none';
-  document.getElementById('loginError').classList.remove('visible');
-  setTimeout(() => document.getElementById('loginUser').focus(), 50);
-}
-function showRegister() {
-  document.getElementById('loginForm').style.display = 'none';
-  document.getElementById('registerForm').style.display = '';
-  document.getElementById('registerError').classList.remove('visible');
-  setTimeout(() => document.getElementById('regUser').focus(), 50);
-}
-
-async function doLogin() {
-  const username = document.getElementById('loginUser').value.trim().toLowerCase();
-  const password = document.getElementById('loginPass').value;
-  const errEl = document.getElementById('loginError');
-  errEl.classList.remove('visible');
-
-  if (!username || !password) {
-    errEl.textContent = 'Bitte alle Felder ausfüllen.';
-    errEl.classList.add('visible'); return;
-  }
-
-  // Alex: hardcoded check
-  if (username === ALEX_USER) {
-    if (password !== ALEX_PASS) {
-      errEl.textContent = 'Falsches Passwort.';
-      errEl.classList.add('visible');
-      document.getElementById('loginPass').value = '';
-      document.getElementById('loginPass').focus(); return;
-    }
-    currentUser = { username: 'alex', displayName: 'Alex', usesSheets: true };
-    sessionStorage.setItem('sg_session', 'alex');
-    startApp(); return;
-  }
-
-  // Other users: check localStorage
-  const users = getUsers();
-  if (!users[username]) {
-    errEl.textContent = 'Benutzername nicht gefunden.';
-    errEl.classList.add('visible'); return;
-  }
-  if (users[username].password !== password) {
-    errEl.textContent = 'Falsches Passwort.';
-    errEl.classList.add('visible');
-    document.getElementById('loginPass').value = '';
-    document.getElementById('loginPass').focus(); return;
-  }
-
-  currentUser = { username, displayName: users[username].displayName || username, usesSheets: false };
-  sessionStorage.setItem('sg_session', username);
-  startApp();
-}
-
-function doRegister() {
-  const username = document.getElementById('regUser').value.trim().toLowerCase();
-  const password = document.getElementById('regPass').value;
-  const password2 = document.getElementById('regPass2').value;
-  const errEl = document.getElementById('registerError');
-  errEl.classList.remove('visible');
-
-  if (!username || !password || !password2) {
-    errEl.textContent = 'Bitte alle Felder ausfüllen.';
-    errEl.classList.add('visible'); return;
-  }
-  if (username.length < 3) {
-    errEl.textContent = 'Benutzername mindestens 3 Zeichen.';
-    errEl.classList.add('visible'); return;
-  }
-  if (!/^[a-z0-9_]+$/.test(username)) {
-    errEl.textContent = 'Nur Buchstaben, Zahlen und _ erlaubt.';
-    errEl.classList.add('visible'); return;
-  }
-  if (password.length < 4) {
-    errEl.textContent = 'Passwort mindestens 4 Zeichen.';
-    errEl.classList.add('visible'); return;
-  }
-  if (password !== password2) {
-    errEl.textContent = 'Passwörter stimmen nicht überein.';
-    errEl.classList.add('visible'); return;
-  }
-  if (username === ALEX_USER) {
-    errEl.textContent = 'Dieser Benutzername ist vergeben.';
-    errEl.classList.add('visible'); return;
-  }
-
-  const users = getUsers();
-  if (users[username]) {
-    errEl.textContent = 'Benutzername bereits vergeben.';
-    errEl.classList.add('visible'); return;
-  }
-
-  const displayName = username.charAt(0).toUpperCase() + username.slice(1);
-  users[username] = { password, displayName, createdAt: Date.now() };
-  saveUsers(users);
-
-  currentUser = { username, displayName, usesSheets: false };
-  sessionStorage.setItem('sg_session', username);
-  startApp();
-}
-
-function doLogout() {
-  sessionStorage.removeItem('sg_session');
-  currentUser = null;
-  data = { Haben: {}, Brauchen: {} };
-  metaCache = {};
-  currentPlatform = null;
-  document.getElementById('userBadge').style.display = 'none';
-  document.getElementById('gameContent').innerHTML = '';
-  document.getElementById('gameContent').classList.remove('visible');
-  document.getElementById('platformGrid').innerHTML = '';
-  document.getElementById('loadingOverlay').classList.remove('hidden');
-  document.getElementById('loginOverlay').classList.remove('hidden');
-  document.getElementById('loginUser').value = '';
-  document.getElementById('loginPass').value = '';
-  showLogin();
-}
-
-function startApp() {
-  document.getElementById('userBadgeName').textContent = currentUser.displayName;
-  document.getElementById('userBadge').style.display = 'flex';
-  document.getElementById('loginOverlay').classList.add('hidden');
-
-  if (currentUser.usesSheets) {
-    init(); // Alex: load from Google Sheets
-  } else {
-    initUserData(); // Others: load from localStorage
-  }
-}
-
-// ── Load/save for non-Alex users (localStorage) ────────────────────────────
-function loadUserData() {
-  try {
-    const raw = localStorage.getItem('sg_data_' + currentUser.username);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      metaCache = parsed.meta || {};
-      return { Haben: parsed.Haben || {}, Brauchen: parsed.Brauchen || {} };
-    }
-  } catch(e) {}
-  // New user: empty collection with all platforms
-  const empty = {};
-  Object.keys(platforms).forEach(k => { empty[k] = []; });
-  return { Haben: JSON.parse(JSON.stringify(empty)), Brauchen: JSON.parse(JSON.stringify(empty)) };
-}
-
-function saveUserData() {
-  if (!currentUser || currentUser.usesSheets) return;
-  try {
-    localStorage.setItem('sg_data_' + currentUser.username, JSON.stringify({
-      Haben: data.Haben, Brauchen: data.Brauchen, meta: metaCache
-    }));
-  } catch(e) { console.error('Save error:', e); }
-}
-
-function initUserData() {
-  data = loadUserData();
-  renderPlatformButtons();
-  updateValueDisplay();
-  document.getElementById('loadingOverlay').classList.add('hidden');
-}
-
-// ── Patch apiPost for non-Sheets users ─────────────────────────────────────
-const _apiPostOriginal = apiPost;
-apiPost = async function(payload) {
-  if (!currentUser || !currentUser.usesSheets) {
-    applyLocalMutation(payload);
-    saveUserData();
-    return;
-  }
-  return _apiPostOriginal(payload);
-};
-
-function applyLocalMutation(payload) {
-  if (payload.action === 'add') {
-    if (!data[payload.tab][payload.platform]) data[payload.tab][payload.platform] = [];
-    data[payload.tab][payload.platform].push(payload.game);
-    data[payload.tab][payload.platform].sort((a,b) => a.localeCompare(b,'de'));
-  } else if (payload.action === 'delete') {
-    if (data[payload.tab][payload.platform])
-      data[payload.tab][payload.platform] = data[payload.tab][payload.platform].filter(g => g !== payload.game);
-  } else if (payload.action === 'edit') {
-    const arr = data[payload.tab][payload.platform];
-    if (arr) {
-      const i = arr.indexOf(payload.game);
-      if (i !== -1) { arr[i] = payload.newName; arr.sort((a,b) => a.localeCompare(b,'de')); }
-    }
-  } else if (payload.action === 'setMeta') {
-    const k = metaKey(payload.game, payload.platform);
-    if (!metaCache[k]) metaCache[k] = {};
-    metaCache[k].rarity = payload.rarity || null;
-    metaCache[k].note   = payload.note || '';
-  }
-}
-
-// ── Session restore on page load ───────────────────────────────────────────
-(function() {
-  const saved = sessionStorage.getItem('sg_session');
-  if (saved) {
-    if (saved === ALEX_USER) {
-      currentUser = { username: 'alex', displayName: 'Alex', usesSheets: true };
-      startApp(); return;
-    }
-    const users = getUsers();
-    if (users[saved]) {
-      currentUser = { username: saved, displayName: users[saved].displayName, usesSheets: false };
-      startApp(); return;
-    }
-  }
-  // No session: show login
-  showLogin();
-})();
-
 
 const platforms = {
   "Atari":        {css:"c-atari",      label:"Atari 2600",      img:"img/atari.png",      color:"#D4874A", ebay:"Atari"},
@@ -2890,7 +2660,188 @@ function renderShortcuts() {
 
 
 
+// ══════════════════════════════════════════════════════
+// AUTH SYSTEM
+// Alex: hardcoded credentials, uses Google Sheets
+// Others: stored in Sheets "Users" tab, own data tab
+// ══════════════════════════════════════════════════════
 
+const ALEX_USER = 'alex';
+const ALEX_PASS = 'sammeln';
+let currentUser = null; // { username, displayName, usesSheets }
+
+// ── UI helpers ─────────────────────────────────────────────────────────────
+function showLogin() {
+  document.getElementById('loginForm').style.display = '';
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('loginError').classList.remove('visible');
+  setTimeout(() => document.getElementById('loginUser').focus(), 50);
+}
+function showRegister() {
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('registerForm').style.display = '';
+  document.getElementById('registerError').classList.remove('visible');
+  setTimeout(() => document.getElementById('regUser').focus(), 50);
+}
+function setLoginError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+// ── Login ──────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const username = document.getElementById('loginUser').value.trim().toLowerCase();
+  const password = document.getElementById('loginPass').value;
+  document.getElementById('loginError').classList.remove('visible');
+
+  if (!username || !password) { setLoginError('loginError', 'Bitte alle Felder ausfüllen.'); return; }
+
+  // Alex: hardcoded
+  if (username === ALEX_USER) {
+    if (password !== ALEX_PASS) {
+      setLoginError('loginError', 'Falsches Passwort.');
+      document.getElementById('loginPass').value = '';
+      document.getElementById('loginPass').focus(); return;
+    }
+    currentUser = { username: 'alex', displayName: 'Alex', usesSheets: true, sheetsTab: null };
+    sessionStorage.setItem('sg_session', JSON.stringify(currentUser));
+    startApp(); return;
+  }
+
+  // Other users: check Sheets "Users" tab
+  const btn = document.querySelector('#loginForm .login-btn');
+  btn.textContent = '...'; btn.disabled = true;
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getUsers');
+    const json = await res.json();
+    btn.textContent = 'Einloggen'; btn.disabled = false;
+    if (json.status !== 'ok') { setLoginError('loginError', 'Server-Fehler. Bitte erneut versuchen.'); return; }
+    const users = json.users || {};
+    if (!users[username]) { setLoginError('loginError', 'Benutzername nicht gefunden.'); return; }
+    if (users[username].password !== password) {
+      setLoginError('loginError', 'Falsches Passwort.');
+      document.getElementById('loginPass').value = '';
+      document.getElementById('loginPass').focus(); return;
+    }
+    currentUser = { username, displayName: users[username].displayName, usesSheets: false, sheetsTab: users[username].tab };
+    sessionStorage.setItem('sg_session', JSON.stringify(currentUser));
+    startApp();
+  } catch(e) {
+    btn.textContent = 'Einloggen'; btn.disabled = false;
+    setLoginError('loginError', 'Verbindungsfehler. Bitte erneut versuchen.');
+  }
+}
+
+// ── Register ───────────────────────────────────────────────────────────────
+async function doRegister() {
+  const username = document.getElementById('regUser').value.trim().toLowerCase();
+  const password = document.getElementById('regPass').value;
+  const password2 = document.getElementById('regPass2').value;
+  document.getElementById('registerError').classList.remove('visible');
+
+  if (!username || !password || !password2) { setLoginError('registerError', 'Bitte alle Felder ausfüllen.'); return; }
+  if (username.length < 3) { setLoginError('registerError', 'Benutzername mindestens 3 Zeichen.'); return; }
+  if (!/^[a-z0-9_]+$/.test(username)) { setLoginError('registerError', 'Nur Buchstaben, Zahlen und _ erlaubt.'); return; }
+  if (password.length < 4) { setLoginError('registerError', 'Passwort mindestens 4 Zeichen.'); return; }
+  if (password !== password2) { setLoginError('registerError', 'Passwörter stimmen nicht überein.'); return; }
+  if (username === ALEX_USER) { setLoginError('registerError', 'Dieser Benutzername ist vergeben.'); return; }
+
+  const btn = document.querySelector('#registerForm .login-btn');
+  btn.textContent = '...'; btn.disabled = true;
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'registerUser', username, password,
+        displayName: username.charAt(0).toUpperCase() + username.slice(1) })
+    });
+    const json = await res.json();
+    btn.textContent = 'Konto erstellen'; btn.disabled = false;
+    if (json.status === 'exists') { setLoginError('registerError', 'Benutzername bereits vergeben.'); return; }
+    if (json.status !== 'ok') { setLoginError('registerError', 'Fehler: ' + (json.message || 'Unbekannt')); return; }
+    currentUser = { username, displayName: json.displayName, usesSheets: false, sheetsTab: json.tab };
+    sessionStorage.setItem('sg_session', JSON.stringify(currentUser));
+    startApp();
+  } catch(e) {
+    btn.textContent = 'Konto erstellen'; btn.disabled = false;
+    setLoginError('registerError', 'Verbindungsfehler. Bitte erneut versuchen.');
+  }
+}
+
+// ── Logout ─────────────────────────────────────────────────────────────────
+function doLogout() {
+  sessionStorage.removeItem('sg_session');
+  currentUser = null;
+  data = { Haben: {}, Brauchen: {} };
+  metaCache = {};
+  currentPlatform = null;
+  document.getElementById('userBadge').style.display = 'none';
+  document.getElementById('gameContent').innerHTML = '';
+  document.getElementById('gameContent').classList.remove('visible');
+  document.getElementById('platformGrid').innerHTML = '';
+  document.getElementById('totalCount').textContent = '0';
+  document.getElementById('collectionValue').textContent = '–';
+  // Reset loading overlay text in case it was changed
+  document.getElementById('loadingText').textContent = 'LADE SAMMLUNG...';
+  document.getElementById('loadingBar').style.width = '0%';
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  showLogin();
+}
+
+// ── Start app after successful login ───────────────────────────────────────
+function startApp() {
+  document.getElementById('userBadgeName').textContent = currentUser.displayName;
+  document.getElementById('userBadge').style.display = 'flex';
+  document.getElementById('loginOverlay').classList.add('hidden');
+  // Reset loading overlay
+  document.getElementById('loadingText').textContent = 'LADE SAMMLUNG...';
+  document.getElementById('loadingBar').style.width = '0%';
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+  init(); // always use init() — for non-Sheets users it reads from their own tab
+}
+
+// ── Override apiGet/apiPost to be user-aware ───────────────────────────────
+// Store originals
+const _apiGet = apiGet;
+const _apiPost = apiPost;
+
+apiGet = async function() {
+  if (currentUser && !currentUser.usesSheets) {
+    // Load from user's own Sheets tab
+    const res = await fetch(SCRIPT_URL + '?userTab=' + encodeURIComponent(currentUser.sheetsTab));
+    const json = await res.json();
+    if (json.status !== 'ok') throw new Error(json.message);
+    return json.data;
+  }
+  return _apiGet();
+};
+
+apiPost = async function(payload) {
+  if (currentUser && !currentUser.usesSheets) {
+    payload.userTab = currentUser.sheetsTab;
+  }
+  return _apiPost(payload);
+};
+
+// ── Session restore — runs LAST after all functions are defined ────────────
+(function restoreSession() {
+  try {
+    const saved = sessionStorage.getItem('sg_session');
+    if (saved) {
+      currentUser = JSON.parse(saved);
+      if (currentUser && currentUser.username) {
+        startApp();
+        return;
+      }
+    }
+  } catch(e) {}
+  // No valid session: show login, hide loading
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  showLogin();
+})();
 </script>
 </body>
 </html>
