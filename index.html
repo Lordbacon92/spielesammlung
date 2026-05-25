@@ -3185,18 +3185,16 @@ async function loadExtraPlatforms() {
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 <script>
 // ══════════════════════════════════════════════════════
-// BARCODE SCANNER
+// ══════════════════════════════════════════════════════
+// BARCODE SCANNER — EAN direkt an eBay
 // ══════════════════════════════════════════════════════
 let scannerCodeReader = null;
 let scannerActive = false;
-let lastScannedResult = null;
-let scannerMode = 'add'; // 'add' or 'check'
 
-function openScanner(mode) {
-  scannerMode = mode || (currentTab === 'check' ? 'check' : 'add');
+function openScanner() {
   document.getElementById('scannerModal').classList.add('open');
   document.getElementById('scannerResult').classList.remove('visible');
-  setStatus('Kamera wird gestartet...', '');
+  setStatus('Barcode in den Rahmen halten...', '');
   startScanner();
 }
 
@@ -3216,18 +3214,15 @@ async function startScanner() {
   try {
     scannerCodeReader = new ZXing.BrowserMultiFormatReader();
     scannerActive = true;
-    setStatus('Barcode in den Rahmen halten...', '');
     const videoEl = document.getElementById('scannerVideo');
     await scannerCodeReader.decodeFromConstraints(
       { video: { facingMode: 'environment' } },
       videoEl,
-      async (result, err) => {
+      (result, err) => {
         if (!scannerActive) return;
         if (result) {
           scannerActive = false;
-          const ean = result.getText();
-          setStatus('EAN: ' + ean + ' — suche Spiel...', '');
-          await lookupBarcode(ean);
+          onBarcodeFound(result.getText());
         }
       }
     );
@@ -3248,152 +3243,39 @@ function scannerRetry() {
   document.getElementById('scannerResult').classList.remove('visible');
   setStatus('Barcode in den Rahmen halten...', '');
   scannerActive = true;
-  if (!scannerCodeReader) { startScanner(); return; }
-  scannerActive = true;
+  if (!scannerCodeReader) startScanner();
 }
 
-async function lookupBarcode(ean) {
-  let result = await lookupUPC(ean);
-  if (!result) result = await lookupOpenEAN(ean);
+function onBarcodeFound(ean) {
+  setStatus('EAN: ' + ean + ' ✓', 'found');
 
-  if (result) {
-    lastScannedResult = { ...result, ean };
-    showScanResult(result);
-  } else {
-    lastScannedResult = { name: '', platform: '', ean };
-    setStatus('Spiel nicht gefunden für EAN: ' + ean, 'error');
-    document.getElementById('scannerGameName').textContent = 'Unbekanntes Spiel';
-    document.getElementById('scannerGameMeta').textContent = 'EAN: ' + ean + ' — Titel manuell eingeben';
-    document.getElementById('scannerResult').classList.add('visible');
-  }
-}
-
-async function lookupUPC(ean) {
-  try {
-    const res = await fetch('https://api.upcitemdb.com/prod/trial/lookup?upc=' + ean);
-    const json = await res.json();
-    if (json.code === 'OK' && json.items && json.items.length > 0) {
-      const item = json.items[0];
-      const name = cleanGameTitle(item.title || '');
-      const platform = detectPlatform(item.title + ' ' + (item.category || '') + ' ' + (item.description || ''));
-      if (name) return { name, platform };
-    }
-  } catch(e) {}
-  return null;
-}
-
-async function lookupOpenEAN(ean) {
-  try {
-    const res = await fetch('https://world.openfoodfacts.org/api/v0/product/' + ean + '.json');
-    const json = await res.json();
-    if (json.status === 1 && json.product) {
-      const name = cleanGameTitle(json.product.product_name || json.product.product_name_de || '');
-      if (name) return { name, platform: '' };
-    }
-  } catch(e) {}
-  return null;
-}
-
-function cleanGameTitle(raw) {
-  if (!raw) return '';
-  let title = raw
-    .replace(/\s*[-–|]\s*(PlayStation|PS[1-5]|Nintendo|Xbox|PC|Switch|GameCube|N64|SNES|NES|Game Boy|GBA|NDS|3DS|Wii|Sega|Saturn|Mega Drive|Dreamcast).*/gi, '')
-    .replace(/\s*\(.*?\)\s*/g, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-  return title.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
-
-function detectPlatform(text) {
-  const t = text.toLowerCase();
-  const checks = [
-    { key: 'PS5',       words: ['playstation 5', 'ps5'] },
-    { key: 'PS4',       words: ['playstation 4', 'ps4'] },
-    { key: 'PS3',       words: ['playstation 3', 'ps3'] },
-    { key: 'Ps2',       words: ['playstation 2', 'ps2'] },
-    { key: 'PS1',       words: ['playstation 1', 'playstation one', 'ps1', 'psx'] },
-    { key: 'Switch2',   words: ['switch 2', 'nintendo switch 2'] },
-    { key: 'Switch',    words: ['nintendo switch', 'switch'] },
-    { key: '3DS',       words: ['nintendo 3ds', '3ds'] },
-    { key: 'NDS',       words: ['nintendo ds', 'nds'] },
-    { key: 'GBA',       words: ['game boy advance', 'gba'] },
-    { key: 'GBC',       words: ['game boy color', 'gbc'] },
-    { key: 'GB',        words: ['game boy'] },
-    { key: 'N64',       words: ['nintendo 64', 'n64'] },
-    { key: 'Gamecube',  words: ['gamecube', 'game cube'] },
-    { key: 'SNES',      words: ['super nintendo', 'snes'] },
-    { key: 'NES',       words: [' nes '] },
-    { key: 'Megadrive', words: ['mega drive', 'megadrive', 'genesis'] },
-    { key: 'Saturn',    words: ['sega saturn', 'saturn'] },
-    { key: 'PC',        words: ['pc ', 'windows', 'steam'] },
+  const q = encodeURIComponent(ean);
+  const kq = ean;
+  const links = [
+    { tag: 'tag-normal',        tagText: 'eBay Marktpreis',  desc: 'Verkaufte Artikel',  url: 'https://www.ebay.de/sch/i.html?_nkw=' + q + '&LH_Sold=1&LH_Complete=1&LH_Auction=1' },
+    { tag: 'tag-new',           tagText: 'Laufende Auktion', desc: 'Bald endend',         url: 'https://www.ebay.de/sch/i.html?_nkw=' + q + '&LH_Auction=1&_sop=1' },
+    { tag: 'tag-normal',        tagText: 'Sofortkauf',       desc: 'Sofort kaufen',       url: 'https://www.ebay.de/sch/i.html?_nkw=' + q + '&LH_BIN=1' },
+    { tag: 'tag-kleinanzeigen', tagText: 'Kleinanzeigen',    desc: 'Privatverkäufer',     url: 'https://www.kleinanzeigen.de/s-' + kq + '/k0?sortierung=2' },
   ];
-  for (const c of checks) {
-    if (c.words.some(w => t.includes(w))) return c.key;
-  }
-  return '';
-}
 
-function showScanResult(result) {
-  const platLabel = result.platform ? ((platforms[result.platform] || {}).label || result.platform) : '';
-  const ebayTerm = result.platform ? ((platforms[result.platform] || {}).ebay || result.platform) : '';
+  // Update check tab result panel
+  document.getElementById('scanPriceTitle').textContent = 'EAN: ' + ean;
+  document.getElementById('scanPriceLinks').innerHTML = links.map(l =>
+    '<a class="schnapp-link" href="' + l.url + '" target="_blank">' +
+      '<span class="schnapp-tag ' + l.tag + '">' + l.tagText + '</span>' +
+      '<span class="schnapp-query">' + l.desc + '</span>' +
+      '<span style="font-size:11px;opacity:0.4">&#8599;</span>' +
+    '</a>'
+  ).join('');
+  document.getElementById('scanPriceResult').style.display = 'block';
 
-  document.getElementById('scannerGameName').textContent = result.name || '(Titel unbekannt)';
-  document.getElementById('scannerGameMeta').textContent = (platLabel || 'Plattform unbekannt') + (result.ean ? ' · EAN: ' + result.ean : '');
-  setStatus('Spiel gefunden! ✓', 'found');
-
-  if (scannerMode === 'check' && result.name) {
-    // Build price check links and show them in the check tab after closing
-    const q = encodeURIComponent(result.name + (ebayTerm ? ' ' + ebayTerm : ''));
-    const links = [
-      { tag: 'tag-normal',    tagText: 'eBay Marktpreis',  desc: 'Verkaufte Artikel',    url: 'https://www.ebay.de/sch/i.html?_nkw=' + q + '&LH_Sold=1&LH_Complete=1&LH_Auction=1' },
-      { tag: 'tag-new',       tagText: 'Laufende Auktion', desc: 'Bald endend',           url: 'https://www.ebay.de/sch/i.html?_nkw=' + q + '&LH_Auction=1&_sop=1' },
-      { tag: 'tag-normal',    tagText: 'Sofortkauf',       desc: 'Sofort kaufen',         url: 'https://www.ebay.de/sch/i.html?_nkw=' + q + '&LH_BIN=1' },
-      { tag: 'tag-kleinanzeigen', tagText: 'Kleinanzeigen', desc: 'Privatverkäufer',      url: 'https://www.kleinanzeigen.de/s-' + encodeURIComponent(result.name + (ebayTerm ? ' ' + ebayTerm : '')).replace(/%20/g,'-') + '/k0?sortierung=2' },
-    ];
-
-    // Update check tab result area
-    document.getElementById('scanPriceTitle').textContent = '📷 ' + result.name + (platLabel ? ' · ' + platLabel : '');
-    document.getElementById('scanPriceLinks').innerHTML = links.map(l =>
-      '<a class="schnapp-link" href="' + l.url + '" target="_blank">' +
-        '<span class="schnapp-tag ' + l.tag + '">' + l.tagText + '</span>' +
-        '<span class="schnapp-query">' + l.desc + '</span>' +
-        '<span style="font-size:11px;opacity:0.4">&#8599;</span>' +
-      '</a>'
-    ).join('');
-    document.getElementById('scanPriceResult').style.display = 'block';
-
-    document.querySelector('.scanner-add-haben').style.display = 'none';
-    document.querySelector('.scanner-add-brauchen').style.display = 'none';
-    document.querySelector('.scanner-add-check').style.display = '';
-    document.getElementById('scannerResult').classList.add('visible');
-  } else {
-    document.querySelector('.scanner-add-haben').style.display = '';
-    document.querySelector('.scanner-add-brauchen').style.display = '';
-    document.querySelector('.scanner-add-check').style.display = 'none';
-    document.getElementById('scannerResult').classList.add('visible');
-  }
-}
-
-async function scannerAddGame(tab) {
-  if (!lastScannedResult) return;
-  let name = lastScannedResult.name;
-  let platform = lastScannedResult.platform;
-  if (!name) name = document.getElementById('addNameInput').value.trim();
-  if (!name) { showToast('Bitte Spieltitel eingeben', true); return; }
-  if (!platform) platform = document.getElementById('addPlatformSelect').value;
-  if (!platform) { showToast('Plattform konnte nicht erkannt werden', true); return; }
-  try {
-    await apiPost({ action: 'add', tab, platform, game: name });
-    if (!data[tab][platform]) data[tab][platform] = [];
-    data[tab][platform].push(name);
-    data[tab][platform].sort((a,b) => a.localeCompare(b,'de'));
-    showToast('"' + name + '" → ' + tab + ' ✓');
-    renderPlatformButtons();
-    updateValueDisplay();
-    closeScanner();
-  } catch(e) {
-    showToast('Fehler: ' + e.message, true);
-  }
+  // Show result in modal
+  document.getElementById('scannerGameName').textContent = 'EAN: ' + ean;
+  document.getElementById('scannerGameMeta').textContent = 'eBay sucht automatisch über die EAN';
+  document.querySelector('.scanner-add-haben').style.display = 'none';
+  document.querySelector('.scanner-add-brauchen').style.display = 'none';
+  document.querySelector('.scanner-add-check').style.display = '';
+  document.getElementById('scannerResult').classList.add('visible');
 }
 </script>
 </body>
