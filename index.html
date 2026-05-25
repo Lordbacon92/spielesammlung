@@ -1289,6 +1289,166 @@
     z-index: 1;
   }
 
+  /* ── BARCODE SCANNER ── */
+  #scannerModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 9800;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
+  #scannerModal.open { display: flex; }
+
+  .scanner-header {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+  }
+  .scanner-title {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #fff;
+  }
+  .scanner-close {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: #fff;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .scanner-close:hover { background: rgba(255,255,255,0.2); }
+
+  .scanner-viewport {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 4/3;
+    overflow: hidden;
+    background: #000;
+  }
+  #scannerVideo {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .scanner-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .scanner-frame {
+    width: 70%;
+    aspect-ratio: 3/1;
+    border: 2px solid rgba(255,255,255,0.8);
+    border-radius: 6px;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+    position: relative;
+  }
+  .scanner-line {
+    position: absolute;
+    left: 4px; right: 4px;
+    height: 2px;
+    background: var(--accent);
+    top: 50%;
+    animation: scan-line 2s ease-in-out infinite;
+    border-radius: 1px;
+  }
+  @keyframes scan-line {
+    0%, 100% { top: 10%; opacity: 1; }
+    50% { top: 88%; opacity: 0.8; }
+  }
+  .scanner-corner {
+    position: absolute;
+    width: 16px; height: 16px;
+    border-color: var(--accent);
+    border-style: solid;
+  }
+  .scanner-corner.tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+  .scanner-corner.tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+  .scanner-corner.bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+  .scanner-corner.br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+  .scanner-status {
+    width: 100%;
+    max-width: 480px;
+    padding: 14px 20px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    min-height: 44px;
+  }
+  .scanner-status.found { color: var(--green); }
+  .scanner-status.error { color: var(--accent); }
+
+  .scanner-result {
+    width: 100%;
+    max-width: 480px;
+    padding: 0 20px 16px;
+    display: none;
+  }
+  .scanner-result.visible { display: block; }
+
+  .scanner-result-box {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+  }
+  .scanner-result-name {
+    font-family: var(--font-head);
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .scanner-result-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 14px;
+  }
+  .scanner-result-btns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .scanner-add-btn {
+    padding: 9px 18px;
+    border-radius: var(--radius);
+    border: none;
+    font-family: var(--font-head);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .scanner-add-btn:hover { opacity: 0.85; }
+  .scanner-add-haben  { background: var(--green); color: #fff; }
+  .scanner-add-brauchen { background: var(--accent2); color: #fff; }
+  .scanner-add-retry  { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); }
+
   /* ── RESPONSIVE ── */
   @media (max-width: 600px) {
     header { padding: 36px 16px 20px; }
@@ -1451,7 +1611,40 @@
   <select class="add-select" id="addPlatformSelect"></select>
   <button class="add-confirm-btn" style="background:transparent;border-color:var(--green);color:var(--green);padding:9px 12px;font-size:13px" onclick="openAddPlatformModal()" title="Neue Plattform">&#43; Plattform</button>
   <div class="input-mic-wrap"><input class="add-name-input" type="text" id="addNameInput" placeholder="Spieltitel eingeben..." onkeydown="if(event.key==='Enter')confirmAdd()"><button class="mic-btn" onclick="startDictation('addNameInput')" title="Diktat">&#127908;</button></div>
+  <button class="add-confirm-btn" style="background:transparent;border-color:var(--accent2);color:var(--accent2);padding:9px 12px;font-size:16px" onclick="openScanner()" title="Barcode scannen">&#128247;</button>
   <button class="add-confirm-btn" id="addConfirmBtn" onclick="confirmAdd()">&#10004; EINTRAGEN</button>
+</div>
+
+<!-- Barcode Scanner Modal -->
+<div id="scannerModal">
+  <div class="scanner-header">
+    <div class="scanner-title">&#128247; Barcode Scan</div>
+    <button class="scanner-close" onclick="closeScanner()">&#10005;</button>
+  </div>
+  <div class="scanner-viewport">
+    <video id="scannerVideo" playsinline muted autoplay></video>
+    <div class="scanner-overlay">
+      <div class="scanner-frame">
+        <div class="scanner-line"></div>
+        <div class="scanner-corner tl"></div>
+        <div class="scanner-corner tr"></div>
+        <div class="scanner-corner bl"></div>
+        <div class="scanner-corner br"></div>
+      </div>
+    </div>
+  </div>
+  <div class="scanner-status" id="scannerStatus">Kamera wird gestartet...</div>
+  <div class="scanner-result" id="scannerResult">
+    <div class="scanner-result-box">
+      <div class="scanner-result-name" id="scannerGameName"></div>
+      <div class="scanner-result-meta" id="scannerGameMeta"></div>
+      <div class="scanner-result-btns">
+        <button class="scanner-add-btn scanner-add-haben" onclick="scannerAddGame('Haben')">+ Haben</button>
+        <button class="scanner-add-btn scanner-add-brauchen" onclick="scannerAddGame('Brauchen')">+ Brauchen</button>
+        <button class="scanner-add-btn scanner-add-retry" onclick="scannerRetry()">&#8635; Nochmal</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="platform-grid" id="platformGrid"></div>
@@ -2974,6 +3167,197 @@ async function loadExtraPlatforms() {
   document.getElementById('loadingOverlay').classList.add('hidden');
   showLogin();
 })();
+</script>
+
+<!-- ZXing barcode library -->
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+<script>
+// ══════════════════════════════════════════════════════
+// BARCODE SCANNER
+// ══════════════════════════════════════════════════════
+let scannerCodeReader = null;
+let scannerActive = false;
+let lastScannedResult = null; // { name, platform, ean }
+
+function openScanner() {
+  document.getElementById('scannerModal').classList.add('open');
+  document.getElementById('scannerResult').classList.remove('visible');
+  setStatus('Kamera wird gestartet...', '');
+  startScanner();
+}
+
+function closeScanner() {
+  stopScanner();
+  document.getElementById('scannerModal').classList.remove('open');
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('scannerStatus');
+  el.textContent = msg;
+  el.className = 'scanner-status' + (type ? ' ' + type : '');
+}
+
+async function startScanner() {
+  if (!window.ZXing) { setStatus('Scanner-Bibliothek lädt...', ''); return; }
+  try {
+    scannerCodeReader = new ZXing.BrowserMultiFormatReader();
+    scannerActive = true;
+    setStatus('Barcode in den Rahmen halten...', '');
+    const videoEl = document.getElementById('scannerVideo');
+    await scannerCodeReader.decodeFromConstraints(
+      { video: { facingMode: 'environment' } },
+      videoEl,
+      async (result, err) => {
+        if (!scannerActive) return;
+        if (result) {
+          scannerActive = false;
+          const ean = result.getText();
+          setStatus('EAN: ' + ean + ' — suche Spiel...', '');
+          await lookupBarcode(ean);
+        }
+      }
+    );
+  } catch(e) {
+    setStatus('Kamera-Fehler: ' + (e.message || e), 'error');
+  }
+}
+
+function stopScanner() {
+  scannerActive = false;
+  if (scannerCodeReader) {
+    try { scannerCodeReader.reset(); } catch(e) {}
+    scannerCodeReader = null;
+  }
+}
+
+function scannerRetry() {
+  document.getElementById('scannerResult').classList.remove('visible');
+  setStatus('Barcode in den Rahmen halten...', '');
+  scannerActive = true;
+  if (!scannerCodeReader) { startScanner(); return; }
+  scannerActive = true;
+}
+
+async function lookupBarcode(ean) {
+  // Try UPC Item DB first
+  let result = await lookupUPC(ean);
+  if (!result) result = await lookupOpenEAN(ean);
+
+  if (result) {
+    lastScannedResult = { ...result, ean };
+    showScanResult(result);
+  } else {
+    setStatus('Spiel nicht gefunden für EAN: ' + ean, 'error');
+    document.getElementById('scannerGameName').textContent = 'Unbekanntes Spiel';
+    document.getElementById('scannerGameMeta').textContent = 'EAN: ' + ean + ' — Titel manuell eingeben';
+    lastScannedResult = { name: '', platform: '', ean };
+    document.getElementById('scannerResult').classList.add('visible');
+  }
+}
+
+async function lookupUPC(ean) {
+  try {
+    const res = await fetch('https://api.upcitemdb.com/prod/trial/lookup?upc=' + ean);
+    const json = await res.json();
+    if (json.code === 'OK' && json.items && json.items.length > 0) {
+      const item = json.items[0];
+      const name = cleanGameTitle(item.title || '');
+      const platform = detectPlatform(item.title + ' ' + (item.category || '') + ' ' + (item.description || ''));
+      if (name) return { name, platform };
+    }
+  } catch(e) {}
+  return null;
+}
+
+async function lookupOpenEAN(ean) {
+  try {
+    const res = await fetch('https://world.openfoodfacts.org/api/v0/product/' + ean + '.json');
+    const json = await res.json();
+    if (json.status === 1 && json.product) {
+      const name = cleanGameTitle(json.product.product_name || json.product.product_name_de || '');
+      if (name) return { name, platform: '' };
+    }
+  } catch(e) {}
+  return null;
+}
+
+function cleanGameTitle(raw) {
+  if (!raw) return '';
+  // Remove common suffixes like platform names, region codes etc.
+  let title = raw
+    .replace(/\s*[-–|]\s*(PlayStation|PS[1-5]|Nintendo|Xbox|PC|Switch|GameCube|N64|SNES|NES|Game Boy|GBA|NDS|3DS|Wii|Sega|Saturn|Mega Drive|Dreamcast).*/gi, '')
+    .replace(/\s*\(.*?\)\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  // Capitalize properly
+  return title.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function detectPlatform(text) {
+  const t = text.toLowerCase();
+  const checks = [
+    { key: 'PS5',          words: ['playstation 5', 'ps5'] },
+    { key: 'PS4',          words: ['playstation 4', 'ps4'] },
+    { key: 'PS3',          words: ['playstation 3', 'ps3'] },
+    { key: 'Ps2',          words: ['playstation 2', 'ps2'] },
+    { key: 'PS1',          words: ['playstation 1', 'playstation one', 'ps1', 'psx'] },
+    { key: 'Switch2',      words: ['switch 2', 'nintendo switch 2'] },
+    { key: 'Switch',       words: ['nintendo switch', 'switch'] },
+    { key: '3DS',          words: ['nintendo 3ds', '3ds'] },
+    { key: 'NDS',          words: ['nintendo ds', 'nds'] },
+    { key: 'GBA',          words: ['game boy advance', 'gba'] },
+    { key: 'GBC',          words: ['game boy color', 'gbc'] },
+    { key: 'GB',           words: ['game boy'] },
+    { key: 'N64',          words: ['nintendo 64', 'n64'] },
+    { key: 'Gamecube',     words: ['gamecube', 'game cube'] },
+    { key: 'SNES',         words: ['super nintendo', 'snes'] },
+    { key: 'NES',          words: [' nes '] },
+    { key: 'Megadrive',    words: ['mega drive', 'megadrive', 'genesis'] },
+    { key: 'Saturn',       words: ['sega saturn', 'saturn'] },
+    { key: 'PC',           words: ['pc ', 'windows', 'steam'] },
+  ];
+  for (const c of checks) {
+    if (c.words.some(w => t.includes(w))) return c.key;
+  }
+  return '';
+}
+
+function showScanResult(result) {
+  document.getElementById('scannerGameName').textContent = result.name || '(Titel unbekannt)';
+  const platLabel = result.platform ? ((platforms[result.platform] || {}).label || result.platform) : 'Plattform unbekannt';
+  document.getElementById('scannerGameMeta').textContent = platLabel + (result.ean ? ' · EAN: ' + result.ean : '');
+  document.getElementById('scannerResult').classList.add('visible');
+  setStatus('Spiel gefunden! ✓', 'found');
+}
+
+async function scannerAddGame(tab) {
+  if (!lastScannedResult) return;
+  let name = lastScannedResult.name;
+  let platform = lastScannedResult.platform;
+
+  // If name empty, use what's in the add input
+  if (!name) name = document.getElementById('addNameInput').value.trim();
+  if (!name) { showToast('Bitte Spieltitel eingeben', true); return; }
+
+  // If platform not detected, use currently selected platform
+  if (!platform) platform = document.getElementById('addPlatformSelect').value;
+  if (!platform) { showToast('Plattform konnte nicht erkannt werden', true); return; }
+
+  try {
+    await apiPost({ action: 'add', tab, platform, game: name });
+    if (!data[tab][platform]) data[tab][platform] = [];
+    data[tab][platform].push(name);
+    data[tab][platform].sort((a,b) => a.localeCompare(b,'de'));
+    showToast('"' + name + '" → ' + tab + ' ✓');
+    renderPlatformButtons();
+    updateValueDisplay();
+    closeScanner();
+    // Pre-fill add form so user sees what was added
+    document.getElementById('addNameInput').value = name;
+  } catch(e) {
+    showToast('Fehler: ' + e.message, true);
+  }
+}
 </script>
 </body>
 </html>
