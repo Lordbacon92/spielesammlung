@@ -589,6 +589,22 @@
     flex: 1;
   }
 
+  /* ── Desktop: larger, more readable platform buttons ── */
+  @media (min-width: 601px) {
+    .plat-btn {
+      font-size: 15px;
+      padding: 13px 16px;
+      letter-spacing: 0.6px;
+    }
+    .plat-btn .count {
+      font-size: 12px;
+    }
+    .era-buttons {
+      gap: 8px;
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
   /* ── CONTENT ── */
   .content { max-width: 1400px; margin: 0 auto; padding: 20px 24px; display: none; position: relative; z-index: 1; }
   .content.visible { display: block; }
