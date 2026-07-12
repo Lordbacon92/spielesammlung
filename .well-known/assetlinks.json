@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "io.github.lordbacon92.twa",
-        "sha256_cert_fingerprints": ["73:9A:3A:64:95:F8:F1:67:2B:26:89:1C:DF:27:5E:44:1F:B9:61:89:65:66:B1:E4:04:0C:93:F8:F3:05:78:F3"]
+        "sha256_cert_fingerprints": ["6D:0E:79:89:65:B3:1E:12:73:6D:43:AF:2E:DA:62:2C:4A:9D:70:8C:D2:3D:1D:C2:42:F0:1C:E4:7A:A9:36:92"]
       }
     }]
