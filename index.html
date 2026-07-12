@@ -1814,12 +1814,13 @@ function whenBothReady(cb) {
 async function init() {
   const txt = document.getElementById('loadingText');
 
-  // Prepare video — preload fully on mobile before scrubbing
+  // Prepare video — preload, then play it normally
   const vid = document.getElementById('loadingVideo');
   if (vid) {
     vid.pause();
     vid.currentTime = 0;
     await preloadVideo();
+    vid.play().catch(() => {});
   }
 
   // Animate progress to 85% while waiting for data
@@ -3763,7 +3764,7 @@ function onBarcodeFound(ean) {
 }
 </script>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v1.27</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v1.28</div>
 
 </body>
 </html>
