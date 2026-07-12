@@ -111,6 +111,24 @@
     padding: 48px 20px 28px;
     position: relative;
     z-index: 1;
+    overflow: hidden;
+  }
+
+  [data-theme="dark"] header::before {
+    content: '';
+    position: absolute;
+    top: -20%;
+    left: 50%;
+    width: 900px;
+    max-width: 220vw;
+    height: 480px;
+    transform: translateX(-50%);
+    background:
+      radial-gradient(ellipse 45% 60% at 32% 40%, rgba(139,92,246,0.20), transparent 70%),
+      radial-gradient(ellipse 45% 60% at 68% 45%, rgba(255,63,164,0.20), transparent 70%);
+    filter: blur(30px);
+    pointer-events: none;
+    z-index: -1;
   }
 
   .header-eyebrow {
