@@ -956,9 +956,9 @@
   /* ── NOTES ── */
   .note-indicator { font-size: 11px; opacity: 0.6; flex-shrink: 0; line-height: 1; padding: 2px 3px; border-radius: 3px; }
 
-  /* ── ZUSTAND BADGE (Lose / CIB / Sealed) ── */
+  /* ── ZUSTAND BADGE (Modul / CIB / Sealed) — nur für ausgewählte Retro-Plattformen ── */
   .zustand-badge {
-    display: none;
+    display: inline-flex;
     align-items: center;
     flex-shrink: 0;
     font-family: var(--font-mono);
@@ -971,10 +971,11 @@
     line-height: 1.5;
     color: #fff;
     user-select: none;
+    opacity: 0.85;
   }
-  .zustand-badge.z-lose   { background: #6B7280; }
-  .zustand-badge.z-cib    { background: #2E6FD9; }
-  .zustand-badge.z-sealed { background: #8B5CF6; }
+  .zustand-badge.z-modul  { background: #6B7280; }
+  .zustand-badge.z-cib    { background: #2E6FD9; opacity: 1; }
+  .zustand-badge.z-sealed { background: #8B5CF6; opacity: 1; }
   .zustand-badge:active   { filter: brightness(0.85); }
 
   /* ── CONTEXT MENU ── */
@@ -1026,14 +1027,14 @@
   .ctx-menu-item.ctx-medium .ctx-dot { background: #C07A00; }
   .ctx-menu-item.ctx-common .ctx-dot { background: #1E8A4A; }
   .ctx-menu-item.ctx-reset  .ctx-dot { background: var(--text-dim); }
-  .ctx-menu-item.ctx-z-lose   .ctx-dot { background: #6B7280; }
+  .ctx-menu-item.ctx-z-modul   .ctx-dot { background: #6B7280; }
   .ctx-menu-item.ctx-z-cib    .ctx-dot { background: #2E6FD9; }
   .ctx-menu-item.ctx-z-sealed .ctx-dot { background: #8B5CF6; }
   .ctx-menu-item.ctx-note   { color: var(--text); }
   .ctx-menu-item.ctx-rare:hover   { background: rgba(192,57,43,0.08); }
   .ctx-menu-item.ctx-medium:hover { background: rgba(192,122,0,0.08); }
   .ctx-menu-item.ctx-common:hover { background: rgba(30,138,74,0.08); }
-  .ctx-menu-item.ctx-z-lose:hover   { background: rgba(107,114,128,0.1); }
+  .ctx-menu-item.ctx-z-modul:hover   { background: rgba(107,114,128,0.1); }
   .ctx-menu-item.ctx-z-cib:hover    { background: rgba(46,111,217,0.08); }
   .ctx-menu-item.ctx-z-sealed:hover { background: rgba(139,92,246,0.08); }
 
@@ -1749,13 +1750,15 @@
   <button class="ctx-menu-item ctx-medium" onclick="ctxSetRarity('medium')"><span class="ctx-dot"></span> Medium</button>
   <button class="ctx-menu-item ctx-common" onclick="ctxSetRarity('common')"><span class="ctx-dot"></span> H&#228;ufig</button>
   <button class="ctx-menu-item ctx-reset"  onclick="ctxSetRarity(null)">    <span class="ctx-dot"></span> Zur&#252;cksetzen</button>
-  <div class="ctx-separator"></div>
-  <div class="ctx-menu-title">Zustand</div>
-  <button class="ctx-menu-item ctx-z-lose"   onclick="ctxSetZustand('lose')">  <span class="ctx-dot"></span> Lose</button>
-  <button class="ctx-menu-item ctx-z-cib"    onclick="ctxSetZustand('cib')">   <span class="ctx-dot"></span> CIB</button>
-  <button class="ctx-menu-item ctx-z-sealed" onclick="ctxSetZustand('sealed')"><span class="ctx-dot"></span> Sealed</button>
-  <button class="ctx-menu-item ctx-reset"    onclick="ctxSetZustand(null)">    <span class="ctx-dot"></span> Zur&#252;cksetzen</button>
-  <div class="ctx-separator"></div>
+  <div class="ctx-separator" id="ctxZustandSep"></div>
+  <div id="ctxZustandSection">
+    <div class="ctx-menu-title">Zustand</div>
+    <button class="ctx-menu-item ctx-z-modul"   onclick="ctxSetZustand('modul')"> <span class="ctx-dot"></span> Modul</button>
+    <button class="ctx-menu-item ctx-z-cib"    onclick="ctxSetZustand('cib')">   <span class="ctx-dot"></span> CIB</button>
+    <button class="ctx-menu-item ctx-z-sealed" onclick="ctxSetZustand('sealed')"><span class="ctx-dot"></span> Sealed</button>
+    <button class="ctx-menu-item ctx-reset"    onclick="ctxSetZustand(null)">    <span class="ctx-dot"></span> Zur&#252;cksetzen</button>
+    <div class="ctx-separator"></div>
+  </div>
   <button class="ctx-menu-item ctx-note"   onclick="event.stopPropagation();ctxOpenNote()">&#128203; Notiz bearbeiten</button>
 </div>
 <div id="ctxNotePopup" style="display:none" onclick="event.stopPropagation()">
@@ -2164,28 +2167,26 @@ function saveNote(index) {
 }
 
 // ── Zustand (Lose / CIB / Sealed) ───────────────────────────────────────────
-const ZUSTAND_LABELS = { lose: 'Lose', cib: 'CIB', sealed: 'Sealed' };
-const ZUSTAND_ORDER = ['lose', 'cib', 'sealed'];
+// ── Zustand (Modul / CIB / Sealed) ──────────────────────────────────────────
+// Nur für diese Plattformen relevant
+const ZUSTAND_PLATFORMS = ['Atari', 'NES', 'SNES', 'Megadrive', 'GB', 'GBC', 'GBA'];
+function zustandEnabled(platform) { return ZUSTAND_PLATFORMS.indexOf(platform) !== -1; }
+
+const ZUSTAND_LABELS = { modul: 'Modul', cib: 'CIB', sealed: 'Sealed' };
+const ZUSTAND_ORDER = ['modul', 'cib', 'sealed'];
 
 function zustandBadgeText(z) {
-  if (z === 'lose') return 'LOSE';
   if (z === 'cib') return 'CIB';
   if (z === 'sealed') return 'SEALED';
-  return '';
+  return 'MODUL'; // Default/unset -> zeigt "Modul" als Ausgangspunkt zum Antippen
 }
 
 function applyZustandBadge(index, zustand) {
   const badge = document.getElementById('zustand-' + index);
   if (!badge) return;
-  badge.classList.remove('z-lose', 'z-cib', 'z-sealed');
-  if (zustand) {
-    badge.classList.add('z-' + zustand);
-    badge.textContent = zustandBadgeText(zustand);
-    badge.style.display = 'inline-flex';
-  } else {
-    badge.textContent = '';
-    badge.style.display = 'none';
-  }
+  badge.classList.remove('z-modul', 'z-cib', 'z-sealed');
+  badge.classList.add('z-' + (zustand || 'modul'));
+  badge.textContent = zustandBadgeText(zustand);
 }
 
 function setZustand(index, zustand) {
@@ -2201,9 +2202,9 @@ function setZustand(index, zustand) {
 function cycleZustand(index, e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
   const name = getTabData()[currentPlatform][index];
-  const cur = getZustand(name, currentPlatform);
+  const cur = getZustand(name, currentPlatform) || 'modul';
   const curIdx = ZUSTAND_ORDER.indexOf(cur);
-  const next = curIdx === -1 ? ZUSTAND_ORDER[0] : (curIdx === ZUSTAND_ORDER.length - 1 ? null : ZUSTAND_ORDER[curIdx + 1]);
+  const next = ZUSTAND_ORDER[(curIdx + 1) % ZUSTAND_ORDER.length];
   setZustand(index, next);
 }
 
@@ -2227,15 +2228,15 @@ function gameItemHtml(name, index, cfg) {
   const noteIndStyle = noteVal ? '' : 'display:none';
 
   const zustandVal = getZustand(name, currentPlatform);
-  const zustandClass = zustandVal ? ' z-' + zustandVal : '';
-  const zustandStyle = zustandVal ? '' : 'display:none';
-  const zustandText = zustandBadgeText(zustandVal);
+  const zustandBadgeHtml = zustandEnabled(currentPlatform)
+    ? '<span class="zustand-badge z-' + (zustandVal || 'modul') + '" id="zustand-' + index + '" title="Zustand (antippen zum Wechseln)" onclick="cycleZustand(' + index + ', event)">' + zustandBadgeText(zustandVal) + '</span>'
+    : '';
 
   const itemHtml =
     '<div class="game-item" style="border-left-color:' + (cfg.color||'var(--accent)') + ';color:var(--text)" id="gi-' + index + '">' +
       '<span class="game-bullet ' + cfg.css + '"></span>' +
       '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
-      '<span class="zustand-badge' + zustandClass + '" id="zustand-' + index + '" style="' + zustandStyle + '" title="Zustand (antippen zum Wechseln)" onclick="cycleZustand(' + index + ', event)">' + zustandText + '</span>' +
+      zustandBadgeHtml +
       '<span class="note-indicator" id="note-ind-' + index + '" style="' + noteIndStyle + '" title="Notiz vorhanden">&#128203;</span>' +
       '<a class="scan-btn" href="' + auctionUrl + '" target="_blank" title="Laufende Auktionen">Auktion</a>' +
       '<a class="scan-btn sofort-btn" href="' + binUrl + '" target="_blank" title="Sofortkauf">Sofortkauf</a>' +
@@ -2628,9 +2629,12 @@ function openRarityMenu(e, index) {
   const safe = name.length > 28 ? name.slice(0, 26) + '...' : name;
   document.getElementById('ctxMenuTitle').textContent = safe;
   const menu = document.getElementById('rarityContextMenu');
+  const zSection = document.getElementById('ctxZustandSection');
+  const showZustand = zustandEnabled(currentPlatform);
+  if (zSection) zSection.style.display = showZustand ? 'block' : 'none';
   menu.style.display = 'block';
   // Position near cursor, keep within viewport
-  const mw = 170, mh = 320;
+  const mw = 170, mh = showZustand ? 320 : 160;
   let x = e.clientX, y = e.clientY;
   if (x + mw > window.innerWidth)  x = window.innerWidth - mw - 8;
   if (y + mh > window.innerHeight) y = window.innerHeight - mh - 8;
