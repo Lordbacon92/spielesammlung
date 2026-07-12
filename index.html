@@ -956,6 +956,27 @@
   /* ── NOTES ── */
   .note-indicator { font-size: 11px; opacity: 0.6; flex-shrink: 0; line-height: 1; padding: 2px 3px; border-radius: 3px; }
 
+  /* ── ZUSTAND BADGE (Lose / CIB / Sealed) ── */
+  .zustand-badge {
+    display: none;
+    align-items: center;
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    cursor: pointer;
+    line-height: 1.5;
+    color: #fff;
+    user-select: none;
+  }
+  .zustand-badge.z-lose   { background: #6B7280; }
+  .zustand-badge.z-cib    { background: #2E6FD9; }
+  .zustand-badge.z-sealed { background: #8B5CF6; }
+  .zustand-badge:active   { filter: brightness(0.85); }
+
   /* ── CONTEXT MENU ── */
   #rarityContextMenu {
     display: none;
@@ -1005,10 +1026,16 @@
   .ctx-menu-item.ctx-medium .ctx-dot { background: #C07A00; }
   .ctx-menu-item.ctx-common .ctx-dot { background: #1E8A4A; }
   .ctx-menu-item.ctx-reset  .ctx-dot { background: var(--text-dim); }
+  .ctx-menu-item.ctx-z-lose   .ctx-dot { background: #6B7280; }
+  .ctx-menu-item.ctx-z-cib    .ctx-dot { background: #2E6FD9; }
+  .ctx-menu-item.ctx-z-sealed .ctx-dot { background: #8B5CF6; }
   .ctx-menu-item.ctx-note   { color: var(--text); }
   .ctx-menu-item.ctx-rare:hover   { background: rgba(192,57,43,0.08); }
   .ctx-menu-item.ctx-medium:hover { background: rgba(192,122,0,0.08); }
   .ctx-menu-item.ctx-common:hover { background: rgba(30,138,74,0.08); }
+  .ctx-menu-item.ctx-z-lose:hover   { background: rgba(107,114,128,0.1); }
+  .ctx-menu-item.ctx-z-cib:hover    { background: rgba(46,111,217,0.08); }
+  .ctx-menu-item.ctx-z-sealed:hover { background: rgba(139,92,246,0.08); }
 
   .ctx-separator { height: 1px; background: var(--border); margin: 2px 0; }
 
@@ -1723,6 +1750,12 @@
   <button class="ctx-menu-item ctx-common" onclick="ctxSetRarity('common')"><span class="ctx-dot"></span> H&#228;ufig</button>
   <button class="ctx-menu-item ctx-reset"  onclick="ctxSetRarity(null)">    <span class="ctx-dot"></span> Zur&#252;cksetzen</button>
   <div class="ctx-separator"></div>
+  <div class="ctx-menu-title">Zustand</div>
+  <button class="ctx-menu-item ctx-z-lose"   onclick="ctxSetZustand('lose')">  <span class="ctx-dot"></span> Lose</button>
+  <button class="ctx-menu-item ctx-z-cib"    onclick="ctxSetZustand('cib')">   <span class="ctx-dot"></span> CIB</button>
+  <button class="ctx-menu-item ctx-z-sealed" onclick="ctxSetZustand('sealed')"><span class="ctx-dot"></span> Sealed</button>
+  <button class="ctx-menu-item ctx-reset"    onclick="ctxSetZustand(null)">    <span class="ctx-dot"></span> Zur&#252;cksetzen</button>
+  <div class="ctx-separator"></div>
   <button class="ctx-menu-item ctx-note"   onclick="event.stopPropagation();ctxOpenNote()">&#128203; Notiz bearbeiten</button>
 </div>
 <div id="ctxNotePopup" style="display:none" onclick="event.stopPropagation()">
@@ -2066,8 +2099,8 @@ function ebayUrl(name, platformLabel) {
   return 'https://www.ebay.de/sch/i.html?_nkw=' + query + '&LH_Sold=1&LH_Complete=1&LH_Auction=1';
 }
 
-// ── Meta (rarity + notes) – synced via Google Sheet ─────────────────────────
-// metaCache: { "platform::game": { rarity, note } }
+// ── Meta (rarity + notes + zustand) – synced via Google Sheet ───────────────
+// metaCache: { "platform::game": { rarity, note, zustand } }
 let metaCache = {};
 
 function metaKey(name, platform) { return platform + '::' + name; }
@@ -2082,13 +2115,19 @@ function getNote(name, platform) {
   return m ? (m.note || '') : '';
 }
 
-async function syncMeta(platform, name, rarity, note) {
+function getZustand(name, platform) {
+  const m = metaCache[metaKey(name, platform)];
+  return m ? (m.zustand || null) : null;
+}
+
+async function syncMeta(platform, name, rarity, note, zustand) {
   const k = metaKey(name, platform);
   if (!metaCache[k]) metaCache[k] = {};
-  metaCache[k].rarity = rarity;
-  metaCache[k].note   = note !== undefined ? note : (metaCache[k].note || '');
+  metaCache[k].rarity  = rarity;
+  metaCache[k].note    = note    !== undefined ? note    : (metaCache[k].note || '');
+  metaCache[k].zustand = zustand !== undefined ? zustand : (metaCache[k].zustand || '');
   try {
-    await apiPost({ action: 'setMeta', platform, game: name, rarity: rarity || '', note: metaCache[k].note });
+    await apiPost({ action: 'setMeta', platform, game: name, rarity: rarity || '', note: metaCache[k].note, zustand: metaCache[k].zustand || '' });
   } catch(e) { console.error('Meta sync failed:', e); }
 }
 
@@ -2096,6 +2135,7 @@ function setRarity(index, rarity) {
   const name = getTabData()[currentPlatform][index];
   const wrap = document.getElementById('giw-' + index);
   const curNote = getNote(name, currentPlatform);
+  const curZustand = getZustand(name, currentPlatform);
   if (rarity === null) {
     if (wrap) { wrap.classList.remove('rarity-rare','rarity-medium','rarity-common'); }
     showToast('"' + name + '" Seltenheit entfernt');
@@ -2108,7 +2148,7 @@ function setRarity(index, rarity) {
     showToast('"' + name + '" -> ' + label);
   }
   if (wrap) wrap.classList.remove('swiped');
-  syncMeta(currentPlatform, name, rarity, curNote);
+  syncMeta(currentPlatform, name, rarity, curNote, curZustand);
 }
 
 function saveNote(index) {
@@ -2117,9 +2157,54 @@ function saveNote(index) {
   if (!ta) return;
   const val = ta.value.trim();
   const curRarity = getRarity(name, currentPlatform);
+  const curZustand = getZustand(name, currentPlatform);
   const ind = document.getElementById('note-ind-' + index);
   if (ind) { ind.style.display = val ? 'inline' : 'none'; }
-  syncMeta(currentPlatform, name, curRarity, val);
+  syncMeta(currentPlatform, name, curRarity, val, curZustand);
+}
+
+// ── Zustand (Lose / CIB / Sealed) ───────────────────────────────────────────
+const ZUSTAND_LABELS = { lose: 'Lose', cib: 'CIB', sealed: 'Sealed' };
+const ZUSTAND_ORDER = ['lose', 'cib', 'sealed'];
+
+function zustandBadgeText(z) {
+  if (z === 'lose') return 'LOSE';
+  if (z === 'cib') return 'CIB';
+  if (z === 'sealed') return 'SEALED';
+  return '';
+}
+
+function applyZustandBadge(index, zustand) {
+  const badge = document.getElementById('zustand-' + index);
+  if (!badge) return;
+  badge.classList.remove('z-lose', 'z-cib', 'z-sealed');
+  if (zustand) {
+    badge.classList.add('z-' + zustand);
+    badge.textContent = zustandBadgeText(zustand);
+    badge.style.display = 'inline-flex';
+  } else {
+    badge.textContent = '';
+    badge.style.display = 'none';
+  }
+}
+
+function setZustand(index, zustand) {
+  const name = getTabData()[currentPlatform][index];
+  const curRarity = getRarity(name, currentPlatform);
+  const curNote = getNote(name, currentPlatform);
+  applyZustandBadge(index, zustand);
+  const label = zustand ? ZUSTAND_LABELS[zustand] : null;
+  showToast(label ? ('"' + name + '" -> ' + label) : ('"' + name + '" Zustand entfernt'));
+  syncMeta(currentPlatform, name, curRarity, curNote, zustand);
+}
+
+function cycleZustand(index, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const name = getTabData()[currentPlatform][index];
+  const cur = getZustand(name, currentPlatform);
+  const curIdx = ZUSTAND_ORDER.indexOf(cur);
+  const next = curIdx === -1 ? ZUSTAND_ORDER[0] : (curIdx === ZUSTAND_ORDER.length - 1 ? null : ZUSTAND_ORDER[curIdx + 1]);
+  setZustand(index, next);
 }
 
 function gameItemHtml(name, index, cfg) {
@@ -2141,10 +2226,16 @@ function gameItemHtml(name, index, cfg) {
   const noteSafe = noteVal.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const noteIndStyle = noteVal ? '' : 'display:none';
 
+  const zustandVal = getZustand(name, currentPlatform);
+  const zustandClass = zustandVal ? ' z-' + zustandVal : '';
+  const zustandStyle = zustandVal ? '' : 'display:none';
+  const zustandText = zustandBadgeText(zustandVal);
+
   const itemHtml =
     '<div class="game-item" style="border-left-color:' + (cfg.color||'var(--accent)') + ';color:var(--text)" id="gi-' + index + '">' +
       '<span class="game-bullet ' + cfg.css + '"></span>' +
       '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
+      '<span class="zustand-badge' + zustandClass + '" id="zustand-' + index + '" style="' + zustandStyle + '" title="Zustand (antippen zum Wechseln)" onclick="cycleZustand(' + index + ', event)">' + zustandText + '</span>' +
       '<span class="note-indicator" id="note-ind-' + index + '" style="' + noteIndStyle + '" title="Notiz vorhanden">&#128203;</span>' +
       '<a class="scan-btn" href="' + auctionUrl + '" target="_blank" title="Laufende Auktionen">Auktion</a>' +
       '<a class="scan-btn sofort-btn" href="' + binUrl + '" target="_blank" title="Sofortkauf">Sofortkauf</a>' +
@@ -2539,7 +2630,7 @@ function openRarityMenu(e, index) {
   const menu = document.getElementById('rarityContextMenu');
   menu.style.display = 'block';
   // Position near cursor, keep within viewport
-  const mw = 170, mh = 160;
+  const mw = 170, mh = 320;
   let x = e.clientX, y = e.clientY;
   if (x + mw > window.innerWidth)  x = window.innerWidth - mw - 8;
   if (y + mh > window.innerHeight) y = window.innerHeight - mh - 8;
@@ -2555,6 +2646,12 @@ function closeRarityMenu() {
 function ctxSetRarity(rarity) {
   if (ctxIndex === null) return;
   setRarity(ctxIndex, rarity);
+  closeRarityMenu();
+}
+
+function ctxSetZustand(zustand) {
+  if (ctxIndex === null) return;
+  setZustand(ctxIndex, zustand);
   closeRarityMenu();
 }
 
