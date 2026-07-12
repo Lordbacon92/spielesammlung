@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Alex seine Spielesammlung</title>
+<title>Collect — Alex seine Spielesammlung</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="icon" type="image/webp" href="favicon.webp">
 <link rel="apple-touch-icon" href="favicon.webp">
@@ -126,14 +126,16 @@
   h1 {
     font-family: var(--font-head);
     font-size: clamp(42px, 7vw, 80px);
-    font-weight: 800;
-    letter-spacing: -1px;
-    color: var(--text);
+    font-weight: 900;
+    letter-spacing: 1px;
     line-height: 1;
     margin-bottom: 8px;
+    background: linear-gradient(90deg, #8b5cf6 0%, #ff3fa4 55%, #ff8a4c 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 20px rgba(200,90,220,0.45)) drop-shadow(0 0 46px rgba(140,90,255,0.28));
   }
-
-  h1 span { color: var(--accent); }
 
   .subtitle {
     font-size: 12px;
@@ -145,11 +147,12 @@
   }
 
   .header-rule {
-    width: 48px;
-    height: 3px;
-    background: var(--accent);
+    width: 90px;
+    height: 4px;
+    background: linear-gradient(90deg, #8b5cf6, #ff3fa4, #ff8a4c);
     margin: 20px auto 0;
     border-radius: 2px;
+    box-shadow: 0 0 12px rgba(255,90,150,0.7), 0 0 24px rgba(140,90,255,0.4);
   }
 
   /* ── LOADING ── */
@@ -725,8 +728,19 @@
     border-radius: var(--radius-lg); padding: 36px 32px 32px;
     width: 100%; max-width: 360px; box-shadow: var(--shadow-lg); animation: fadeIn 0.3s ease;
   }
-  .login-logo { font-family: var(--font-head); font-size: 28px; font-weight: 800; color: var(--text); margin-bottom: 4px; line-height: 1; }
-  .login-logo span { color: var(--accent); }
+  .login-logo {
+    font-family: var(--font-head);
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    line-height: 1;
+    background: linear-gradient(90deg, #8b5cf6 0%, #ff3fa4 55%, #ff8a4c 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 12px rgba(200,90,220,0.4)) drop-shadow(0 0 26px rgba(140,90,255,0.25));
+  }
   .login-sub { font-family: var(--font-mono); font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 28px; }
   .login-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; display: block; }
   .login-input {
@@ -1533,7 +1547,7 @@
 <!-- Login Overlay -->
 <div id="loginOverlay">
   <div class="login-box">
-    <div class="login-logo">GAMES <span>GAMES</span> GAMES</div>
+    <div class="login-logo">COLLECT</div>
     <div class="login-sub">Spielesammlung</div>
     <div id="loginForm">
       <div class="login-error" id="loginError"></div>
@@ -1622,7 +1636,7 @@
 </div>
 
 <header>
-  <h1>GAMES <span>GAMES</span> GAMES</h1>
+  <h1>COLLECT</h1>
   <div class="header-rule"></div>
 </header>
 
@@ -3421,7 +3435,7 @@ function exportPDF() {
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Spielesammlung — ${userName}</title>
+<title>Collect — ${userName}</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Inter:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -3496,19 +3510,21 @@ function exportPDF() {
 
   .cover-title {
     font-family: var(--font-head);
-    font-size: 52pt;
+    font-size: 60pt;
     font-weight: 900;
     line-height: 0.9;
-    letter-spacing: -1px;
-    color: var(--text);
+    letter-spacing: 1px;
     margin-bottom: 5mm;
+    background: linear-gradient(90deg, #8b5cf6 0%, #ff3fa4 55%, #ff8a4c 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
-  .cover-title span { color: var(--accent); }
 
   .cover-rule {
     width: 20mm;
     height: 3px;
-    background: var(--accent);
+    background: linear-gradient(90deg, #8b5cf6, #ff3fa4, #ff8a4c);
     margin-bottom: 5mm;
     border-radius: 2px;
   }
@@ -3678,7 +3694,6 @@ function exportPDF() {
     color: var(--text-dim);
     letter-spacing: 1px;
   }
-  .pdf-footer-logo span { color: var(--accent); }
 
   /* Print button — hidden when printing */
   .print-btn {
@@ -3725,7 +3740,7 @@ function exportPDF() {
 
   <div class="cover-eyebrow">Spielesammlung · ${userName}</div>
   <div class="cover-tab-badge">${tabLabel}</div>
-  <div class="cover-title">GAMES<br><span>GAMES</span><br>GAMES</div>
+  <div class="cover-title">COLLECT</div>
   <div class="cover-rule"></div>
   <div class="cover-meta">
     <div class="cover-meta-item">
@@ -3751,7 +3766,7 @@ function exportPDF() {
 
 <div class="pdf-footer">
   <div class="pdf-footer-left">${userName} · ${tabLabel} · ${date}</div>
-  <div class="pdf-footer-logo">GAMES <span>GAMES</span> GAMES</div>
+  <div class="pdf-footer-logo">COLLECT</div>
 </div>
 
 <button class="print-btn" onclick="window.print()">ALS PDF SPEICHERN</button>
