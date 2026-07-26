@@ -30,6 +30,7 @@
     --accent2:    #2C3E7A;
     --green:      #1E8A4A;
     --purple:     #6C3F9E;
+    --value:      #C2410C;
     --radius:     6px;
     --radius-lg:  12px;
     --shadow:     0 1px 4px rgba(0,0,0,0.08);
@@ -51,6 +52,7 @@
     --accent2:    #7B9FEE;
     --green:      #3DDC84;
     --purple:     #B07EE8;
+    --value:      #FF9838;
     --shadow:     0 1px 4px rgba(0,0,0,0.4);
     --shadow-lg:  0 4px 24px rgba(0,0,0,0.55);
   }
@@ -1804,7 +1806,7 @@
 
 <footer>
   <div>GAME COUNT: <span id="totalCount">0</span> SPIELE</div>
-  <div style="margin-top:8px">GESCHÄTZTER WERT: <span id="collectionValue" style="color:#ff8800">–</span></div>
+  <div style="margin-top:8px">GESCHÄTZTER WERT: <span id="collectionValue" style="color:var(--value);font-weight:600">–</span></div>
 </footer>
 
 <div id="confirmModal">
@@ -2270,6 +2272,7 @@ function setZustand(index, zustand) {
   const label = zustand ? ZUSTAND_LABELS[zustand] : null;
   showToast(label ? ('"' + name + '" -> ' + label) : ('"' + name + '" Zustand entfernt'));
   syncMeta(currentPlatform, name, curRarity, curNote, zustand);
+  updateValueDisplay();
 }
 
 function cycleZustand(index, e) {
@@ -2526,6 +2529,10 @@ const rareKeywords = [
   {words: ['monkey island'],      mult: 6.0},
 ];
 
+// Zustand-Multiplikatoren: Modul = Basis, CIB & Sealed mit Aufschlag.
+// Gilt nur für Retro-Plattformen mit Zustandsverfolgung (ZUSTAND_PLATFORMS).
+const zustandPriceMult = { modul: 1.0, cib: 2.2, sealed: 5.0 };
+
 function estimateGamePrice(name, platform) {
   const base = platformAvgPrice[platform] || 10;
   const lower = name.toLowerCase();
@@ -2534,6 +2541,11 @@ function estimateGamePrice(name, platform) {
     if (r.words.some(w => lower.includes(w))) {
       mult = Math.max(mult, r.mult);
     }
+  }
+  // Zustand einbeziehen (Modul/CIB/Sealed) — ohne gesetzten Zustand gilt Modul als Basis
+  if (zustandEnabled(platform)) {
+    const z = getZustand(name, platform) || 'modul';
+    mult *= (zustandPriceMult[z] || 1.0);
   }
   return Math.round(base * mult);
 }
@@ -3985,7 +3997,7 @@ function onBarcodeFound(ean) {
 }
 </script>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v1.28</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v1.29</div>
 
 </body>
 </html>
