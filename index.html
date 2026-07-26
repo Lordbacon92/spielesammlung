@@ -1626,7 +1626,7 @@
 <div id="loadingOverlay">
   <video id="loadingVideo" muted playsinline preload="auto" src="Ladebildschirm.mp4"></video>
   <div class="loading-overlay-ui">
-    <div class="loading-text" id="loadingText">LADE SAMMLUNG...</div>
+    <div class="loading-text" id="loadingText">LADEN...</div>
     <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
   </div>
 </div>
@@ -3367,7 +3367,7 @@ function doLogout() {
   document.getElementById('platformGrid').innerHTML = '';
   document.getElementById('totalCount').textContent = '0';
   document.getElementById('collectionValue').textContent = '–';
-  document.getElementById('loadingText').textContent = 'LADE SAMMLUNG...';
+  document.getElementById('loadingText').textContent = 'LADEN...';
   setLoadProgress(0);
   const vid = document.getElementById('loadingVideo');
   if (vid) vid.currentTime = 0;
@@ -3382,7 +3382,7 @@ function startApp() {
   document.getElementById('userBadgeName').textContent = currentUser.displayName;
   document.getElementById('userBadge').style.display = 'flex';
   document.getElementById('loginOverlay').classList.add('hidden');
-  document.getElementById('loadingText').textContent = 'LADE SAMMLUNG...';
+  document.getElementById('loadingText').textContent = 'LADEN...';
   setLoadProgress(0);
   const vid = document.getElementById('loadingVideo');
   if (vid) vid.currentTime = 0;
