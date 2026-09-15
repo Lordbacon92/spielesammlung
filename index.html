@@ -1589,7 +1589,7 @@
     </div>
     <div id="registerForm" style="display:none">
       <div class="login-error" id="registerError"></div>
-      <div class="login-info">Deine Sammlung wird in Google Sheets gespeichert und ist auf allen Geräten verfügbar.</div>
+      <div class="login-info">Deine Sammlung wird in Firebase gespeichert und ist auf allen Geräten verfügbar.</div>
       <label class="login-label">Benutzername wählen</label>
       <input class="login-input" type="text" id="regUser" placeholder="Benutzername" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('regPass').focus()">
       <label class="login-label">Passwort wählen</label>
@@ -1629,6 +1629,7 @@
 
 <!-- Theme Toggle -->
 <div style="position:fixed;top:16px;right:16px;z-index:1000;display:flex;gap:8px;align-items:center">
+  <button class="theme-toggle" style="position:static" onclick="migrateFromSheets()" title="Einmalig: Daten von Google Sheets importieren">&#11014;&#65039; Import</button>
   <button class="theme-toggle" style="position:static" onclick="exportPDF()" title="Als PDF exportieren">📄 Export</button>
   <button class="theme-toggle" style="position:static" onclick="toggleTheme()" id="themeBtn">🌙 Dunkel</button>
 </div>
@@ -1867,8 +1868,27 @@
 
 <div id="toast"></div>
 
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzMZXeOIKEXkmYs2Exfnjd8TXHxCags3B-S_PA5OatwoGJ4WSRohfyio76UuvWWCO-P/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzMZXeOIKEXkmYs2Exfnjd8TXHxCags3B-S_PA5OatwoGJ4WSRohfyio76UuvWWCO-P/exec"; // nur noch für einmalige Migration genutzt
+
+// ══════════════════════════════════════════════════════
+// FIREBASE INIT — Werte aus Firebase-Konsole → Projekteinstellungen → Web-App
+// ══════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyDOz7P4B5TpbhWTHraxx9TZbNYrGqPHwIs",
+  authDomain: "collect-spielesammlung.firebaseapp.com",
+  projectId: "collect-spielesammlung",
+  storageBucket: "collect-spielesammlung.firebasestorage.app",
+  messagingSenderId: "588769569442",
+  appId: "1:588769569442:web:f9f7abc99bbddecdff05fb"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
 const platforms = {
   "Atari":        {css:"c-atari",      label:"Atari 2600",      img:"img/atari.png",      color:"#D4874A", ebay:"Atari"},
@@ -1904,21 +1924,125 @@ let currentPlatform = null;
 function getTabKey() { return currentTab === 'haben' ? 'Haben' : 'Brauchen'; }
 function getTabData() { return data[getTabKey()]; }
 
-// ── API calls ──────────────────────────────────────────────────────────────
+// ── Firestore data layer ─────────────────────────────────────────────────
+let currentUserDocRef = null;
+let currentUserData = null; // { displayName, data:{Haben,Brauchen}, meta, platforms }
+
 async function apiGet() {
-  const res = await fetch(SCRIPT_URL);
-  const json = await res.json();
-  if (json.status !== 'ok') throw new Error(json.message);
-  return json.data;
+  const uid = auth.currentUser.uid;
+  currentUserDocRef = db.collection('users').doc(uid);
+  const snap = await currentUserDocRef.get();
+  if (!snap.exists) {
+    currentUserData = { displayName: (currentUser && currentUser.displayName) || 'Spieler', data: { Haben: {}, Brauchen: {} }, meta: {}, platforms: [] };
+    await currentUserDocRef.set(currentUserData);
+  } else {
+    currentUserData = snap.data();
+    if (!currentUserData.data) currentUserData.data = { Haben: {}, Brauchen: {} };
+    if (!currentUserData.data.Haben) currentUserData.data.Haben = {};
+    if (!currentUserData.data.Brauchen) currentUserData.data.Brauchen = {};
+    if (!currentUserData.meta) currentUserData.meta = {};
+    if (!currentUserData.platforms) currentUserData.platforms = [];
+  }
+  metaCache = currentUserData.meta;
+  (currentUserData.platforms || []).forEach(function(p) {
+    if (!platforms[p.name]) platforms[p.name] = { css: 'c-parts', label: p.name, img: '', color: p.color || '#888888', ebay: p.name };
+  });
+  return currentUserData.data;
+}
+
+async function persistUserDoc() {
+  await currentUserDocRef.update({
+    data: currentUserData.data,
+    meta: currentUserData.meta,
+    platforms: currentUserData.platforms
+  });
 }
 
 async function apiPost(payload) {
-  const res = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    body: JSON.stringify(payload)
-  });
-  const json = await res.json();
-  if (json.status !== 'ok') throw new Error(json.message);
+  if (!currentUserDocRef) throw new Error('Nicht eingeloggt');
+  const action = payload.action;
+
+  if (action === 'add') {
+    const tab = payload.tab, platform = payload.platform, game = payload.game;
+    if (!currentUserData.data[tab][platform]) currentUserData.data[tab][platform] = [];
+    if (!currentUserData.data[tab][platform].includes(game)) currentUserData.data[tab][platform].push(game);
+    currentUserData.data[tab][platform].sort((a, b) => a.localeCompare(b, 'de'));
+  } else if (action === 'delete') {
+    const tab = payload.tab, platform = payload.platform, game = payload.game;
+    const arr = currentUserData.data[tab][platform] || [];
+    const idx = arr.indexOf(game);
+    if (idx > -1) arr.splice(idx, 1);
+  } else if (action === 'edit') {
+    const tab = payload.tab, platform = payload.platform, game = payload.game, newName = payload.newName;
+    const arr = currentUserData.data[tab][platform] || [];
+    const idx = arr.indexOf(game);
+    if (idx === -1) throw new Error('Spiel nicht gefunden: ' + game);
+    arr[idx] = newName;
+    arr.sort((a, b) => a.localeCompare(b, 'de'));
+  } else if (action === 'setMeta') {
+    const platform = payload.platform, game = payload.game, rarity = payload.rarity, note = payload.note, zustand = payload.zustand;
+    const k = platform + '::' + game;
+    const isEmpty = (!rarity) && (!note) && (!zustand);
+    if (isEmpty) delete currentUserData.meta[k];
+    else currentUserData.meta[k] = { rarity: rarity || '', note: note || '', zustand: zustand || '' };
+  } else if (action === 'addPlatform') {
+    const platformName = payload.platformName, color = payload.color;
+    if (!currentUserData.platforms.some(p => p.name === platformName)) {
+      currentUserData.platforms.push({ name: platformName, color: color || '#888888' });
+    }
+  } else {
+    throw new Error('Unbekannte Aktion: ' + action);
+  }
+
+  await persistUserDoc();
+}
+
+// ── Einmalige Migration: Google Sheets → Firestore ─────────────────────────
+async function migrateFromSheets() {
+  if (!currentUserDocRef) { showToast('Bitte zuerst einloggen', true); return; }
+  if (!confirm('Daten von Google Sheets in dieses Konto importieren?')) return;
+  showToast('Migriere Daten von Sheets...');
+  try {
+    const res = await fetch(SCRIPT_URL);
+    const json = await res.json();
+    if (json.status !== 'ok') throw new Error(json.message);
+    const sheetData = json.data;
+    const meta = sheetData['Meta'] || {};
+    delete sheetData['Meta'];
+
+    ['Haben', 'Brauchen'].forEach(function(tab) {
+      Object.entries(sheetData[tab] || {}).forEach(function([platform, games]) {
+        if (!currentUserData.data[tab][platform]) currentUserData.data[tab][platform] = [];
+        games.forEach(function(g) {
+          if (!currentUserData.data[tab][platform].includes(g)) currentUserData.data[tab][platform].push(g);
+        });
+        currentUserData.data[tab][platform].sort((a, b) => a.localeCompare(b, 'de'));
+      });
+    });
+    Object.assign(currentUserData.meta, meta);
+    await persistUserDoc();
+
+    const imgRes = await fetch(SCRIPT_URL + '?action=getImages');
+    const imgJson = await imgRes.json();
+    if (imgJson.status === 'ok') {
+      const uid = auth.currentUser.uid;
+      const batch = db.batch();
+      Object.entries(imgJson.images || {}).forEach(function([platform, imgData]) {
+        batch.set(db.collection('users').doc(uid).collection('images').doc(platform), { data: imgData });
+      });
+      await batch.commit();
+    }
+
+    showToast('Migration abgeschlossen ✓');
+    data = currentUserData.data;
+    metaCache = currentUserData.meta;
+    await loadPlatformImages();
+    renderPlatformButtons();
+    updateValueDisplay();
+  } catch(e) {
+    showToast('Migrationsfehler: ' + e.message, true);
+    console.error(e);
+  }
 }
 
 // ── Video scrub helper ─────────────────────────────────────────────────────
@@ -1957,7 +2081,7 @@ function whenBothReady(cb) {
   checkBothReady();
 }
 
-// ── Init: load from Sheets ─────────────────────────────────────────────────
+// ── Init: load from Firestore ───────────────────────────────────────────────
 async function init() {
   const txt = document.getElementById('loadingText');
 
@@ -1984,8 +2108,6 @@ async function init() {
 
   try {
     const loaded = await apiGet();
-    metaCache = loaded['Meta'] || {};
-    delete loaded['Meta'];
     data = loaded;
     clearInterval(ticker);
     clearTimeout(warnTimer);
@@ -2067,10 +2189,6 @@ async function confirmAdd() {
 
   try {
     await apiPost({ action: 'add', tab: getTabKey(), platform, game: name });
-    // Update local data
-    if (!data[getTabKey()][platform]) data[getTabKey()][platform] = [];
-    data[getTabKey()][platform].push(name);
-    data[getTabKey()][platform].sort((a,b) => a.localeCompare(b,'de'));
     document.getElementById('addNameInput').value = '';
     showToast('"' + name + '" wurde hinzugefuegt');
     if (currentPlatform === platform) renderGames();
@@ -2197,7 +2315,7 @@ function ebayUrl(name, platformLabel) {
   return 'https://www.ebay.de/sch/i.html?_nkw=' + query + '&LH_Sold=1&LH_Complete=1&LH_Auction=1';
 }
 
-// ── Meta (rarity + notes + zustand) – synced via Google Sheet ───────────────
+// ── Meta (rarity + notes + zustand) – synced via Firestore ─────────────────
 // metaCache: { "platform::game": { rarity, note, zustand } }
 let metaCache = {};
 
@@ -2261,7 +2379,6 @@ function saveNote(index) {
   syncMeta(currentPlatform, name, curRarity, val, curZustand);
 }
 
-// ── Zustand (Lose / CIB / Sealed) ───────────────────────────────────────────
 // ── Zustand (Modul / CIB / Sealed) ──────────────────────────────────────────
 // Nur für diese Plattformen relevant
 const ZUSTAND_PLATFORMS = ['Atari', 'NES', 'SNES', 'Megadrive', 'GB', 'GBC', 'GBA'];
@@ -2273,7 +2390,7 @@ const ZUSTAND_ORDER = ['modul', 'cib', 'sealed'];
 function zustandBadgeText(z) {
   if (z === 'cib') return 'CIB';
   if (z === 'sealed') return 'SEALED';
-  return 'MODUL'; // Default/unset -> zeigt "Modul" als Ausgangspunkt zum Antippen
+  return 'MODUL';
 }
 
 function applyZustandBadge(index, zustand) {
@@ -2400,8 +2517,6 @@ async function saveEdit(index) {
 
   try {
     await apiPost({ action: 'edit', tab: getTabKey(), platform: currentPlatform, game: oldName, newName });
-    data[getTabKey()][currentPlatform][index] = newName;
-    data[getTabKey()][currentPlatform].sort((a,b) => a.localeCompare(b,'de'));
     showToast('"' + oldName + '" umbenannt');
     renderGames();
     renderPlatformButtons();
@@ -2416,7 +2531,6 @@ function deleteGame(index) {
   openModal('"' + name + '" wirklich loeschen?', async function() {
     try {
       await apiPost({ action: 'delete', tab: getTabKey(), platform: currentPlatform, game: name });
-      data[getTabKey()][currentPlatform].splice(index, 1);
       showToast('"' + name + '" geloescht');
       renderGames();
       renderPlatformButtons();
@@ -2647,18 +2761,9 @@ async function moveToHaben(index) {
   const name = tabData[currentPlatform][index];
   const platform = currentPlatform;
 
-  // Check if platform exists in Haben
-  if (!data['Haben'][platform]) data['Haben'][platform] = [];
-
   try {
-    // Add to Haben
     await apiPost({ action: 'add', tab: 'Haben', platform, game: name });
-    data['Haben'][platform].push(name);
-    data['Haben'][platform].sort((a,b) => a.localeCompare(b,'de'));
-
-    // Remove from Brauchen
     await apiPost({ action: 'delete', tab: 'Brauchen', platform, game: name });
-    data['Brauchen'][platform].splice(index, 1);
 
     showToast('"' + name + '" → Haben ✓');
     renderGames();
@@ -3211,7 +3316,7 @@ function renderShortcuts() {
 
 
 // ══════════════════════════════════════════════════════
-// PLATFORM IMAGES — loaded from Sheets, cached locally
+// PLATFORM IMAGES — geladen aus Firestore-Subcollection
 // ══════════════════════════════════════════════════════
 let platformImages = {}; // { platformKey: 'data:image/...base64...' }
 
@@ -3232,10 +3337,8 @@ async function handleImgUpload(event) {
 
   showToast('Bild wird hochgeladen...');
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'saveImage', platform, imageData: base64 })
-    });
+    const uid = auth.currentUser.uid;
+    await db.collection('users').doc(uid).collection('images').doc(platform).set({ data: base64 });
     platformImages[platform] = base64;
     showToast('Bild gespeichert ✓');
     renderGames(); // re-render to show new image
@@ -3267,9 +3370,11 @@ function resizeImageToBase64(file, maxSize) {
 
 async function loadPlatformImages() {
   try {
-    const res = await fetch(SCRIPT_URL + '?action=getImages');
-    const json = await res.json();
-    if (json.status === 'ok') platformImages = json.images || {};
+    const uid = auth.currentUser.uid;
+    const snap = await db.collection('users').doc(uid).collection('images').get();
+    const imgs = {};
+    snap.forEach(function(doc) { imgs[doc.id] = doc.data().data; });
+    platformImages = imgs;
   } catch(e) { console.warn('Could not load platform images:', e); }
 }
 
@@ -3298,10 +3403,7 @@ async function confirmAddPlatform() {
   btn.disabled = true; btn.textContent = '...';
 
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'addPlatform', platformName: name, color })
-    });
+    await apiPost({ action: 'addPlatform', platformName: name, color });
 
     // Add to local platforms object
     platforms[key] = { css: 'c-parts', label: name, img: '', color: color, ebay: name };
@@ -3321,11 +3423,11 @@ async function confirmAddPlatform() {
 }
 
 // ══════════════════════════════════════════════════════
-// AUTH SYSTEM
+// AUTH SYSTEM (Firebase Authentication)
 // ══════════════════════════════════════════════════════
-const ALEX_USER = 'alex';
-const ALEX_PASS = 'sammeln';
 let currentUser = null;
+
+function usernameToEmail(u) { return u.toLowerCase().trim() + '@collect-app.internal'; }
 
 function showLogin() {
   document.getElementById('loginForm').style.display = '';
@@ -3350,37 +3452,16 @@ async function doLogin() {
   document.getElementById('loginError').classList.remove('visible');
   if (!username || !password) { setLoginError('loginError', 'Bitte alle Felder ausfüllen.'); return; }
 
-  if (username === ALEX_USER) {
-    if (password !== ALEX_PASS) {
-      setLoginError('loginError', 'Falsches Passwort.');
-      document.getElementById('loginPass').value = '';
-      document.getElementById('loginPass').focus(); return;
-    }
-    currentUser = { username: 'alex', displayName: 'Alex', usesSheets: true, sheetsTab: null };
-    localStorage.setItem('sg_session', JSON.stringify({...currentUser, _expires: Date.now() + 86400000}));
-    startApp(); return;
-  }
-
   const btn = document.querySelector('#loginForm .login-btn');
   btn.textContent = '...'; btn.disabled = true;
   try {
-    const res = await fetch(SCRIPT_URL + '?action=getUsers');
-    const json = await res.json();
-    btn.textContent = 'Einloggen'; btn.disabled = false;
-    if (json.status !== 'ok') { setLoginError('loginError', 'Server-Fehler.'); return; }
-    const users = json.users || {};
-    if (!users[username]) { setLoginError('loginError', 'Benutzername nicht gefunden.'); return; }
-    if (users[username].password !== password) {
-      setLoginError('loginError', 'Falsches Passwort.');
-      document.getElementById('loginPass').value = '';
-      document.getElementById('loginPass').focus(); return;
-    }
-    currentUser = { username, displayName: users[username].displayName, usesSheets: false, sheetsTab: users[username].tab };
-    localStorage.setItem('sg_session', JSON.stringify({...currentUser, _expires: Date.now() + 86400000}));
-    startApp();
+    await auth.signInWithEmailAndPassword(usernameToEmail(username), password);
+    // onAuthStateChanged übernimmt den Rest
   } catch(e) {
     btn.textContent = 'Einloggen'; btn.disabled = false;
-    setLoginError('loginError', 'Verbindungsfehler.');
+    if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') setLoginError('loginError', 'Benutzername nicht gefunden.');
+    else if (e.code === 'auth/wrong-password') setLoginError('loginError', 'Falsches Passwort.');
+    else setLoginError('loginError', 'Fehler: ' + e.message);
   }
 }
 
@@ -3392,56 +3473,31 @@ async function doRegister() {
   if (!username || !password || !password2) { setLoginError('registerError', 'Bitte alle Felder ausfüllen.'); return; }
   if (username.length < 3) { setLoginError('registerError', 'Benutzername mindestens 3 Zeichen.'); return; }
   if (!/^[a-z0-9_]+$/.test(username)) { setLoginError('registerError', 'Nur Buchstaben, Zahlen und _ erlaubt.'); return; }
-  if (password.length < 4) { setLoginError('registerError', 'Passwort mindestens 4 Zeichen.'); return; }
+  if (password.length < 6) { setLoginError('registerError', 'Passwort mindestens 6 Zeichen.'); return; }
   if (password !== password2) { setLoginError('registerError', 'Passwörter stimmen nicht überein.'); return; }
-  if (username === ALEX_USER) { setLoginError('registerError', 'Dieser Benutzername ist vergeben.'); return; }
 
   const btn = document.querySelector('#registerForm .login-btn');
   btn.textContent = '...'; btn.disabled = true;
   try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'registerUser', username, password,
-        displayName: username.charAt(0).toUpperCase() + username.slice(1) })
+    const cred = await auth.createUserWithEmailAndPassword(usernameToEmail(username), password);
+    const displayName = username.charAt(0).toUpperCase() + username.slice(1);
+    await db.collection('users').doc(cred.user.uid).set({
+      displayName, data: { Haben: {}, Brauchen: {} }, meta: {}, platforms: []
     });
-    const json = await res.json();
-    btn.textContent = 'Konto erstellen'; btn.disabled = false;
-    if (json.status === 'exists') { setLoginError('registerError', 'Benutzername bereits vergeben.'); return; }
-    if (json.status !== 'ok') { setLoginError('registerError', 'Fehler: ' + (json.message || 'Unbekannt')); return; }
-    currentUser = { username, displayName: json.displayName, usesSheets: false, sheetsTab: json.tab };
-    localStorage.setItem('sg_session', JSON.stringify({...currentUser, _expires: Date.now() + 86400000}));
-    startApp();
+    // onAuthStateChanged übernimmt den Rest
   } catch(e) {
     btn.textContent = 'Konto erstellen'; btn.disabled = false;
-    setLoginError('registerError', 'Verbindungsfehler.');
+    if (e.code === 'auth/email-already-in-use') setLoginError('registerError', 'Benutzername bereits vergeben.');
+    else setLoginError('registerError', 'Fehler: ' + e.message);
   }
 }
 
 function doLogout() {
-  localStorage.removeItem('sg_session');
-  currentUser = null;
-  data = { Haben: {}, Brauchen: {} };
-  metaCache = {}; platformImages = {};
-  currentPlatform = null;
-  document.getElementById('userBadge').style.display = 'none';
-  document.getElementById('gameContent').innerHTML = '';
-  document.getElementById('gameContent').classList.remove('visible');
-  document.getElementById('platformGrid').innerHTML = '';
-  document.getElementById('totalCount').textContent = '0';
-  document.getElementById('collectionValue').textContent = '–';
-  document.getElementById('loadingText').textContent = 'LADEN...';
-  setLoadProgress(0);
-  const vid = document.getElementById('loadingVideo');
-  if (vid) vid.currentTime = 0;
-  document.getElementById('loadingOverlay').classList.remove('hidden');
-  document.getElementById('loginOverlay').classList.remove('hidden');
-  document.getElementById('loginUser').value = '';
-  document.getElementById('loginPass').value = '';
-  showLogin();
+  auth.signOut();
 }
 
-function startApp() {
-  document.getElementById('userBadgeName').textContent = currentUser.displayName;
+function startApp(displayName) {
+  document.getElementById('userBadgeName').textContent = displayName;
   document.getElementById('userBadge').style.display = 'flex';
   document.getElementById('loginOverlay').classList.add('hidden');
   document.getElementById('loadingText').textContent = 'LADEN...';
@@ -3452,51 +3508,50 @@ function startApp() {
   init();
 }
 
-// Patch apiGet/apiPost for non-Alex users
-const _apiGet = apiGet;
-const _apiPost = apiPost;
+function resetUI() {
+  currentUserDocRef = null;
+  currentUserData = null;
+  data = { Haben: {}, Brauchen: {} };
+  metaCache = {}; platformImages = {};
+  currentPlatform = null;
+  document.getElementById('userBadge').style.display = 'none';
+  document.getElementById('gameContent').innerHTML = '';
+  document.getElementById('gameContent').classList.remove('visible');
+  document.getElementById('platformGrid').innerHTML = '';
+  document.getElementById('totalCount').textContent = '0';
+  document.getElementById('collectionValue').textContent = '–';
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  showLogin();
+}
 
-apiGet = async function() {
-  if (currentUser && !currentUser.usesSheets) {
-    const res = await fetch(SCRIPT_URL + '?userTab=' + encodeURIComponent(currentUser.sheetsTab));
-    const json = await res.json();
-    if (json.status !== 'ok') throw new Error(json.message);
-    // Merge all known platforms so new users have all options
-    const d = json.data;
-    Object.keys(platforms).forEach(k => {
-      if (!d.Haben[k])    d.Haben[k]    = [];
-      if (!d.Brauchen[k]) d.Brauchen[k] = [];
-    });
-    return d;
+auth.onAuthStateChanged(async function(user) {
+  const loginBtn = document.querySelector('#loginForm .login-btn');
+  if (loginBtn) { loginBtn.textContent = 'Einloggen'; loginBtn.disabled = false; }
+  const regBtn = document.querySelector('#registerForm .login-btn');
+  if (regBtn) { regBtn.textContent = 'Konto erstellen'; regBtn.disabled = false; }
+
+  if (user) {
+    let displayName = user.email.split('@')[0];
+    try {
+      const snap = await db.collection('users').doc(user.uid).get();
+      if (snap.exists && snap.data().displayName) displayName = snap.data().displayName;
+    } catch(e) {}
+    currentUser = { uid: user.uid, displayName: displayName };
+    startApp(displayName);
+  } else {
+    resetUI();
   }
-  return _apiGet();
-};
+});
 
-apiPost = async function(payload) {
-  if (currentUser && !currentUser.usesSheets) payload.userTab = currentUser.sheetsTab;
-  return _apiPost(payload);
-};
-
-// Also patch init() to load images + extra platforms after data
+// Also patch init() to load images after data
 const _initOriginal = init;
 init = async function() {
-  await Promise.all([loadPlatformImages(), loadExtraPlatforms()]);
+  await loadPlatformImages();
   return _initOriginal();
 };
-
-async function loadExtraPlatforms() {
-  try {
-    const res = await fetch(SCRIPT_URL + '?action=getPlatforms');
-    const json = await res.json();
-    if (json.status === 'ok') {
-      (json.platforms || []).forEach(p => {
-        if (!platforms[p.name]) {
-          platforms[p.name] = { css: 'c-parts', label: p.name, img: '', color: p.color || '#888888', ebay: p.name };
-        }
-      });
-    }
-  } catch(e) { console.warn('Could not load extra platforms:', e); }
-}
 
 // ══════════════════════════════════════════════════════
 // PDF EXPORT
@@ -3929,24 +3984,6 @@ function exportPDF() {
   win.document.write(html);
   win.document.close();
 }
-
-(function restoreSession() {
-  try {
-    const saved = localStorage.getItem('sg_session');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Check expiry (24h)
-      if (parsed._expires && Date.now() > parsed._expires) {
-        localStorage.removeItem('sg_session');
-      } else if (parsed && parsed.username) {
-        currentUser = parsed;
-        startApp(); return;
-      }
-    }
-  } catch(e) {}
-  document.getElementById('loadingOverlay').classList.add('hidden');
-  showLogin();
-})();
 </script>
 
 <!-- ZXing barcode library -->
@@ -4047,7 +4084,7 @@ function onBarcodeFound(ean) {
 }
 </script>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v1.30</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.0-firestore</div>
 
 </body>
 </html>
