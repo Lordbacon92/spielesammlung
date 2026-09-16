@@ -1627,9 +1627,11 @@
 <!-- Hidden file input for image upload -->
 <input type="file" id="imgUploadInput" accept="image/*" style="display:none" onchange="handleImgUpload(event)">
 
+<!-- Hidden color input for platform color edit -->
+<input type="color" id="platColorInput" style="display:none" onchange="handlePlatColorChange(event)">
+
 <!-- Theme Toggle -->
 <div style="position:fixed;top:16px;right:16px;z-index:1000;display:flex;gap:8px;align-items:center">
-  <button class="theme-toggle" style="position:static" onclick="migrateFromSheets()" title="Einmalig: Daten von Google Sheets importieren">&#11014;&#65039; Import</button>
   <button class="theme-toggle" style="position:static" onclick="exportPDF()" title="Als PDF exportieren">📄 Export</button>
   <button class="theme-toggle" style="position:static" onclick="toggleTheme()" id="themeBtn">🌙 Dunkel</button>
 </div>
@@ -1716,17 +1718,6 @@
   <button class="tab-btn active" onclick="switchTab('haben')">Haben</button>
   <button class="tab-btn" onclick="switchTab('brauchen')">Brauchen</button>
   <button class="tab-btn" onclick="switchTab('check')">Check</button>
-</div>
-
-<div class="stats-bar" id="statsBar" style="display:none">
-  <span class="stats-item"><span id="statCount">0</span> Spiele</span>
-  <span class="stats-divider">·</span>
-  <span class="stats-item stats-value">~<span id="statValue">0</span> &euro;</span>
-  <span class="stats-zustand" id="statsZustand">
-    <span class="stats-zi"><span class="zdot z-modul"></span>Modul <b id="statModul">0</b></span>
-    <span class="stats-zi"><span class="zdot z-cib"></span>CIB <b id="statCib">0</b></span>
-    <span class="stats-zi"><span class="zdot z-sealed"></span>Sealed <b id="statSealed">0</b></span>
-  </span>
 </div>
 
 <div class="check-box" id="checkBox" style="display:none">
@@ -1873,8 +1864,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzMZXeOIKEXkmYs2Exfnjd8TXHxCags3B-S_PA5OatwoGJ4WSRohfyio76UuvWWCO-P/exec"; // nur noch für einmalige Migration genutzt
-
 // ══════════════════════════════════════════════════════
 // FIREBASE INIT — Werte aus Firebase-Konsole → Projekteinstellungen → Web-App
 // ══════════════════════════════════════════════════════
@@ -1946,6 +1935,7 @@ async function apiGet() {
   metaCache = currentUserData.meta;
   (currentUserData.platforms || []).forEach(function(p) {
     if (!platforms[p.name]) platforms[p.name] = { css: 'c-parts', label: p.name, img: '', color: p.color || '#888888', ebay: p.name };
+    else if (p.color) platforms[p.name].color = p.color;
   });
   return currentUserData.data;
 }
@@ -1990,59 +1980,16 @@ async function apiPost(payload) {
     if (!currentUserData.platforms.some(p => p.name === platformName)) {
       currentUserData.platforms.push({ name: platformName, color: color || '#888888' });
     }
+  } else if (action === 'setPlatformColor') {
+    const platformName = payload.platformName, color = payload.color;
+    const existing = currentUserData.platforms.find(p => p.name === platformName);
+    if (existing) existing.color = color;
+    else currentUserData.platforms.push({ name: platformName, color: color || '#888888' });
   } else {
     throw new Error('Unbekannte Aktion: ' + action);
   }
 
   await persistUserDoc();
-}
-
-// ── Einmalige Migration: Google Sheets → Firestore ─────────────────────────
-async function migrateFromSheets() {
-  if (!currentUserDocRef) { showToast('Bitte zuerst einloggen', true); return; }
-  if (!confirm('Daten von Google Sheets in dieses Konto importieren?')) return;
-  showToast('Migriere Daten von Sheets...');
-  try {
-    const res = await fetch(SCRIPT_URL);
-    const json = await res.json();
-    if (json.status !== 'ok') throw new Error(json.message);
-    const sheetData = json.data;
-    const meta = sheetData['Meta'] || {};
-    delete sheetData['Meta'];
-
-    ['Haben', 'Brauchen'].forEach(function(tab) {
-      Object.entries(sheetData[tab] || {}).forEach(function([platform, games]) {
-        if (!currentUserData.data[tab][platform]) currentUserData.data[tab][platform] = [];
-        games.forEach(function(g) {
-          if (!currentUserData.data[tab][platform].includes(g)) currentUserData.data[tab][platform].push(g);
-        });
-        currentUserData.data[tab][platform].sort((a, b) => a.localeCompare(b, 'de'));
-      });
-    });
-    Object.assign(currentUserData.meta, meta);
-    await persistUserDoc();
-
-    const imgRes = await fetch(SCRIPT_URL + '?action=getImages');
-    const imgJson = await imgRes.json();
-    if (imgJson.status === 'ok') {
-      const uid = auth.currentUser.uid;
-      const batch = db.batch();
-      Object.entries(imgJson.images || {}).forEach(function([platform, imgData]) {
-        batch.set(db.collection('users').doc(uid).collection('images').doc(platform), { data: imgData });
-      });
-      await batch.commit();
-    }
-
-    showToast('Migration abgeschlossen ✓');
-    data = currentUserData.data;
-    metaCache = currentUserData.meta;
-    await loadPlatformImages();
-    renderPlatformButtons();
-    updateValueDisplay();
-  } catch(e) {
-    showToast('Migrationsfehler: ' + e.message, true);
-    console.error(e);
-  }
 }
 
 // ── Video scrub helper ─────────────────────────────────────────────────────
@@ -2301,7 +2248,9 @@ function renderGames() {
         '<div class="img-upload-hint">&#9998; Bild ändern</div>' +
       '</div>' +
       '<div class="header-info">' +
-        '<h2 style="color:' + platColor + '">' + cfg.label + '</h2>' +
+        '<h2 style="color:' + platColor + '">' + cfg.label +
+          ' <button class="icon-btn" style="opacity:0.55;font-size:13px;vertical-align:middle" title="Farbe ändern" onclick="triggerPlatColorPicker(\'' + currentPlatform + '\')">&#127912;</button>' +
+        '</h2>' +
         '<p>' + games.length + ' SPIEL' + (games.length !== 1 ? 'E' : '') + '</p>' +
       '</div>' +
     '</div>' + gamesHtml;
@@ -3420,6 +3369,33 @@ async function confirmAddPlatform() {
     showToast('Fehler: ' + e.message, true);
   }
   btn.disabled = false; btn.textContent = 'Hinzufügen';
+}
+
+// ══════════════════════════════════════════════════════
+// PLATTFORM-FARBE NACHTRÄGLICH ÄNDERN
+// ══════════════════════════════════════════════════════
+function triggerPlatColorPicker(platformKey) {
+  const cfg = platforms[platformKey];
+  if (!cfg) return;
+  const input = document.getElementById('platColorInput');
+  input.value = (cfg.color && /^#[0-9a-f]{6}$/i.test(cfg.color)) ? cfg.color : '#888888';
+  input.dataset.platform = platformKey;
+  input.click();
+}
+
+async function handlePlatColorChange(event) {
+  const platform = event.target.dataset.platform;
+  const color = event.target.value;
+  if (!platform || !platforms[platform]) return;
+  platforms[platform].color = color;
+  try {
+    await apiPost({ action: 'setPlatformColor', platformName: platform, color });
+    showToast('Farbe aktualisiert ✓');
+    renderGames();
+    renderPlatformButtons();
+  } catch(e) {
+    showToast('Fehler: ' + e.message, true);
+  }
 }
 
 // ══════════════════════════════════════════════════════
