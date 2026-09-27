@@ -230,7 +230,7 @@
     background: var(--accent);
     width: 0%;
     border-radius: 2px;
-    transition: width 0.15s ease;
+    transition: width 0.05s linear;
   }
 
   /* ── TABS ── */
@@ -2198,21 +2198,39 @@ function whenBothReady(cb) {
 async function init() {
   const txt = document.getElementById('loadingText');
 
-  // Prepare video — preload, then play it normally
+  // Ladevideo schneller abspielen; Balken läuft exakt mit dem Video mit
+  const VIDEO_RATE = 2;                 // 5,9 s Video → ca. 3 s
   const vid = document.getElementById('loadingVideo');
+  let videoOk = false;
   if (vid) {
     vid.pause();
     vid.currentTime = 0;
     await preloadVideo();
-    vid.play().catch(() => {});
+    vid.playbackRate = VIDEO_RATE;
+    try { await vid.play(); videoOk = true; } catch(e) {}
   }
-
-  // Animate progress to 85% while waiting for data
-  let pct = 0;
+  const t0 = Date.now(), FALLBACK_MS = 3000;
+  function videoPct() {
+    if (videoOk && vid.duration && isFinite(vid.duration)) return vid.ended ? 100 : vid.currentTime / vid.duration * 100;
+    return Math.min(100, (Date.now() - t0) / FALLBACK_MS * 100);   // Video läuft nicht → Zeit-Balken
+  }
+  let dataLoaded = false, finished = false, pct = 0;
+  function finish() {
+    if (finished) return; finished = true;
+    clearInterval(ticker);
+    setLoadProgress(100);
+    renderPlatformButtons();
+    updateValueDisplay();
+    setTimeout(() => { document.getElementById('loadingOverlay').classList.add('hidden'); }, 250);
+  }
   const ticker = setInterval(() => {
-    pct = pct < 75 ? pct + 2.5 : pct < 85 ? pct + 0.15 : pct;
+    const v = videoPct();
+    // Balken = Videofortschritt; wenn Daten noch fehlen, bei 95 % warten (letztes Bild bleibt stehen)
+    pct = dataLoaded ? v : Math.min(v, 95);
     setLoadProgress(pct);
-  }, 80);
+    if (dataLoaded && v >= 100) finish();
+  }, 30);
+  if (vid) vid.addEventListener('ended', () => { if (dataLoaded) finish(); }, { once: true });
 
   // Timeout warning after 5 seconds
   const warnTimer = setTimeout(() => {
@@ -2222,23 +2240,9 @@ async function init() {
   try {
     const loaded = await apiGet();
     data = loaded;
-    clearInterval(ticker);
     clearTimeout(warnTimer);
-
-    // Animate to 100% and hold last frame
-    let finPct = pct;
-    const finisher = setInterval(() => {
-      finPct = Math.min(finPct + 4, 100);
-      setLoadProgress(finPct);
-      if (finPct >= 100) {
-        clearInterval(finisher);
-        renderPlatformButtons();
-        updateValueDisplay();
-        setTimeout(() => {
-          document.getElementById('loadingOverlay').classList.add('hidden');
-        }, 400);
-      }
-    }, 30);
+    dataLoaded = true;
+    if (videoPct() >= 100) finish();
 
   } catch(e) {
     clearInterval(ticker);
@@ -4291,7 +4295,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.9</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.10</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5041,7 +5045,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.9',
+    appVersion: 'v2.10',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
