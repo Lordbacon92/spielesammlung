@@ -2019,7 +2019,7 @@ const platforms = {
 };;;
 
 // ── Markenfarben: Anpassung an Hell/Dunkel (v2.8) ────────────────────────────
-const PLAT_COLOR_V = 'v2.8';
+const PLAT_COLOR_V = 'v2.9';
 const OLD_PLAT_COLORS = {"Atari":"#D4874A","Commodore 64":"#A0724A","NES":"#D94040","Mastersystem":"#2E8BC0","SNES":"#7B5EA7","Megadrive":"#4A90D9","PS1":"#5B8ADB","Saturn":"#7A6ED4","N64":"#4DB86A","Gamecube":"#7B5EA7","Ps2":"#3A7BD5","PS3":"#2E6FBF","PS4":"#2563AE","PS5":"#1A56A0","Switch":"#E8453C","Switch2":"#E8453C","GB":"#7A9E7E","GBC":"#D4874A","GBA":"#A066CC","NDS":"#CC6633","3DS":"#CC3366","Amiga 500":"#CC8833","PC":"#4A9E8A"};
 function _lum(h) {
   const c = [1,3,5].map(function(i){ let x = parseInt(h.substr(i,2),16)/255; return x <= 0.03928 ? x/12.92 : Math.pow((x+0.055)/1.055, 2.4); });
@@ -2036,10 +2036,26 @@ function platCol(hex) {
   return L > 0.3 ? _mix(hex, Math.min(0.45, (L-0.3)*1.6+0.15), 0) : hex;
 }
 // Einmalig: alte gespeicherte Standardfarben auf die neuen Markenfarben umstellen
+// Eigene Plattformen mit fester Markenfarbe (Name egal wie geschrieben)
+const FIXED_PLAT_COLORS = [
+  { re: /^x-?box\s*360$/i, color: '#5EA65D' },
+  { re: /^x-?box(\s*(classic|original|one|series.*))?$/i, color: '#0E7A0D' }
+];
 function migratePlatColors() {
   if (!currentUserData || currentUserData.platColorsV === PLAT_COLOR_V) return false;
-  (currentUserData.platforms || []).forEach(function(p) {
-    if (p && OLD_PLAT_COLORS[p.name] && platforms[p.name]) { delete p.color; }
+  const list = currentUserData.platforms = currentUserData.platforms || [];
+  if (!currentUserData.platColorsV) {          // v2.8: alte Standardfarben entfernen
+    list.forEach(function(p) { if (p && OLD_PLAT_COLORS[p.name] && platforms[p.name]) delete p.color; });
+  }
+  // v2.9: Xbox-Farben
+  const names = {};
+  ['Haben', 'Brauchen'].forEach(function(t) { Object.keys((currentUserData.data || {})[t] || {}).forEach(function(k) { names[k] = 1; }); });
+  list.forEach(function(p) { if (p && p.name) names[p.name] = 1; });
+  Object.keys(names).forEach(function(n) {
+    const f = FIXED_PLAT_COLORS.find(function(x) { return x.re.test(n.trim()); });
+    if (!f) return;
+    const e = list.find(function(p) { return p && p.name === n; });
+    if (e) e.color = f.color; else list.push({ name: n, color: f.color });
   });
   currentUserData.platColorsV = PLAT_COLOR_V;
   return true;
@@ -4275,7 +4291,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.8</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.9</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5025,7 +5041,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.8',
+    appVersion: 'v2.9',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
