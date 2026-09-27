@@ -1572,7 +1572,10 @@
   /* ── COVER ── */
   .cover-thumb { width: 28px; height: 38px; flex-shrink: 0; border-radius: 3px; background: var(--surface2); display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: zoom-in; box-shadow: 0 0 0 1px var(--border); }
   .cover-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .cover-thumb.no-cover { box-shadow: none; background: transparent; cursor: pointer; }
+  .cover-thumb.fallback { box-shadow: none; background: transparent; }
+  .cover-thumb.fallback img { object-fit: contain; opacity: 0.45; }
+  #coverStatus { text-align: center; font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; color: var(--text-dim); padding: 20px 16px 0; cursor: pointer; position: relative; z-index: 1; }
+  #modalText { max-height: 60vh; overflow-y: auto; }
   #coverModal { display: none; position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.82); align-items: center; justify-content: center; padding: 16px; }
   #coverModal.open { display: flex; }
   .cover-box { background: var(--surface); border-radius: var(--radius-lg); padding: 16px; max-width: 420px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: var(--shadow-lg); }
@@ -4111,13 +4114,14 @@ function onBarcodeFound(ean) {
 }
 </script>
 
+<div id="coverStatus" onclick="showMissingCovers()"></div>
 <div class="backup-bar">
   <button class="theme-toggle" onclick="exportBackup()" title="Komplette Sammlung als Datei sichern">&#11015; Backup exportieren</button>
   <button class="theme-toggle" onclick="document.getElementById('backupImportInput').click()" title="Sammlung aus Backup-Datei wiederherstellen">&#11014; Backup importieren</button>
   <input type="file" id="backupImportInput" accept="application/json,.json" style="display:none" onchange="handleBackupImport(event)">
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.2</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.3</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -4165,8 +4169,11 @@ updateOnlineState();
 
 // ══════════════════════════════════════════════════════
 // AUTOMATISCHE COVER
-// Quelle 1: libretro-thumbnails (GitHub) – Boxarts je Plattform
-// Quelle 2: englische Wikipedia (Fallback, z. B. Switch / PS5)
+// 1. libretro-thumbnails (GitHub) – Boxarts je Plattform
+// 2. Wikidata (auch deutsche Titel) → Bild der englischen Wikipedia
+// 3. Wikipedia-Suche
+// Kein Treffer → Konsolenbild der Plattform als Platzhalter
+// Alle Cover werden nach dem Start im Hintergrund geladen.
 // ══════════════════════════════════════════════════════
 const COVER_REPOS = {
   'atari': 'Atari_-_2600',
@@ -4180,8 +4187,6 @@ const COVER_REPOS = {
   'n64': 'Nintendo_-_Nintendo_64',
   'gamecube': 'Nintendo_-_GameCube',
   'ps2': 'Sony_-_PlayStation_2',
-  'ps3': 'Sony_-_PlayStation_3',
-  'ps4': 'Sony_-_PlayStation_4',
   'gb': 'Nintendo_-_Game_Boy',
   'gbc': 'Nintendo_-_Game_Boy_Color',
   'gba': 'Nintendo_-_Game_Boy_Advance',
@@ -4195,16 +4200,44 @@ const COVER_REPOS = {
   'wii': 'Nintendo_-_Wii',
   'psp': 'Sony_-_PlayStation_Portable'
 };
+// PS3/PS4/PS5/Switch: libretro hat dort kaum Cover → direkt Wikipedia
 const COVER_SKIP = ['konsole/parts'];
-const COVER_TTL_HIT = 30 * 864e5;   // gefundenes Cover 30 Tage merken
-const COVER_TTL_MISS = 7 * 864e5;   // "nichts gefunden" 7 Tage merken
+const COVER_TTL_HIT = 90 * 864e5;
+const COVER_TTL_MISS = 7 * 864e5;
 const INDEX_TTL = 30 * 864e5;
+const CK = 'c6:';     // Cache-Präfix (bei Logik-Änderungen hochzählen)
+const IK = 'idx3:';
 
 function platKey(p) { return String(p || '').toLowerCase().replace(/\s+/g, ''); }
 function coverRepo(platform) { return COVER_REPOS[platKey(platform)] || null; }
 function coverEnabled(platform) { return COVER_SKIP.indexOf(platKey(platform)) === -1; }
+function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
 
-// ── Mini-IndexedDB-Speicher (Cover-Cache + Titel-Listen) ─────────────────
+async function jget(url) {
+  const r = await fetch(url);
+  if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+  return r.json();
+}
+// Wikimedia drosselt bei zu vielen parallelen Anfragen (HTTP 429) → eine Anfrage nach der anderen
+let wmChain = Promise.resolve();
+function wmGet(url) {
+  const run = wmChain.then(async function() {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const j = await jget(url);
+        await sleep(150);
+        return j;
+      } catch(e) {
+        if (e.status === 429 && attempt < 4) { await sleep(3000 * (attempt + 1)); continue; }
+        throw e;
+      }
+    }
+  });
+  wmChain = run.catch(function() {});
+  return run;
+}
+
+// ── Mini-IndexedDB-Speicher ──────────────────────────────────────────────
 const coverIdb = (function() {
   let dbp = null;
   function open() {
@@ -4241,17 +4274,83 @@ const coverIdb = (function() {
   };
 })();
 
-// ── Titel normalisieren für den Abgleich ─────────────────────────────────
-const ABBR = { gta:'grand theft auto', ff:'final fantasy', mgs:'metal gear solid', cod:'call of duty', lotr:'lord of the rings', nfs:'need for speed', gt:'gran turismo' };
-const ROMAN = { ii:'2', iii:'3', iv:'4', v:'5', vi:'6', vii:'7', viii:'8', ix:'9', x:'10', xi:'11', xii:'12', xiii:'13' };
-function normTitle(t) {
-  let s = String(t || '').toLowerCase();
-  s = s.replace(/\s*[\(\[].*$/, '');                                          // Region/Version-Tags ab erster Klammer weg
-  s = s.replace(/^(.*?), (the|a|an|der|die|das)(\s-\s|$)/, '$2 $1$3');         // "Legend of Zelda, The - …" → "the legend of zelda - …"
-  s = s.replace(/ _ /g, ' & ').replace(/&/g, ' and ').replace(/['’`´]/g, '');
-  s = s.replace(/é/g, 'e').replace(/[^a-z0-9äöüß]+/g, ' ').trim();
-  s = s.split(' ').map(function(w) { return ROMAN[w] || w; }).join(' ').replace(/^the /, '');
-  return s.replace(/^(gta|ff|mgs|cod|lotr|nfs|gt)(?= |$)/, function(m) { return ABBR[m]; });
+// ── Titel-Abgleich (Token-basiert) ───────────────────────────────────────
+const ABBR = { gta:'grand theft auto', ff:'final fantasy', mgs:'metal gear solid', cod:'call of duty', lotr:'lord of the rings', nfs:'need for speed', gt:'gran turismo', dbz:'dragon ball z', tmnt:'teenage mutant ninja turtles', re:'resident evil', gow:'god of war', tlou:'the last of us', rdr:'red dead redemption' };
+const ROMAN = { ii:'2', iii:'3', iv:'4', v:'5', vi:'6', vii:'7', viii:'8', ix:'9', x:'10', xi:'11', xii:'12', xiii:'13', xiv:'14', xv:'15', xvi:'16' };
+const DROP = { the:1, a:1, an:1, der:1, die:1, das:1, des:1, und:1, and:1, of:1, de:1, la:1, le:1, von:1, vom:1, im:1, in:1, am:1,
+  ovp:1, cib:1, sealed:1, steelbook:1, selten:1, edition:1, version:1, mit:1, disneys:1, disney:1, tom:1, clancys:1, nickelodeon:1,
+  gun:1, pal:1, '2600':1, '7800':1, ntsc:1, eu:1, us:1, usa:1, jp:1, german:1, deutsch:1, modul:1, disc:1, platinum:1, classics:1, spiel:1 };
+const NUM_WORDS = { eins:'1', zwei:'2', drei:'3', one:'1', two:'2', three:'3', formel:'formula' };
+
+function fold(s) {
+  return String(s || '').toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+function titleTokens(t) {
+  let s = fold(t);
+  s = s.replace(/[\(\[][^\)\]]*[\)\]]/g, ' ');                                  // (Europe), (OVP), [h] …
+  s = s.replace(/\bx\s?\d\b\s*$/, ' ').replace(/\b\d\s?x\s*$/, ' ');                                           // "x2" am Ende
+  s = s.replace(/\b(big box|limited edition|collectors edition|game of the year|goty|special edition)\b/g, ' ');
+  s = s.replace(/^(.*?), (the|a|an|der|die|das)(\s-\s|$)/, '$2 $1$3');           // "Legend of Zelda, The - …"
+  s = s.replace(/ _ /g, ' and ').replace(/&/g, ' and ').replace(/\+/g, ' plus ');
+  s = s.replace(/['’`´]/g, '').replace(/\./g, ' ');
+  s = s.replace(/[^a-z0-9]+/g, ' ').trim();
+  let w = s ? s.split(' ') : [];
+  if (w.length && own(ABBR, w[0])) w = own(ABBR, w[0]).split(' ').concat(w.slice(1));
+  w = w.map(function(x) { return own(ROMAN, x) || own(NUM_WORDS, x) || x; });
+  // "2x" / "3d" etc. bleiben; Füllwörter raus
+  const kept = w.filter(function(x) { return !own(DROP, x); });
+  return kept.length ? kept : w;
+}
+
+function own(m, k) { return Object.prototype.hasOwnProperty.call(m, k) ? m[k] : undefined; }
+function lev1(a, b) {                                                        // Abstand ≤ 1?
+  if (a === b) return true;
+  let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return a.slice(i + 1) === b.slice(i + 1) || a.slice(i) === b.slice(i + 1) || a.slice(i + 1) === b.slice(i);
+}
+function isNum(x) { return /^\d+$/.test(x); }
+
+function tokMatch(u, C, joined) {
+  for (let i = 0; i < C.length; i++) {
+    const c = C[i];
+    if (c === u) return i;
+    if (u.length >= 3 && c.length > u.length && c.indexOf(u) === 0 && !isNum(u)) return i;  // rot → rote, blau → blaue
+    if (c.length >= 4 && u.length === c.length + 1 && u.indexOf(c) === 0 && !isNum(c)) return i;  // feuerrote ← feuerrot
+  }
+  if (u.length >= 5 && joined.indexOf(u) !== -1) return -2;                  // "toystory" ↔ "toy story"
+  if (u.length >= 5 && !isNum(u)) {                                         // ein Tippfehler erlaubt (Joshi → Yoshi)
+    for (let i = 0; i < C.length; i++) if (C[i].length >= 5 && Math.abs(C[i].length - u.length) <= 1 && lev1(u, C[i])) return i;
+  }                  // "toystory" ↔ "toy story"
+  return -1;
+}
+
+// Liefert 0 (kein Treffer) bis 100
+function matchTokens(U, C) {
+  if (!U.length || !C.length) return 0;
+  const ju = U.join(''), jc = C.join('');
+  if (ju === jc) return 100;
+  const usedC = {};
+  let hit = 0;
+  for (let i = 0; i < U.length; i++) {
+    const m = tokMatch(U[i], C, jc);
+    if (m >= 0) { hit++; usedC[m] = 1; }
+    else if (m === -2) { hit++; }
+    else if (isNum(U[i])) return 0;                                           // Nummer muss passen (Doom 2 ≠ Doom)
+  }
+  // Zusammengeschriebene Kandidaten-Wörter: "kung fu" ↔ "kungfu"
+  if (hit < U.length) {
+    for (let i = 0; i < C.length; i++) if (!usedC[i] && C[i].length >= 3 && ju.indexOf(C[i]) !== -1) usedC[i] = 1;
+  }
+  const recall = hit / U.length;
+  const cHit = Object.keys(usedC).length;
+  if (recall < 1) return 0;                                                  // alle Wörter müssen vorkommen
+  const precision = Math.min(1, cHit / C.length);
+  let score = 60 * recall + 40 * precision;
+  C.forEach(function(c, i) { if (isNum(c) && !usedC[i] && U.indexOf(c) === -1) score *= 0.8; });  // Fremde Nummer (Castlevania II) leicht abwerten
+  return Math.round(score);
 }
 
 function regionScore(full) {
@@ -4262,39 +4361,34 @@ function regionScore(full) {
   else if (/\(world/.test(f)) sc = 4;
   else if (/\((?:[^)]*)usa/.test(f)) sc = 3;
   else if (/\(japan/.test(f)) sc = 0;
-  if (/\((beta|proto|demo|sample|kiosk|promo|unl|pirate|taikenban|aftermarket|program)/.test(f) || /\((?:[^)]*)(beta|proto|demo)/.test(f)) sc -= 6;
-  if (/\((rev|v\d)/.test(f)) sc -= 0.5;
-  // Sondereditionen (Virtual Console, Promo, Disc-Angaben …) leicht abwerten
+  if (/\((?:[^)]*)(beta|proto|demo|sample|kiosk|promo|unl|pirate|taikenban|aftermarket|program)/.test(f)) sc -= 6;
+  if (/\[(h|b|t|a|o|f)/.test(f)) sc -= 3;                                     // TOSEC-Hacks/Bad Dumps
   (full.match(/\([^)]*\)/g) || []).slice(1).forEach(function(g) {
     if (!/^\([A-Z][a-z](,[A-Z][a-z])*\)$/.test(g)) sc -= 0.3;
   });
   return sc;
 }
 
-function matchScore(u, c) {
-  if (!u || !c) return 0;
-  if (c === u) return 100;
-  const uw = u.split(' '), cw = c.split(' ');
-  if (c.indexOf(u + ' ') === 0) {
-    const nextWord = cw[uw.length];
-    return /^\d+$/.test(nextWord) ? 35 : 80 - Math.min(20, cw.length - uw.length);  // "Gran Turismo" ≠ "Gran Turismo 2"
-  }
-  if (u.indexOf(c + ' ') === 0) {
-    const nextWord = uw[cw.length];
-    return /^\d+$/.test(nextWord) ? 30 : 70 - Math.min(20, uw.length - cw.length);
-  }
-  const set = {}; cw.forEach(function(w) { set[w] = 1; });
-  let hit = 0; uw.forEach(function(w) { if (set[w]) hit++; });
-  const j = hit / (uw.length + cw.length - hit);
-  return j >= 0.6 ? Math.round(55 * j) : 0;
+
+// Mehrere Schreibweisen: "Contra/Probotector" → beide versuchen
+function titleVariants(name) {
+  const parts = String(name).split('/').map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 1; });
+  return parts.length > 1 ? [name].concat(parts) : [name];
+}
+function cleanQuery(name) {
+  return String(name)
+    .replace(/[\(\[][^\)\]]*[\)\]]/g, ' ')
+    .replace(/\b(big box|steelbook|ovp|cib|sealed|selten|limited edition)\b/gi, ' ')
+    .replace(/\bx\s?\d\s*$/i, ' ')
+    .replace(/\s+/g, ' ').trim();
 }
 
-// ── Titel-Liste einer Plattform (einmal laden, 30 Tage cachen) ───────────
+// ── Quelle 1: libretro ───────────────────────────────────────────────────
 const coverIndexMem = {};
 const coverIndexBlockedUntil = {};
 async function loadCoverIndex(repo) {
   if (coverIndexMem[repo]) return coverIndexMem[repo];
-  const cached = await coverIdb.get('idx2:' + repo);
+  const cached = await coverIdb.get(IK + repo);
   if (cached && cached.names && (Date.now() - cached.t < INDEX_TTL || !navigator.onLine)) {
     return (coverIndexMem[repo] = prepIndex(cached.names));
   }
@@ -4302,166 +4396,404 @@ async function loadCoverIndex(repo) {
     return cached && cached.names ? (coverIndexMem[repo] = prepIndex(cached.names)) : null;
   }
   try {
-    const api = 'https://api.github.com/repos/libretro-thumbnails/' + repo + '/git/trees/';
-    const root = await fetch(api + 'master').then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); });
-    const node = (root.tree || []).find(function(t) { return t.path === 'Named_Boxarts'; });
-    if (!node) throw new Error('keine Boxarts');
-    const sub = await fetch(api + node.sha).then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); });
-    const names = (sub.tree || []).filter(function(t) { return t.type === 'blob' && t.mode !== '120000' && /\.png$/i.test(t.path); })  // Symlinks liefern kein Bild
-                                  .map(function(t) { return t.path.replace(/\.png$/i, ''); });
-    await coverIdb.set('idx2:' + repo, { t: Date.now(), names: names });
+    const j = await jget('https://api.github.com/repos/libretro-thumbnails/' + repo + '/git/trees/' + encodeURIComponent('master:Named_Boxarts'));
+    const names = (j.tree || []).filter(function(t) { return t.type === 'blob' && /\.png$/i.test(t.path); })
+      .map(function(t) { return (t.mode === '120000' ? '@' : '') + t.path.replace(/\.png$/i, ''); });
+    await coverIdb.set(IK + repo, { t: Date.now(), names: names });
     return (coverIndexMem[repo] = prepIndex(names));
   } catch(e) {
     console.warn('Cover-Liste nicht geladen (' + repo + '):', e.message);
-    coverIndexBlockedUntil[repo] = Date.now() + 36e5;   // GitHub-Limit: 1 h Pause
+    coverIndexBlockedUntil[repo] = Date.now() + (e.status === 403 ? 36e5 : 6e4);   // GitHub-Limit → 1 h Pause
     return cached && cached.names ? (coverIndexMem[repo] = prepIndex(cached.names)) : null;
   }
 }
 function prepIndex(names) {
-  return names.map(function(n) { return { n: n, k: normTitle(n), r: regionScore(n) }; });
+  return names.map(function(raw) {
+    const sym = raw.charAt(0) === '@';
+    const n = sym ? raw.slice(1) : raw;
+    return { n: n, sym: sym, t: titleTokens(n), r: regionScore(n) - (sym ? 2 : 0) };
+  });
 }
-
 function libretroUrl(repo, file) {
   return 'https://raw.githubusercontent.com/libretro-thumbnails/' + repo + '/master/Named_Boxarts/' + encodeURIComponent(file) + '.png';
 }
-
-async function libretroCandidates(name, platform) {
+// Verknüpfungen (Symlinks) zeigen auf eine andere Datei → Ziel nachschlagen
+async function libretroEntryUrl(repo, e) {
+  if (!e.sym) return libretroUrl(repo, e.n);
+  try {
+    const txt = (await fetch(libretroUrl(repo, e.n)).then(function(r) { return r.ok ? r.text() : ''; })).trim();
+    if (/\.png$/i.test(txt) && txt.indexOf('/') === -1) return libretroUrl(repo, txt.replace(/\.png$/i, ''));
+  } catch(err) {}
+  return '';
+}
+async function libretroMatches(name, platform, limit) {
   const repo = coverRepo(platform);
   if (!repo) return [];
   const idx = await loadCoverIndex(repo);
   if (!idx) return [];
-  const u = normTitle(name);
+  const Us = titleVariants(name).map(titleTokens);
   const scored = [];
   for (let i = 0; i < idx.length; i++) {
-    const m = matchScore(u, idx[i].k);
-    if (m > 0) scored.push({ n: idx[i].n, s: m * 10 + idx[i].r });
+    let m = 0;
+    for (let v = 0; v < Us.length; v++) { const s = matchTokens(Us[v], idx[i].t); if (s > m) m = s; }
+    if (m >= 50) scored.push({ e: idx[i], s: m * 10 + idx[i].r });
   }
   scored.sort(function(a, b) { return b.s - a.s; });
+  return scored.slice(0, limit || 8).map(function(x) { return { repo: repo, e: x.e }; });
+}
+
+// ── Quelle 2+3: Wikidata / Wikipedia ─────────────────────────────────────
+const WIKI = 'https://en.wikipedia.org/w/api.php?format=json&origin=*&action=query';
+async function wikiThumbs(titles) {
+  if (!titles.length) return [];
+  const j = await wmGet(WIKI + '&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=400&pilicense=any&titles=' + encodeURIComponent(titles.join('|')));
+  const q = j.query || {};
+  const redir = {};
+  (q.redirects || []).concat(q.normalized || []).forEach(function(r) { redir[r.from] = r.to; });
+  const pages = Object.values(q.pages || {});
+  const out = [];
+  titles.forEach(function(t) {
+    let tt = t; for (let k = 0; k < 3 && redir[tt]; k++) tt = redir[tt];
+    const p = pages.find(function(x) { return x.title === tt; });
+    if (p && p.thumbnail) out.push({ url: p.thumbnail.source.split('?')[0], src: 'Wikipedia · ' + p.title });
+  });
+  return out;
+}
+
+// Wikidata-IDs der Plattformen (P400) – aussortiert wird nur, wer eindeutig auf anderen Systemen erschien
+const WD_PLATFORMS = {
+  'atari': ['Q206261', 'Q753600'], 'nes': ['Q172742'], 'snes': ['Q183259'], 'n64': ['Q184839'],
+  'gamecube': ['Q182172'], 'gb': ['Q186437', 'Q203992'], 'gbc': ['Q203992', 'Q186437'], 'gba': ['Q188642'],
+  'nds': ['Q170323'], '3ds': ['Q203597'], 'megadrive': ['Q10676'], 'mastersystem': ['Q209868'], 'saturn': ['Q200912'],
+  'ps1': ['Q10677'], 'ps2': ['Q10680'], 'ps3': ['Q10683'], 'ps4': ['Q5014725', 'Q63184502'], 'ps5': ['Q63184502', 'Q5014725'],
+  'switch': ['Q19610114', 'Q122761124'], 'switch2': ['Q122761124', 'Q19610114'],
+  'amiga500': ['Q100047', 'Q384656'], 'amiga': ['Q100047', 'Q384656'], 'commodore64': ['Q99775'],
+  'pc': ['Q1406', 'Q16338', 'Q47604', 'Q170434'], 'xbox': ['Q132020'], 'xbox360': ['Q48263'], 'wii': ['Q8079'], 'psp': ['Q170325']
+};
+
+// Wikidata: findet auch deutsche Titel → englischer Titel + Wikipedia-Artikel
+const wdMem = {};
+async function wikidataLookup(name, platform) {
+  const q = cleanQuery(name);
+  if (!q) return [];
+  const memKey = q + '@@' + platKey(platform);
+  if (wdMem[memKey]) return wdMem[memKey];
+  const U = titleTokens(q);
+  const s = await wmGet('https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&origin=*&language=de&uselang=de&type=item&limit=8&search=' + encodeURIComponent(q));
+  let hits = (s.search || []).filter(function(x) {
+    const d = x.description || '';
+    if (!/spiel|game/i.test(d) || /reihe|serie|series|franchise|figur|character|charakter|film|album|lied|song|brettspiel|board game|kartenspiel|card game/i.test(d)) return false;
+    // Titel muss wirklich passen (Label oder gefundener Alias)
+    const byLabel = matchTokens(U, titleTokens(x.label || ''));
+    const byMatch = x.match && x.match.text ? matchTokens(U, titleTokens(x.match.text)) : 0;
+    x._s = Math.max(byLabel, byMatch);
+    return x._s >= 50;
+  });
+  let needLabelCheck = false;
+  if (!hits.length) {
+    // Volltextsuche nur über Videospiele (P31 = Q7889) – findet auch "Harry Potter: Stein der Weisen"
+    const fsr = await wmGet('https://www.wikidata.org/w/api.php?action=query&list=search&format=json&origin=*&srlimit=6&srsearch=' + encodeURIComponent(q + ' haswbstatement:P31=Q7889'));
+    hits = ((fsr.query && fsr.query.search) || []).map(function(x) { return { id: x.title, _s: 50 }; });
+    needLabelCheck = true;
+  }
+  if (!hits.length) return (wdMem[memKey] = []);
+  hits = hits.map(function(h, i) { return { h: h, s: h._s * 10 - i }; })
+             .sort(function(a, b) { return b.s - a.s; }).map(function(x) { return x.h; }).slice(0, 5);
+  const e = await wmGet('https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&origin=*&props=sitelinks|labels|aliases|claims&languages=en|de&sitefilter=enwiki&ids=' + hits.map(function(h) { return h.id; }).join('|'));
+  const allowed = WD_PLATFORMS[platKey(platform)];
+  const out = [];
+  hits.forEach(function(h) {
+    const en = (e.entities && e.entities[h.id]) || {};
+    const plats = ((en.claims && en.claims.P400) || []).map(function(cl) {
+      return cl.mainsnak && cl.mainsnak.datavalue && cl.mainsnak.datavalue.value ? cl.mainsnak.datavalue.value.id : null;
+    }).filter(Boolean);
+    if (allowed && plats.length && !plats.some(function(p) { return allowed.indexOf(p) !== -1; })) return;   // anderes System
+    if (needLabelCheck) {
+      const names = [];
+      ['de', 'en'].forEach(function(l) {
+        if (en.labels && en.labels[l]) names.push(en.labels[l].value);
+        ((en.aliases && en.aliases[l]) || []).forEach(function(a) { names.push(a.value); });
+      });
+      if (!names.some(function(n) { return matchTokens(U, titleTokens(n)) >= 50; })) return;
+    }
+    const item = {
+      title: en.sitelinks && en.sitelinks.enwiki ? en.sitelinks.enwiki.title : null,
+      label: en.labels && en.labels.en ? en.labels.en.value : null
+    };
+    if (item.title || item.label) out.push(item);
+  });
+  return (wdMem[memKey] = out);
+}
+
+async function wikidataCovers(name, platform) {
+  const wd = await wikidataLookup(name, platform);
+  const titles = wd.map(function(x) { return x.title; }).filter(Boolean);
+  const res = await wikiThumbs(titles);
+  // Artikel muss zum gefundenen Spiel passen (Schutz vor falschen Weiterleitungen)
+  return res.filter(function(r) {
+    const pt = titleTokens(r.src.replace(/^Wikipedia · /, '').replace(/\s*\((\d{4} )?(video )?game\)$/i, ''));
+    return wd.some(function(x) {
+      return (x.title && matchTokens(titleTokens(x.title.replace(/\s*\([^)]*\)$/, '')), pt) >= 50) ||
+             (x.label && matchTokens(titleTokens(x.label), pt) >= 50);
+    });
+  });
+}
+
+// Deutscher Titel → englischer Titel → libretro (z. B. "Risiko" → "Risk")
+async function libretroViaWikidata(name, platform) {
+  if (!coverRepo(platform)) return [];
+  const wd = await wikidataLookup(name, platform);
   const seen = {};
-  return scored.filter(function(c) { const k = normTitle(c.n); if (seen[k] && seen[k] > 2) return false; seen[k] = (seen[k] || 0) + 1; return true; })
-               .slice(0, 8).map(function(c) { return { url: libretroUrl(repo, c.n), src: 'libretro · ' + c.n }; });
+  for (let i = 0; i < wd.length && i < 3; i++) {
+    const cands = [wd[i].label, wd[i].title && wd[i].title.replace(/\s*\([^)]*\)$/, '')];
+    for (let k = 0; k < cands.length; k++) {
+      const t = cands[k];
+      if (!t || seen[t]) continue;
+      seen[t] = 1;
+      const m = await libretroMatches(t, platform, 3);
+      if (m.length) return m;
+    }
+  }
+  return [];
 }
 
-async function wikiCandidates(name, platform) {
-  if (!navigator.onLine) return [];
+async function wikiSearchCovers(name, platform) {
+  const q = cleanQuery(name);
+  if (!q) return [];
+  const U = titleTokens(q);
   const cfg = platforms[platform] || {};
-  const q = name + ' ' + (cfg.label || platform) + ' video game';
-  const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrlimit=4' +
-              '&prop=pageimages&piprop=thumbnail&pithumbsize=400&pilicense=any&gsrsearch=' + encodeURIComponent(q);
-  try {
-    const j = await fetch(url).then(function(r) { return r.json(); });
+  const queries = [q + ' video game', q + ' ' + (cfg.label || platform) + ' video game'];
+  const out = [];
+  for (let i = 0; i < queries.length; i++) {
+    const j = await wmGet(WIKI + '&generator=search&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=400&pilicense=any&gsrsearch=' + encodeURIComponent(queries[i]));
     const pages = Object.values((j.query && j.query.pages) || {}).sort(function(a, b) { return a.index - b.index; });
-    const u = normTitle(name);
-    return pages.filter(function(p) { return p.thumbnail && matchScore(u, normTitle(p.title)) > 0; })
-                .map(function(p) { return { url: p.thumbnail.source, src: 'Wikipedia · ' + p.title }; });
-  } catch(e) { return []; }
+    pages.forEach(function(p) {
+      if (!p.thumbnail) return;
+      const T = titleTokens(p.title.replace(/\s*\((\d{4} )?(video )?game\)$/i, ''));
+      // Ein-Wort-Titel ("Kena", "Evo"): Artikel muss mit genau diesem Wort beginnen
+      if (U.length === 1 && T[0] !== U[0]) return;
+      const s = matchTokens(U, T);
+      if (s >= 55) out.push({ url: p.thumbnail.source.split('?')[0], src: 'Wikipedia · ' + p.title, s: s });
+    });
+    if (out.length) break;
+  }
+  return out.sort(function(a, b) { return b.s - a.s; });
 }
 
+async function wikiCovers(name, platform) {
+  const out = [], seen = {};
+  const variants = titleVariants(name);
+  for (let v = 0; v < variants.length; v++) {
+    const a = await wikidataCovers(variants[v], platform).catch(function(e) { if (!e.status || e.status === 429 || e.status >= 500) throw e; return []; });
+    a.forEach(function(c) { if (!seen[c.url]) { seen[c.url] = 1; out.push(c); } });
+    if (out.length) break;
+  }
+  if (!out.length) {
+    for (let v = 0; v < variants.length; v++) {
+      const b = await wikiSearchCovers(variants[v], platform).catch(function(e) { if (!e.status || e.status === 429 || e.status >= 500) throw e; return []; });
+      b.forEach(function(c) { if (!seen[c.url]) { seen[c.url] = 1; out.push(c); } });
+      if (out.length) break;
+    }
+  }
+  return out;
+}
+
+// Alle Kandidaten (für "Anderes Cover")
 async function coverCandidates(name, platform) {
-  const a = await libretroCandidates(name, platform);
-  const b = await wikiCandidates(name, platform);
-  return a.concat(b);
+  const out = [], seen = {};
+  let lib = await libretroMatches(name, platform, 8);
+  if (!lib.length) lib = await libretroViaWikidata(name, platform).catch(function() { return []; });
+  for (let i = 0; i < lib.length; i++) {
+    const u = await libretroEntryUrl(lib[i].repo, lib[i].e);
+    if (u && !seen[u]) { seen[u] = 1; out.push({ url: u, src: 'libretro · ' + lib[i].e.n }); }
+  }
+  const w = await wikiCovers(name, platform).catch(function() { return []; });
+  w.forEach(function(c) { if (!seen[c.url]) { seen[c.url] = 1; out.push(c); } });
+  return out;
 }
 
 // ── Cover für ein Spiel ermitteln (Override → Cache → Suche) ─────────────
-const coverMem = {};   // key → url | ''
+const coverMem = {};       // key → url | ''
+const coverPending = {};   // key → Promise (keine Doppelsuche)
 function coverKey(platform, name) { return platform + '::' + name; }
 function coverOverride(platform, name) {
   const c = currentUserData && currentUserData.covers;
   return c ? c[coverKey(platform, name)] : undefined;
 }
 
-async function resolveCover(platform, name) {
+function resolveCover(platform, name) {
   const key = coverKey(platform, name);
   const ov = coverOverride(platform, name);
-  if (ov === 'none') return '';
-  if (ov) return ov;
-  if (coverMem[key] !== undefined) return coverMem[key];
-  const cached = await coverIdb.get('c2:' + key);
-  if (cached && (Date.now() - cached.t < (cached.u ? COVER_TTL_HIT : COVER_TTL_MISS) || !navigator.onLine)) {
-    return (coverMem[key] = cached.u);
-  }
-  if (!navigator.onLine) return '';
-  let url = '';
-  const lib = await libretroCandidates(name, platform);
-  if (lib.length) url = lib[0].url;
-  else {
-    const wiki = await wikiCandidates(name, platform);
-    if (wiki.length) url = wiki[0].url;
-  }
-  // Nur "nichts gefunden" merken, wenn die Titelliste auch wirklich geladen war
-  if (url || !coverRepo(platform) || coverIndexMem[coverRepo(platform)]) {
-    await coverIdb.set('c2:' + key, { u: url, t: Date.now() });
-  }
-  return (coverMem[key] = url);
+  if (ov === 'none') return Promise.resolve('');
+  if (ov) return Promise.resolve(ov);
+  if (coverMem[key] !== undefined) return Promise.resolve(coverMem[key]);
+  if (coverPending[key]) return coverPending[key];
+  const p = (async function() {
+    const cached = await coverIdb.get(CK + key);
+    if (cached && (Date.now() - cached.t < (cached.u ? COVER_TTL_HIT : COVER_TTL_MISS) || !navigator.onLine)) {
+      return (coverMem[key] = cached.u);
+    }
+    if (!coverEnabled(platform) || !navigator.onLine) return '';
+    let url = '', complete = true;
+    try {
+      const lib = await libretroMatches(name, platform, 3);
+      if (coverRepo(platform) && !coverIndexMem[coverRepo(platform)]) complete = false;
+      for (let i = 0; i < lib.length && !url; i++) url = await libretroEntryUrl(lib[i].repo, lib[i].e);
+      if (!url) {
+        const lib2 = await libretroViaWikidata(name, platform);
+        for (let i = 0; i < lib2.length && !url; i++) url = await libretroEntryUrl(lib2[i].repo, lib2[i].e);
+      }
+      if (!url) {
+        const w = await wikiCovers(name, platform);
+        if (w.length) url = w[0].url;
+      }
+    } catch(e) {
+      complete = false;   // Netzfehler → nicht als "nichts gefunden" merken
+    }
+    if (url || complete) await coverIdb.set(CK + key, { u: url, t: Date.now() });
+    if (url || complete) coverMem[key] = url;
+    return url;
+  })();
+  coverPending[key] = p;
+  p.then(function() { delete coverPending[key]; }, function() { delete coverPending[key]; });
+  return p;
 }
 
 // ── Rendering in der Spieleliste ─────────────────────────────────────────
-function coverThumbHtml(index, cfg) {
-  if (!coverEnabled(currentPlatform)) return '<span class="game-bullet ' + cfg.css + '"></span>';
-  return '<span class="cover-thumb no-cover" data-idx="' + index + '" onclick="openCover(' + index + ')" title="Cover">' +
-           '<span class="game-bullet ' + cfg.css + '"></span>' +
-         '</span>';
+function platformFallbackImg(platform) {
+  const cfg = platforms[platform] || {};
+  return (platformImages && platformImages[platform]) || cfg.img || '';
 }
 
-function setThumb(el, url) {
-  if (!url) { el.classList.add('no-cover'); return; }
+function coverThumbHtml(index, cfg) {
+  const fb = platformFallbackImg(currentPlatform);
+  const inner = fb ? '<img src="' + fb + '" alt="">' : '<span class="game-bullet ' + cfg.css + '"></span>';
+  return '<span class="cover-thumb fallback" data-idx="' + index + '" onclick="openCover(' + index + ')" title="Cover">' + inner + '</span>';
+}
+
+function setThumb(el, url, platform) {
+  if (!url) {
+    const fb = platformFallbackImg(platform || currentPlatform);
+    el.classList.add('fallback');
+    el.innerHTML = fb ? '<img src="' + fb + '" alt="">' : '';
+    return;
+  }
   const img = new Image();
   img.crossOrigin = 'anonymous';
   img.alt = '';
-  img.onload = function() { el.innerHTML = ''; el.appendChild(img); el.classList.remove('no-cover'); };
+  img.onload = function() { el.innerHTML = ''; el.appendChild(img); el.classList.remove('fallback'); };
   img.onerror = function() {
     if (img.crossOrigin) { img.removeAttribute('crossorigin'); img.crossOrigin = null; img.src = url; return; }  // Fallback ohne CORS
-    el.classList.add('no-cover');
   };
   img.src = url;
 }
 
-const coverQueue = [];
-let coverActive = 0;
-function pumpCoverQueue() {
-  while (coverActive < 3 && coverQueue.length) {
-    const job = coverQueue.shift();
-    coverActive++;
-    resolveCover(job.platform, job.name)
-      .then(function(url) { if (job.el.isConnected) setThumb(job.el, url); })
-      .catch(function() {})
-      .then(function() { coverActive--; pumpCoverQueue(); });
-  }
+function refreshVisibleThumb(platform, name, url) {
+  if (currentPlatform !== platform) return;
+  const idx = (getTabData()[platform] || []).indexOf(name);
+  if (idx === -1) return;
+  const el = document.querySelector('.cover-thumb[data-idx="' + idx + '"]');
+  if (el && el.classList.contains('fallback') && url) setThumb(el, url, platform);
 }
 
-let coverObserver = null;
 function hydrateCovers(root) {
   const platform = currentPlatform;
   const games = getTabData()[platform] || [];
-  coverQueue.length = 0;
-  if (coverObserver) coverObserver.disconnect();
-  const els = root.querySelectorAll('.cover-thumb[data-idx]');
-  if (!els.length) return;
-  function enqueue(el) {
+  root.querySelectorAll('.cover-thumb[data-idx]').forEach(function(el) {
     const name = games[+el.dataset.idx];
     if (!name) return;
-    const key = coverKey(platform, name);
     const ov = coverOverride(platform, name);
-    if (ov !== undefined) { setThumb(el, ov === 'none' ? '' : ov); return; }
-    if (coverMem[key] !== undefined) { setThumb(el, coverMem[key]); return; }
-    coverQueue.push({ el: el, platform: platform, name: name });
-    pumpCoverQueue();
-  }
-  if (!('IntersectionObserver' in window)) { els.forEach(enqueue); return; }
-  coverObserver = new IntersectionObserver(function(entries) {
-    entries.forEach(function(e) {
-      if (e.isIntersecting) { coverObserver.unobserve(e.target); enqueue(e.target); }
-    });
-  }, { rootMargin: '400px 0px' });
-  els.forEach(function(el) { coverObserver.observe(el); });
+    if (ov !== undefined) { setThumb(el, ov === 'none' ? '' : ov, platform); return; }
+    const key = coverKey(platform, name);
+    if (coverMem[key] !== undefined) { setThumb(el, coverMem[key], platform); return; }
+    resolveCover(platform, name).then(function(u) { if (el.isConnected) setThumb(el, u, platform); }).catch(function() {});
+  });
 }
+
+// ── Hintergrund: alle Cover laden (auch nicht geöffnete Plattformen) ─────
+let coverPreloadRun = 0;
+const coverStats = { done: 0, total: 0, found: 0, missing: [] };
+
+function updateCoverStatus() {
+  const el = document.getElementById('coverStatus');
+  if (!el) return;
+  if (!coverStats.total) { el.textContent = ''; return; }
+  el.textContent = coverStats.done < coverStats.total
+    ? 'COVER WERDEN GELADEN … ' + coverStats.done + ' / ' + coverStats.total
+    : 'COVER: ' + coverStats.found + ' / ' + coverStats.total + (coverStats.missing.length ? ' · ' + coverStats.missing.length + ' OHNE TREFFER (antippen)' : ' ✓');
+}
+
+function warmImage(url) {
+  return new Promise(function(res) {
+    const img = new Image();
+    let done = false;
+    const fin = function() { if (!done) { done = true; res(); } };
+    img.crossOrigin = 'anonymous';
+    img.onload = fin;
+    img.onerror = function() { if (img.crossOrigin) { img.removeAttribute('crossorigin'); img.crossOrigin = null; img.src = url; return; } fin(); };
+    setTimeout(fin, 15000);
+    img.src = url;
+  });
+}
+
+async function preloadAllCovers() {
+  if (!currentUserData) return;
+  const run = ++coverPreloadRun;
+  const jobs = [], seen = {};
+  ['Haben', 'Brauchen'].forEach(function(tab) {
+    const t = (data && data[tab]) || {};
+    Object.keys(t).forEach(function(p) {
+      if (!coverEnabled(p)) return;
+      (t[p] || []).forEach(function(g) {
+        const k = coverKey(p, g);
+        if (g && !seen[k]) { seen[k] = 1; jobs.push([p, g]); }
+      });
+    });
+  });
+  coverStats.done = 0; coverStats.total = jobs.length; coverStats.found = 0; coverStats.missing = [];
+  updateCoverStatus();
+  async function worker() {
+    while (jobs.length && run === coverPreloadRun) {
+      if (!navigator.onLine) { await sleep(3000); continue; }
+      const job = jobs.shift();
+      let url = '';
+      try { url = await resolveCover(job[0], job[1]); } catch(e) {}
+      if (url) { coverStats.found++; await warmImage(url); refreshVisibleThumb(job[0], job[1], url); }
+      else coverStats.missing.push(job[0] + ' · ' + job[1]);
+      coverStats.done++;
+      updateCoverStatus();
+    }
+  }
+  await Promise.all([worker(), worker(), worker()]);
+}
+
+function showMissingCovers() {
+  if (!coverStats.missing.length) return;
+  const list = coverStats.missing.slice().sort();
+  openModal('Ohne automatisches Cover (' + list.length + '):\n\n' + list.join('\n') + '\n\nIn der Liste aufs Bild tippen → „Anderes Cover".', function() {}, 'OK');
+}
+
+// Nach dem Laden der Sammlung im Hintergrund starten
+(function() {
+  const _initCovers = init;
+  init = async function() {
+    const r = await _initCovers.apply(this, arguments);
+    setTimeout(preloadAllCovers, 2500);
+    return r;
+  };
+})();
+window.addEventListener('online', function() { if (currentUserData) setTimeout(preloadAllCovers, 2000); });
 
 // ── Großansicht + Cover wechseln ─────────────────────────────────────────
 let coverCtx = null; // { platform, name, list, pos }
 function showCoverBig(url, src) {
   const big = document.getElementById('coverBig');
-  if (!url) { big.innerHTML = 'KEIN COVER'; document.getElementById('coverSrc').textContent = src || ''; return; }
+  document.getElementById('coverSrc').textContent = src || '';
+  if (!url) {
+    const fb = coverCtx ? platformFallbackImg(coverCtx.platform) : '';
+    big.innerHTML = fb ? '<img src="' + fb + '" alt="" style="opacity:.35;max-height:30vh">' : 'KEIN COVER';
+    return;
+  }
   big.innerHTML = 'LADE …';
   const img = new Image();
   img.crossOrigin = 'anonymous';
@@ -4471,7 +4803,6 @@ function showCoverBig(url, src) {
     big.innerHTML = 'BILD NICHT ERREICHBAR';
   };
   img.src = url;
-  document.getElementById('coverSrc').textContent = src || '';
 }
 
 async function openCover(index) {
@@ -4481,9 +4812,10 @@ async function openCover(index) {
   coverCtx = { platform: platform, name: name, list: null, pos: -1 };
   document.getElementById('coverTitle').textContent = name;
   document.getElementById('coverModal').classList.add('open');
+  showCoverBig('', 'suche …');
   const url = await resolveCover(platform, name);
   const ov = coverOverride(platform, name);
-  showCoverBig(url, ov === 'none' ? 'manuell ausgeblendet' : ov ? 'manuell gewählt' : (url ? 'automatisch' : 'nichts gefunden'));
+  showCoverBig(url, ov === 'none' ? 'manuell ausgeblendet' : ov ? 'manuell gewählt' : (url ? 'automatisch' : 'nichts gefunden – „Anderes Cover" probieren'));
 }
 
 function closeCover() {
@@ -4493,35 +4825,37 @@ function closeCover() {
 
 async function saveCoverOverride(value) {
   if (!coverCtx || !currentUserData) return;
-  const key = coverKey(coverCtx.platform, coverCtx.name);
+  const ctx = coverCtx;
+  const key = coverKey(ctx.platform, ctx.name);
   if (!currentUserData.covers) currentUserData.covers = {};
   if (value === undefined) delete currentUserData.covers[key];
   else currentUserData.covers[key] = value;
   try { await persistUserDoc(); } catch(e) { showToast('Fehler beim Speichern', true); }
-  // Liste aktualisieren
-  if (currentPlatform === coverCtx.platform) {
-    const idx = (getTabData()[currentPlatform] || []).indexOf(coverCtx.name);
+  if (currentPlatform === ctx.platform) {
+    const idx = (getTabData()[currentPlatform] || []).indexOf(ctx.name);
     const el = document.querySelector('.cover-thumb[data-idx="' + idx + '"]');
     if (el) {
-      if (value === undefined) { el.innerHTML = ''; el.classList.add('no-cover'); resolveCover(coverCtx.platform, coverCtx.name).then(function(u) { setThumb(el, u); }); }
-      else setThumb(el, value === 'none' ? '' : value);
+      if (value === undefined) resolveCover(ctx.platform, ctx.name).then(function(u) { setThumb(el, u, ctx.platform); });
+      else setThumb(el, value === 'none' ? '' : value, ctx.platform);
     }
   }
 }
 
 async function nextCover() {
   if (!coverCtx) return;
-  if (!navigator.onLine && !coverCtx.list) { showToast('Offline – andere Cover erst online suchbar', true); return; }
-  if (!coverCtx.list) {
+  const ctx = coverCtx;
+  if (!navigator.onLine && !ctx.list) { showToast('Offline – andere Cover erst online suchbar', true); return; }
+  if (!ctx.list) {
     document.getElementById('coverBig').innerHTML = 'SUCHE …';
-    coverCtx.list = await coverCandidates(coverCtx.name, coverCtx.platform);
-    const current = coverOverride(coverCtx.platform, coverCtx.name) || coverMem[coverKey(coverCtx.platform, coverCtx.name)];
-    coverCtx.pos = coverCtx.list.findIndex(function(c) { return c.url === current; });
+    ctx.list = await coverCandidates(ctx.name, ctx.platform);
+    const current = coverOverride(ctx.platform, ctx.name) || coverMem[coverKey(ctx.platform, ctx.name)];
+    ctx.pos = ctx.list.findIndex(function(c) { return c.url === current; });
   }
-  if (!coverCtx.list.length) { showCoverBig('', 'keine Alternativen gefunden'); return; }
-  coverCtx.pos = (coverCtx.pos + 1) % coverCtx.list.length;
-  const c = coverCtx.list[coverCtx.pos];
-  showCoverBig(c.url, (coverCtx.pos + 1) + '/' + coverCtx.list.length + ' · ' + c.src);
+  if (coverCtx !== ctx) return;
+  if (!ctx.list.length) { showCoverBig('', 'keine Alternativen gefunden'); return; }
+  ctx.pos = (ctx.pos + 1) % ctx.list.length;
+  const c = ctx.list[ctx.pos];
+  showCoverBig(c.url, (ctx.pos + 1) + '/' + ctx.list.length + ' · ' + c.src);
   saveCoverOverride(c.url);
 }
 
@@ -4532,12 +4866,13 @@ function setNoCover() {
 
 async function resetCover() {
   if (!coverCtx) return;
-  const key = coverKey(coverCtx.platform, coverCtx.name);
+  const ctx = coverCtx;
+  const key = coverKey(ctx.platform, ctx.name);
   delete coverMem[key];
-  await coverIdb.set('c2:' + key, { u: '', t: 0 });
+  await coverIdb.set(CK + key, { u: '', t: 0 });
   await saveCoverOverride(undefined);
-  const url = await resolveCover(coverCtx.platform, coverCtx.name);
-  showCoverBig(url, url ? 'automatisch' : 'nichts gefunden');
+  const url = await resolveCover(ctx.platform, ctx.name);
+  if (coverCtx === ctx) showCoverBig(url, url ? 'automatisch' : 'nichts gefunden');
 }
 
 // ══════════════════════════════════════════════════════
@@ -4555,7 +4890,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.2',
+    appVersion: 'v2.3',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -4637,6 +4972,7 @@ async function applyBackup(obj) {
     if (currentPlatform) renderGames();
     updateValueDisplay();
     const c = countGames(data);
+    setTimeout(preloadAllCovers, 1500);
     showToast('Backup importiert ✓ (' + c.h + ' Haben / ' + c.b + ' Brauchen)' + (navigator.onLine ? '' : ' – Sync folgt online'));
   } catch(e) {
     console.error(e);

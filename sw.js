@@ -1,6 +1,6 @@
 // COLLECT – Service Worker (Offline-Modus)
 // Bei jeder Änderung an dieser Datei SHELL_CACHE hochzählen.
-const SHELL_CACHE = 'collect-shell-v2.1';
+const SHELL_CACHE = 'collect-shell-v2.3';
 const COVER_CACHE = 'collect-covers-v1';
 const COVER_MAX = 2500;
 
@@ -26,7 +26,7 @@ const PRECACHE_REMOTE = [
 // Statische Fremd-Ressourcen (Skripte, Schriften)
 const STATIC_HOSTS = ['www.gstatic.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 // Cover-Bilder
-const COVER_HOSTS = ['raw.githubusercontent.com', 'upload.wikimedia.org'];
+const COVER_HOSTS = ['raw.githubusercontent.com', 'upload.wikimedia.org', 'thumb.wikimedia.org'];
 
 self.addEventListener('install', function(event) {
   event.waitUntil((async function() {
