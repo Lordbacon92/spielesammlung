@@ -74,6 +74,14 @@ function dec(v) {
   if ('mapValue' in v) { const o = {}; const f = v.mapValue.fields || {}; for (const k in f) o[k] = dec(f[k]); return o; }
   return null;
 }
+function _lum(h) { const c = [1,3,5].map(function(i){ let x = parseInt(h.substr(i,2),16)/255; return x <= 0.03928 ? x/12.92 : Math.pow((x+0.055)/1.055, 2.4); }); return 0.2126*c[0] + 0.7152*c[1] + 0.0722*c[2]; }
+function _mix(h, t, to) { return '#' + [1,3,5].map(function(i){ const x = parseInt(h.substr(i,2),16); return ('0' + Math.round(x + (to-x)*t).toString(16)).slice(-2); }).join(''); }
+function platCol(hex) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return hex;
+  const L = _lum(hex);
+  if (matchMedia('(prefers-color-scheme: dark)').matches) return L < 0.2 ? _mix(hex, Math.min(0.55, (0.2-L)*3.2+0.15), 255) : hex;
+  return L > 0.3 ? _mix(hex, Math.min(0.45, (L-0.3)*1.6+0.15), 0) : hex;
+}
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function thumb(u) { return 'https://images.weserv.nl/?url=' + encodeURIComponent(u) + '&w=96&h=128&fit=cover&output=webp&q=70'; }
 function count(list) { let n = 0; for (const p in list) list[p].forEach(function(g) { n += g.q || 1; }); return n; }
@@ -117,7 +125,7 @@ function render() {
     let games = list[p]; if (!games || !games.length) return;
     if (q) games = games.filter(function(g) { return g.n.toLowerCase().indexOf(q) !== -1; });
     if (!games.length) return;
-    const label = (SHARE.labels || {})[p] || p, col = (SHARE.colors || {})[p] || '';
+    const label = (SHARE.labels || {})[p] || p, col = platCol((SHARE.colors || {})[p] || '');
     h += '<details class="plat"' + (q || Object.keys(list).length <= 2 ? ' open' : '') + ' style="border-left-color:' + esc(col || 'var(--border)') + '">' +
          '<summary style="color:' + esc(col || 'var(--text)') + '">' + esc(label) + '<span>' + games.reduce(function(s, g) { return s + (g.q || 1); }, 0) + '</span></summary>';
     games.forEach(function(g) {

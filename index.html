@@ -1992,31 +1992,58 @@ async function fsGet(ref) {
 }
 
 const platforms = {
-  "Atari":        {css:"c-atari",      label:"Atari 2600",      img:"img/atari.png",      color:"#D4874A", ebay:"Atari"},
-  "Commodore 64": {css:"c-c64",        label:"C64",             img:"",                   color:"#A0724A", ebay:"C64"},
-  "NES":          {css:"c-nes",        label:"NES",             img:"img/nes.png",         color:"#D94040", ebay:"NES"},
-  "Mastersystem": {css:"c-mastersystem",label:"Master System",  img:"img/mastersystem.png",color:"#2E8BC0", ebay:"Master System"},
-  "SNES":         {css:"c-snes",       label:"SNES",            img:"img/snes.png",        color:"#7B5EA7", ebay:"snes"},
-  "Megadrive":    {css:"c-megadrive",  label:"Mega Drive",      img:"img/megadrive.png",   color:"#4A90D9", ebay:"Mega Drive"},
-  "PS1":          {css:"c-ps1",        label:"PlayStation 1",   img:"img/ps1.png",         color:"#5B8ADB", ebay:"ps1"},
-  "Saturn":       {css:"c-saturn",     label:"Sega Saturn",     img:"img/saturn.png",      color:"#7A6ED4", ebay:"saturn"},
-  "N64":          {css:"c-n64",        label:"Nintendo 64",     img:"img/n64.png",         color:"#4DB86A", ebay:"n64"},
-  "Gamecube":     {css:"c-gamecube",   label:"GameCube",        img:"img/gamecube.png",    color:"#7B5EA7", ebay:"gamecube"},
-  "Ps2":          {css:"c-ps2",        label:"PlayStation 2",   img:"img/ps2.png",         color:"#3A7BD5", ebay:"ps2"},
-  "PS3":          {css:"c-ps3",        label:"PlayStation 3",   img:"img/ps3.png",         color:"#2E6FBF", ebay:"ps3"},
-  "PS4":          {css:"c-ps4",        label:"PlayStation 4",   img:"img/ps4.png",         color:"#2563AE", ebay:"ps4"},
-  "PS5":          {css:"c-ps5",        label:"PlayStation 5",   img:"img/ps5.png",         color:"#1A56A0", ebay:"ps5"},
-  "Switch":       {css:"c-switch",     label:"Nintendo Switch", img:"img/switch.png",      color:"#E8453C", ebay:"switch"},
-  "Switch2":      {css:"c-switch2",    label:"Nintendo Switch 2",img:"img/switch.png",     color:"#E8453C", ebay:"switch"},
-  "GB":           {css:"c-gb",         label:"Game Boy",        img:"img/gb.png",          color:"#7A9E7E", ebay:"gameboy"},
-  "GBC":          {css:"c-gbc",        label:"Game Boy Color",  img:"img/gbc.png",         color:"#D4874A", ebay:"gameboy color"},
-  "GBA":          {css:"c-gba",        label:"Game Boy Advance",img:"img/gba.png",         color:"#A066CC", ebay:"gba"},
-  "NDS":          {css:"c-nds",        label:"Nintendo DS",     img:"img/nds.png",         color:"#CC6633", ebay:"nds"},
-  "3DS":          {css:"c-3ds",        label:"Nintendo 3DS",    img:"img/3ds.png",         color:"#CC3366", ebay:"3ds"},
+  "Atari":        {css:"c-atari",      label:"Atari 2600",      img:"img/atari.png",      color:"#DB4434", ebay:"Atari"},
+  "Commodore 64": {css:"c-c64",        label:"C64",             img:"",                   color:"#6C5EB5", ebay:"C64"},
+  "NES":          {css:"c-nes",        label:"NES",             img:"img/nes.png",         color:"#C8102E", ebay:"NES"},
+  "Mastersystem": {css:"c-mastersystem",label:"Master System",  img:"img/mastersystem.png",color:"#E4002B", ebay:"Master System"},
+  "SNES":         {css:"c-snes",       label:"SNES",            img:"img/snes.png",        color:"#745CD0", ebay:"snes"},
+  "Megadrive":    {css:"c-megadrive",  label:"Mega Drive",      img:"img/megadrive.png",   color:"#17569B", ebay:"Mega Drive"},
+  "PS1":          {css:"c-ps1",        label:"PlayStation 1",   img:"img/ps1.png",         color:"#8C9DB8", ebay:"ps1"},
+  "Saturn":       {css:"c-saturn",     label:"Sega Saturn",     img:"img/saturn.png",      color:"#5C6BC0", ebay:"saturn"},
+  "N64":          {css:"c-n64",        label:"Nintendo 64",     img:"img/n64.png",         color:"#1B9E4B", ebay:"n64"},
+  "Gamecube":     {css:"c-gamecube",   label:"GameCube",        img:"img/gamecube.png",    color:"#485CC7", ebay:"gamecube"},
+  "Ps2":          {css:"c-ps2",        label:"PlayStation 2",   img:"img/ps2.png",         color:"#003791", ebay:"ps2"},
+  "PS3":          {css:"c-ps3",        label:"PlayStation 3",   img:"img/ps3.png",         color:"#6B7B8C", ebay:"ps3"},
+  "PS4":          {css:"c-ps4",        label:"PlayStation 4",   img:"img/ps4.png",         color:"#0070D1", ebay:"ps4"},
+  "PS5":          {css:"c-ps5",        label:"PlayStation 5",   img:"img/ps5.png",         color:"#3D8BFF", ebay:"ps5"},
+  "Switch":       {css:"c-switch",     label:"Nintendo Switch", img:"img/switch.png",      color:"#E60012", ebay:"switch"},
+  "Switch2":      {css:"c-switch2",    label:"Nintendo Switch 2",img:"img/switch.png",     color:"#00B7E3", ebay:"switch"},
+  "GB":           {css:"c-gb",         label:"Game Boy",        img:"img/gb.png",          color:"#7FA32F", ebay:"gameboy"},
+  "GBC":          {css:"c-gbc",        label:"Game Boy Color",  img:"img/gbc.png",         color:"#C98A00", ebay:"gameboy color"},
+  "GBA":          {css:"c-gba",        label:"Game Boy Advance",img:"img/gba.png",         color:"#3548C8", ebay:"gba"},
+  "NDS":          {css:"c-nds",        label:"Nintendo DS",     img:"img/nds.png",         color:"#A0A0A0", ebay:"nds"},
+  "3DS":          {css:"c-3ds",        label:"Nintendo 3DS",    img:"img/3ds.png",         color:"#D52B1E", ebay:"3ds"},
   "Konsole/Parts":{css:"c-parts",      label:"Konsolen & Teile",img:"img/konsole.png",     color:"#888888", ebay:""},
-  "Amiga 500":    {css:"c-amiga",      label:"Amiga 500",       img:"img/amiga.png",       color:"#CC8833", ebay:"amiga"},
-  "PC":           {css:"c-pc",         label:"PC",              img:"img/pc.png",          color:"#4A9E8A", ebay:"PC"},
+  "Amiga 500":    {css:"c-amiga",      label:"Amiga 500",       img:"img/amiga.png",       color:"#0055AA", ebay:"amiga"},
+  "PC":           {css:"c-pc",         label:"PC",              img:"img/pc.png",          color:"#0F8B8D", ebay:"PC"},
 };;;
+
+// ── Markenfarben: Anpassung an Hell/Dunkel (v2.8) ────────────────────────────
+const PLAT_COLOR_V = 'v2.8';
+const OLD_PLAT_COLORS = {"Atari":"#D4874A","Commodore 64":"#A0724A","NES":"#D94040","Mastersystem":"#2E8BC0","SNES":"#7B5EA7","Megadrive":"#4A90D9","PS1":"#5B8ADB","Saturn":"#7A6ED4","N64":"#4DB86A","Gamecube":"#7B5EA7","Ps2":"#3A7BD5","PS3":"#2E6FBF","PS4":"#2563AE","PS5":"#1A56A0","Switch":"#E8453C","Switch2":"#E8453C","GB":"#7A9E7E","GBC":"#D4874A","GBA":"#A066CC","NDS":"#CC6633","3DS":"#CC3366","Amiga 500":"#CC8833","PC":"#4A9E8A"};
+function _lum(h) {
+  const c = [1,3,5].map(function(i){ let x = parseInt(h.substr(i,2),16)/255; return x <= 0.03928 ? x/12.92 : Math.pow((x+0.055)/1.055, 2.4); });
+  return 0.2126*c[0] + 0.7152*c[1] + 0.0722*c[2];
+}
+function _mix(h, t, to) {
+  return '#' + [1,3,5].map(function(i){ const x = parseInt(h.substr(i,2),16); return ('0' + Math.round(x + (to-x)*t).toString(16)).slice(-2); }).join('');
+}
+// Sehr dunkle Töne im Dark Mode aufhellen, sehr helle im Hell-Modus abdunkeln – damit alles lesbar bleibt
+function platCol(hex) {
+  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return hex || '#888888';
+  const L = _lum(hex);
+  if (document.documentElement.getAttribute('data-theme') === 'dark') return L < 0.2 ? _mix(hex, Math.min(0.55, (0.2-L)*3.2+0.15), 255) : hex;
+  return L > 0.3 ? _mix(hex, Math.min(0.45, (L-0.3)*1.6+0.15), 0) : hex;
+}
+// Einmalig: alte gespeicherte Standardfarben auf die neuen Markenfarben umstellen
+function migratePlatColors() {
+  if (!currentUserData || currentUserData.platColorsV === PLAT_COLOR_V) return false;
+  (currentUserData.platforms || []).forEach(function(p) {
+    if (p && OLD_PLAT_COLORS[p.name] && platforms[p.name]) { delete p.color; }
+  });
+  currentUserData.platColorsV = PLAT_COLOR_V;
+  return true;
+}
 
 let data = { Haben: {}, Brauchen: {} };
 let currentTab = 'haben';
@@ -2047,6 +2074,9 @@ async function apiGet() {
     if (!currentUserData.valueHistory) currentUserData.valueHistory = {};
   }
   metaCache = currentUserData.meta;
+  if (migratePlatColors()) {
+    currentUserDocRef.update({ platforms: currentUserData.platforms, platColorsV: PLAT_COLOR_V }).catch(function(e) { console.warn('Farb-Migration:', e); });
+  }
   (currentUserData.platforms || []).forEach(function(p) {
     if (!platforms[p.name]) platforms[p.name] = { css: 'c-parts', label: p.name, img: '', color: p.color || '#888888', ebay: p.name };
     else if (p.color) platforms[p.name].color = p.color;
@@ -2304,7 +2334,7 @@ function renderPlatformButtons() {
     const btn = document.createElement('button');
     btn.className = 'plat-btn ' + cfg.css + (currentPlatform === key ? ' active' : '');
     btn.dataset.key = key;
-    const col = cfg.color || '#888';
+    const col = platCol(cfg.color || '#888888');
     btn.style.color = col;
     btn.style.borderColor = col;
     btn.innerHTML = '<span class="label-text">' + cfg.label + '</span><span class="count">' + piecesOf(key, games) + '</span>';
@@ -2322,7 +2352,7 @@ function renderPlatformButtons() {
     const btn = document.createElement('button');
     btn.className = 'plat-btn ' + cfg.css + (currentPlatform === key ? ' active' : '');
     btn.dataset.key = key;
-    const col = cfg.color || '#888';
+    const col = platCol(cfg.color || '#888888');
     btn.style.color = col;
     btn.style.borderColor = col;
     btn.innerHTML = '<span class="label-text">' + cfg.label + '</span><span class="count">' + piecesOf(key, games) + '</span>';
@@ -2356,7 +2386,7 @@ function renderGames() {
     ? '<div class="no-games">-- NOCH KEINE SPIELE --</div>'
     : '<div class="games-grid">' + games.map(function(g, i){ return gameItemHtml(g, i, cfg); }).join('') + '</div>';
 
-  const platColor = cfg.color || 'var(--accent)';
+  const platColor = cfg.color ? platCol(cfg.color) : 'var(--accent)';
   const imgSrc = platformImages[currentPlatform] || cfg.img || '';
   const imgHtml = imgSrc
     ? '<img class="console-img ' + cfg.css + '" src="' + imgSrc + '" alt="' + cfg.label + '" onclick="triggerImgUpload(\'' + currentPlatform + '\')" title="Bild ändern" onerror="this.style.display=\'none\'">'
@@ -2517,7 +2547,7 @@ function gameItemHtml(name, index, cfg) {
     : '';
 
   const itemHtml =
-    '<div class="game-item" style="border-left-color:' + (cfg.color||'var(--accent)') + ';color:var(--text)" id="gi-' + index + '">' +
+    '<div class="game-item" style="border-left-color:' + (cfg.color ? platCol(cfg.color) : 'var(--accent)') + ';color:var(--text)" id="gi-' + index + '">' +
       coverThumbHtml(index, cfg) +
       '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
       gameMetaBadges(name, currentPlatform) +
@@ -2815,6 +2845,7 @@ function toggleTheme() {
   document.documentElement.setAttribute('data-theme', isDark ? '' : 'dark');
   document.getElementById('themeBtn').textContent = isDark ? '🌙 Dunkel' : '☀️ Hell';
   localStorage.setItem('theme', isDark ? 'light' : 'dark');
+  try { if (currentUserData) { renderPlatformButtons(); if (currentPlatform) renderGames(); } } catch(e) {}
 }
 // Load saved theme
 (function() {
@@ -4244,7 +4275,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.7</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.8</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -4994,7 +5025,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.7',
+    appVersion: 'v2.8',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
