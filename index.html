@@ -1574,7 +1574,6 @@
   .cover-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .cover-thumb.fallback { box-shadow: none; background: transparent; }
   .cover-thumb.fallback img { object-fit: contain; opacity: 0.45; }
-  #coverStatus { text-align: center; font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; color: var(--text-dim); padding: 20px 16px 0; cursor: pointer; position: relative; z-index: 1; }
   #modalText { max-height: 60vh; overflow-y: auto; }
   #coverModal { display: none; position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.82); align-items: center; justify-content: center; padding: 16px; }
   #coverModal.open { display: flex; }
@@ -4114,14 +4113,13 @@ function onBarcodeFound(ean) {
 }
 </script>
 
-<div id="coverStatus" onclick="showMissingCovers()"></div>
 <div class="backup-bar">
   <button class="theme-toggle" onclick="exportBackup()" title="Komplette Sammlung als Datei sichern">&#11015; Backup exportieren</button>
   <button class="theme-toggle" onclick="document.getElementById('backupImportInput').click()" title="Sammlung aus Backup-Datei wiederherstellen">&#11014; Backup importieren</button>
   <input type="file" id="backupImportInput" accept="application/json,.json" style="display:none" onchange="handleBackupImport(event)">
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.3</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.4</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -4173,7 +4171,7 @@ updateOnlineState();
 // 2. Wikidata (auch deutsche Titel) → Bild der englischen Wikipedia
 // 3. Wikipedia-Suche
 // Kein Treffer → Konsolenbild der Plattform als Platzhalter
-// Alle Cover werden nach dem Start im Hintergrund geladen.
+// Bekannte Cover stehen in covers.json (Repo), neue Spiele werden einmal gesucht und in der Sammlung gespeichert.
 // ══════════════════════════════════════════════════════
 const COVER_REPOS = {
   'atari': 'Atari_-_2600',
@@ -4466,7 +4464,7 @@ const WD_PLATFORMS = {
   'gamecube': ['Q182172'], 'gb': ['Q186437', 'Q203992'], 'gbc': ['Q203992', 'Q186437'], 'gba': ['Q188642'],
   'nds': ['Q170323'], '3ds': ['Q203597'], 'megadrive': ['Q10676'], 'mastersystem': ['Q209868'], 'saturn': ['Q200912'],
   'ps1': ['Q10677'], 'ps2': ['Q10680'], 'ps3': ['Q10683'], 'ps4': ['Q5014725', 'Q63184502'], 'ps5': ['Q63184502', 'Q5014725'],
-  'switch': ['Q19610114', 'Q122761124'], 'switch2': ['Q122761124', 'Q19610114'],
+  'switch': ['Q19610114', 'Q122761124'], 'switch2': ['Q122761124', 'Q19610114'], 'nintendoswitch2': ['Q122761124', 'Q19610114'],
   'amiga500': ['Q100047', 'Q384656'], 'amiga': ['Q100047', 'Q384656'], 'commodore64': ['Q99775'],
   'pc': ['Q1406', 'Q16338', 'Q47604', 'Q170434'], 'xbox': ['Q132020'], 'xbox360': ['Q48263'], 'wii': ['Q8079'], 'psp': ['Q170325']
 };
@@ -4621,19 +4619,54 @@ function coverOverride(platform, name) {
   return c ? c[coverKey(platform, name)] : undefined;
 }
 
-function resolveCover(platform, name) {
-  const key = coverKey(platform, name);
+// Vorab ermittelte Cover (covers.json im Repo) – sofort da, ohne Suche
+let COVER_DB = {};
+let coverDbLoaded = null;
+function loadCoverDb() {
+  if (!coverDbLoaded) {
+    coverDbLoaded = fetch('covers.json').then(function(r) { return r.ok ? r.json() : {}; })
+      .then(function(j) { COVER_DB = (j && j.covers) || {}; })
+      .catch(function() { COVER_DB = {}; });
+  }
+  return coverDbLoaded;
+}
+loadCoverDb();
+
+// Bekanntes Cover: '' = keins, undefined = noch nie gesucht
+function knownCover(platform, name) {
   const ov = coverOverride(platform, name);
-  if (ov === 'none') return Promise.resolve('');
-  if (ov) return Promise.resolve(ov);
-  if (coverMem[key] !== undefined) return Promise.resolve(coverMem[key]);
+  if (ov !== undefined) return ov === 'none' ? '' : ov;
+  const k = coverKey(platform, name);
+  if (Object.prototype.hasOwnProperty.call(COVER_DB, k)) return COVER_DB[k];
+  if (coverMem[k] !== undefined) return coverMem[k];
+  return undefined;
+}
+
+// Kleine, schnelle Vorschaubilder (~4 KB statt ~100 KB) über images.weserv.nl
+function thumbUrl(u) { return 'https://images.weserv.nl/?url=' + encodeURIComponent(u) + '&w=96&h=128&fit=cover&output=webp&q=70'; }
+function bigUrl(u)   { return 'https://images.weserv.nl/?url=' + encodeURIComponent(u) + '&w=600&output=webp&q=80'; }
+
+// Ergebnis der Suche für neue Spiele in der Sammlung merken (alle Geräte)
+let coverSaveTimer = null;
+function rememberCover(platform, name, url) {
+  if (!currentUserData) return;
+  if (!currentUserData.covers) currentUserData.covers = {};
+  const k = coverKey(platform, name);
+  if (currentUserData.covers[k] !== undefined) return;
+  currentUserData.covers[k] = url || 'none';
+  clearTimeout(coverSaveTimer);
+  coverSaveTimer = setTimeout(function() { persistUserDoc().catch(function() {}); }, 3000);
+}
+
+// Sucht ein Cover (nur für Spiele, die weder in covers.json noch in der Sammlung stehen)
+// Rückgabe: url | '' (nichts gefunden) | null (Netzfehler, später nochmal)
+function resolveCover(platform, name) {
+  const known = knownCover(platform, name);
+  if (known !== undefined) return Promise.resolve(known);
+  const key = coverKey(platform, name);
   if (coverPending[key]) return coverPending[key];
   const p = (async function() {
-    const cached = await coverIdb.get(CK + key);
-    if (cached && (Date.now() - cached.t < (cached.u ? COVER_TTL_HIT : COVER_TTL_MISS) || !navigator.onLine)) {
-      return (coverMem[key] = cached.u);
-    }
-    if (!coverEnabled(platform) || !navigator.onLine) return '';
+    if (!coverEnabled(platform) || !navigator.onLine) return null;
     let url = '', complete = true;
     try {
       const lib = await libretroMatches(name, platform, 3);
@@ -4648,10 +4681,11 @@ function resolveCover(platform, name) {
         if (w.length) url = w[0].url;
       }
     } catch(e) {
-      complete = false;   // Netzfehler → nicht als "nichts gefunden" merken
+      complete = false;
     }
-    if (url || complete) await coverIdb.set(CK + key, { u: url, t: Date.now() });
-    if (url || complete) coverMem[key] = url;
+    if (!url && !complete) return null;
+    coverMem[key] = url;
+    rememberCover(platform, name, url);
     return url;
   })();
   coverPending[key] = p;
@@ -4665,124 +4699,69 @@ function platformFallbackImg(platform) {
   return (platformImages && platformImages[platform]) || cfg.img || '';
 }
 
+function thumbInnerHtml(url, platform, cfg) {
+  if (url) {
+    const safe = url.replace(/"/g, '&quot;');
+    return '<img src="' + thumbUrl(url).replace(/"/g, '&quot;') + '" data-full="' + safe + '" alt="" loading="lazy" decoding="async" crossorigin="anonymous" onerror="coverImgError(this)">';
+  }
+  const fb = platformFallbackImg(platform);
+  return fb ? '<img src="' + fb + '" alt="" loading="lazy">' : '<span class="game-bullet ' + ((cfg && cfg.css) || '') + '"></span>';
+}
+
+// Vorschau-Dienst nicht erreichbar → Originalbild, sonst Konsolenbild
+function coverImgError(img) {
+  const wrap = img.parentNode;
+  if (img.dataset.full && !img.dataset.tried) {
+    img.dataset.tried = '1';
+    img.removeAttribute('crossorigin');
+    img.src = img.dataset.full;
+    return;
+  }
+  if (wrap) { wrap.classList.add('fallback'); wrap.innerHTML = thumbInnerHtml('', currentPlatform); }
+}
+
 function coverThumbHtml(index, cfg) {
-  const fb = platformFallbackImg(currentPlatform);
-  const inner = fb ? '<img src="' + fb + '" alt="">' : '<span class="game-bullet ' + cfg.css + '"></span>';
-  return '<span class="cover-thumb fallback" data-idx="' + index + '" onclick="openCover(' + index + ')" title="Cover">' + inner + '</span>';
+  const name = (getTabData()[currentPlatform] || [])[index];
+  const known = coverEnabled(currentPlatform) ? knownCover(currentPlatform, name) : '';
+  const cls = known ? 'cover-thumb' : 'cover-thumb fallback';
+  const pending = known === undefined ? ' data-pending="1"' : '';
+  return '<span class="' + cls + '" data-idx="' + index + '"' + pending + ' onclick="openCover(' + index + ')" title="Cover">' +
+           thumbInnerHtml(known || '', currentPlatform, cfg) + '</span>';
 }
 
 function setThumb(el, url, platform) {
-  if (!url) {
-    const fb = platformFallbackImg(platform || currentPlatform);
-    el.classList.add('fallback');
-    el.innerHTML = fb ? '<img src="' + fb + '" alt="">' : '';
-    return;
-  }
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.alt = '';
-  img.onload = function() { el.innerHTML = ''; el.appendChild(img); el.classList.remove('fallback'); };
-  img.onerror = function() {
-    if (img.crossOrigin) { img.removeAttribute('crossorigin'); img.crossOrigin = null; img.src = url; return; }  // Fallback ohne CORS
-  };
-  img.src = url;
+  el.classList.toggle('fallback', !url);
+  el.innerHTML = thumbInnerHtml(url || '', platform || currentPlatform);
 }
 
-function refreshVisibleThumb(platform, name, url) {
-  if (currentPlatform !== platform) return;
-  const idx = (getTabData()[platform] || []).indexOf(name);
-  if (idx === -1) return;
-  const el = document.querySelector('.cover-thumb[data-idx="' + idx + '"]');
-  if (el && el.classList.contains('fallback') && url) setThumb(el, url, platform);
-}
-
+// Nur Spiele ohne bekanntes Cover (neu hinzugefügt) werden gesucht – erst wenn sichtbar
+let coverObserver = null;
 function hydrateCovers(root) {
   const platform = currentPlatform;
   const games = getTabData()[platform] || [];
-  root.querySelectorAll('.cover-thumb[data-idx]').forEach(function(el) {
+  if (coverObserver) coverObserver.disconnect();
+  const els = root.querySelectorAll('.cover-thumb[data-pending]');
+  if (!els.length) return;
+  function look(el) {
     const name = games[+el.dataset.idx];
     if (!name) return;
-    const ov = coverOverride(platform, name);
-    if (ov !== undefined) { setThumb(el, ov === 'none' ? '' : ov, platform); return; }
-    const key = coverKey(platform, name);
-    if (coverMem[key] !== undefined) { setThumb(el, coverMem[key], platform); return; }
-    resolveCover(platform, name).then(function(u) { if (el.isConnected) setThumb(el, u, platform); }).catch(function() {});
-  });
-}
-
-// ── Hintergrund: alle Cover laden (auch nicht geöffnete Plattformen) ─────
-let coverPreloadRun = 0;
-const coverStats = { done: 0, total: 0, found: 0, missing: [] };
-
-function updateCoverStatus() {
-  const el = document.getElementById('coverStatus');
-  if (!el) return;
-  if (!coverStats.total) { el.textContent = ''; return; }
-  el.textContent = coverStats.done < coverStats.total
-    ? 'COVER WERDEN GELADEN … ' + coverStats.done + ' / ' + coverStats.total
-    : 'COVER: ' + coverStats.found + ' / ' + coverStats.total + (coverStats.missing.length ? ' · ' + coverStats.missing.length + ' OHNE TREFFER (antippen)' : ' ✓');
-}
-
-function warmImage(url) {
-  return new Promise(function(res) {
-    const img = new Image();
-    let done = false;
-    const fin = function() { if (!done) { done = true; res(); } };
-    img.crossOrigin = 'anonymous';
-    img.onload = fin;
-    img.onerror = function() { if (img.crossOrigin) { img.removeAttribute('crossorigin'); img.crossOrigin = null; img.src = url; return; } fin(); };
-    setTimeout(fin, 15000);
-    img.src = url;
-  });
-}
-
-async function preloadAllCovers() {
-  if (!currentUserData) return;
-  const run = ++coverPreloadRun;
-  const jobs = [], seen = {};
-  ['Haben', 'Brauchen'].forEach(function(tab) {
-    const t = (data && data[tab]) || {};
-    Object.keys(t).forEach(function(p) {
-      if (!coverEnabled(p)) return;
-      (t[p] || []).forEach(function(g) {
-        const k = coverKey(p, g);
-        if (g && !seen[k]) { seen[k] = 1; jobs.push([p, g]); }
-      });
-    });
-  });
-  coverStats.done = 0; coverStats.total = jobs.length; coverStats.found = 0; coverStats.missing = [];
-  updateCoverStatus();
-  async function worker() {
-    while (jobs.length && run === coverPreloadRun) {
-      if (!navigator.onLine) { await sleep(3000); continue; }
-      const job = jobs.shift();
-      let url = '';
-      try { url = await resolveCover(job[0], job[1]); } catch(e) {}
-      if (url) { coverStats.found++; await warmImage(url); refreshVisibleThumb(job[0], job[1], url); }
-      else coverStats.missing.push(job[0] + ' · ' + job[1]);
-      coverStats.done++;
-      updateCoverStatus();
-    }
+    resolveCover(platform, name).then(function(u) { if (u !== null && el.isConnected) setThumb(el, u, platform); }).catch(function() {});
   }
-  await Promise.all([worker(), worker(), worker()]);
+  if (!('IntersectionObserver' in window)) { els.forEach(look); return; }
+  coverObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) { if (e.isIntersecting) { coverObserver.unobserve(e.target); look(e.target); } });
+  }, { rootMargin: '300px 0px' });
+  els.forEach(function(el) { coverObserver.observe(el); });
 }
 
-function showMissingCovers() {
-  if (!coverStats.missing.length) return;
-  const list = coverStats.missing.slice().sort();
-  openModal('Ohne automatisches Cover (' + list.length + '):\n\n' + list.join('\n') + '\n\nIn der Liste aufs Bild tippen → „Anderes Cover".', function() {}, 'OK');
-}
-
-// Nach dem Laden der Sammlung im Hintergrund starten
+// covers.json vor dem ersten Anzeigen laden (klein, meist aus dem Cache)
 (function() {
   const _initCovers = init;
   init = async function() {
-    const r = await _initCovers.apply(this, arguments);
-    setTimeout(preloadAllCovers, 2500);
-    return r;
+    await Promise.race([loadCoverDb(), new Promise(function(r) { setTimeout(r, 2500); })]);
+    return _initCovers.apply(this, arguments);
   };
 })();
-window.addEventListener('online', function() { if (currentUserData) setTimeout(preloadAllCovers, 2000); });
 
 // ── Großansicht + Cover wechseln ─────────────────────────────────────────
 let coverCtx = null; // { platform, name, list, pos }
@@ -4796,13 +4775,13 @@ function showCoverBig(url, src) {
   }
   big.innerHTML = 'LADE …';
   const img = new Image();
-  img.crossOrigin = 'anonymous';
+  let tried = false;
   img.onload = function() { big.innerHTML = ''; big.appendChild(img); };
   img.onerror = function() {
-    if (img.crossOrigin) { img.removeAttribute('crossorigin'); img.crossOrigin = null; img.src = url; return; }
+    if (!tried) { tried = true; img.src = url; return; }   // Vorschau-Dienst weg → Original
     big.innerHTML = 'BILD NICHT ERREICHBAR';
   };
-  img.src = url;
+  img.src = bigUrl(url);
 }
 
 async function openCover(index) {
@@ -4813,7 +4792,7 @@ async function openCover(index) {
   document.getElementById('coverTitle').textContent = name;
   document.getElementById('coverModal').classList.add('open');
   showCoverBig('', 'suche …');
-  const url = await resolveCover(platform, name);
+  const url = (await resolveCover(platform, name)) || '';
   const ov = coverOverride(platform, name);
   showCoverBig(url, ov === 'none' ? 'manuell ausgeblendet' : ov ? 'manuell gewählt' : (url ? 'automatisch' : 'nichts gefunden – „Anderes Cover" probieren'));
 }
@@ -4835,7 +4814,7 @@ async function saveCoverOverride(value) {
     const idx = (getTabData()[currentPlatform] || []).indexOf(ctx.name);
     const el = document.querySelector('.cover-thumb[data-idx="' + idx + '"]');
     if (el) {
-      if (value === undefined) resolveCover(ctx.platform, ctx.name).then(function(u) { setThumb(el, u, ctx.platform); });
+      if (value === undefined) setThumb(el, knownCover(ctx.platform, ctx.name) || coverMem[coverKey(ctx.platform, ctx.name)] || '', ctx.platform);
       else setThumb(el, value === 'none' ? '' : value, ctx.platform);
     }
   }
@@ -4869,11 +4848,11 @@ async function resetCover() {
   const ctx = coverCtx;
   const key = coverKey(ctx.platform, ctx.name);
   delete coverMem[key];
-  await coverIdb.set(CK + key, { u: '', t: 0 });
   await saveCoverOverride(undefined);
-  const url = await resolveCover(ctx.platform, ctx.name);
+  const url = (await resolveCover(ctx.platform, ctx.name)) || '';
   if (coverCtx === ctx) showCoverBig(url, url ? 'automatisch' : 'nichts gefunden');
 }
+
 
 // ══════════════════════════════════════════════════════
 // BACKUP — Export / Import
@@ -4890,7 +4869,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.3',
+    appVersion: 'v2.4',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -4972,7 +4951,6 @@ async function applyBackup(obj) {
     if (currentPlatform) renderGames();
     updateValueDisplay();
     const c = countGames(data);
-    setTimeout(preloadAllCovers, 1500);
     showToast('Backup importiert ✓ (' + c.h + ' Haben / ' + c.b + ' Brauchen)' + (navigator.onLine ? '' : ' – Sync folgt online'));
   } catch(e) {
     console.error(e);
