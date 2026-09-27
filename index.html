@@ -4117,7 +4117,7 @@ function onBarcodeFound(ean) {
   <input type="file" id="backupImportInput" accept="application/json,.json" style="display:none" onchange="handleBackupImport(event)">
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.1</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.2</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -4294,7 +4294,7 @@ const coverIndexMem = {};
 const coverIndexBlockedUntil = {};
 async function loadCoverIndex(repo) {
   if (coverIndexMem[repo]) return coverIndexMem[repo];
-  const cached = await coverIdb.get('idx:' + repo);
+  const cached = await coverIdb.get('idx2:' + repo);
   if (cached && cached.names && (Date.now() - cached.t < INDEX_TTL || !navigator.onLine)) {
     return (coverIndexMem[repo] = prepIndex(cached.names));
   }
@@ -4307,9 +4307,9 @@ async function loadCoverIndex(repo) {
     const node = (root.tree || []).find(function(t) { return t.path === 'Named_Boxarts'; });
     if (!node) throw new Error('keine Boxarts');
     const sub = await fetch(api + node.sha).then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); });
-    const names = (sub.tree || []).filter(function(t) { return t.type === 'blob' && /\.png$/i.test(t.path); })
+    const names = (sub.tree || []).filter(function(t) { return t.type === 'blob' && t.mode !== '120000' && /\.png$/i.test(t.path); })  // Symlinks liefern kein Bild
                                   .map(function(t) { return t.path.replace(/\.png$/i, ''); });
-    await coverIdb.set('idx:' + repo, { t: Date.now(), names: names });
+    await coverIdb.set('idx2:' + repo, { t: Date.now(), names: names });
     return (coverIndexMem[repo] = prepIndex(names));
   } catch(e) {
     console.warn('Cover-Liste nicht geladen (' + repo + '):', e.message);
@@ -4377,7 +4377,7 @@ async function resolveCover(platform, name) {
   if (ov === 'none') return '';
   if (ov) return ov;
   if (coverMem[key] !== undefined) return coverMem[key];
-  const cached = await coverIdb.get('c:' + key);
+  const cached = await coverIdb.get('c2:' + key);
   if (cached && (Date.now() - cached.t < (cached.u ? COVER_TTL_HIT : COVER_TTL_MISS) || !navigator.onLine)) {
     return (coverMem[key] = cached.u);
   }
@@ -4391,7 +4391,7 @@ async function resolveCover(platform, name) {
   }
   // Nur "nichts gefunden" merken, wenn die Titelliste auch wirklich geladen war
   if (url || !coverRepo(platform) || coverIndexMem[coverRepo(platform)]) {
-    await coverIdb.set('c:' + key, { u: url, t: Date.now() });
+    await coverIdb.set('c2:' + key, { u: url, t: Date.now() });
   }
   return (coverMem[key] = url);
 }
@@ -4534,7 +4534,7 @@ async function resetCover() {
   if (!coverCtx) return;
   const key = coverKey(coverCtx.platform, coverCtx.name);
   delete coverMem[key];
-  await coverIdb.set('c:' + key, { u: '', t: 0 });
+  await coverIdb.set('c2:' + key, { u: '', t: 0 });
   await saveCoverOverride(undefined);
   const url = await resolveCover(coverCtx.platform, coverCtx.name);
   showCoverBig(url, url ? 'automatisch' : 'nichts gefunden');
@@ -4555,7 +4555,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.1',
+    appVersion: 'v2.2',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
