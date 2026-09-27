@@ -1636,6 +1636,14 @@
   .vh-hdot { fill: var(--value); stroke: var(--surface); stroke-width: 2; }
   .vh-tip { display: none; position: absolute; top: 0; transform: translateX(-50%); background: var(--text); color: var(--bg); font-size: 11px; padding: 5px 8px; border-radius: 6px; pointer-events: none; white-space: nowrap; text-align: center; }
   @media (max-width: 600px) { .qty-badge, .ed-badge { font-size: 9px; padding: 1px 4px; } }
+  /* ── MOBIL: zweizeilige Spielzeile (Titel oben, Buttons darunter) ── */
+  @media (max-width: 600px) {
+    .game-item { flex-wrap: wrap; position: relative; padding: 8px 10px 8px 56px; row-gap: 6px; column-gap: 8px; min-height: 60px; align-content: center; }
+    .game-item .cover-thumb { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 34px; height: 46px; }
+    .game-item .game-name { flex: 1 1 100%; font-size: 14px; line-height: 1.25; }
+    .game-item .game-actions { margin-left: auto; }
+    .game-item:has(input) { padding-left: 10px; flex-wrap: nowrap; }
+  }
 </style>
 </head>
 <body>
@@ -4199,7 +4207,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.5</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.6</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -4949,7 +4957,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.5',
+    appVersion: 'v2.6',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
