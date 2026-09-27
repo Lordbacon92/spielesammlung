@@ -1568,6 +1568,33 @@
     .console-img { width: 80px; height: 80px; }
     .game-item { font-size: 13px; padding: 8px 10px; }
   }
+
+  /* ── COVER ── */
+  .cover-thumb { width: 28px; height: 38px; flex-shrink: 0; border-radius: 3px; background: var(--surface2); display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: zoom-in; box-shadow: 0 0 0 1px var(--border); }
+  .cover-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cover-thumb.no-cover { box-shadow: none; background: transparent; cursor: pointer; }
+  #coverModal { display: none; position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.82); align-items: center; justify-content: center; padding: 16px; }
+  #coverModal.open { display: flex; }
+  .cover-box { background: var(--surface); border-radius: var(--radius-lg); padding: 16px; max-width: 420px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: var(--shadow-lg); }
+  .cover-box h3 { font-family: var(--font-head); font-size: 20px; letter-spacing: 0.5px; color: var(--text); text-align: center; }
+  .cover-big { width: 100%; max-height: 56vh; min-height: 120px; display: flex; align-items: center; justify-content: center; background: var(--surface2); border-radius: var(--radius); overflow: hidden; color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; letter-spacing: 2px; }
+  .cover-big img { max-width: 100%; max-height: 56vh; object-fit: contain; display: block; }
+  .cover-src { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+  .cover-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .cover-actions .theme-toggle, .backup-bar .theme-toggle { position: static; box-shadow: none; }
+
+  #modalText { white-space: pre-line; }
+
+  /* ── BACKUP ── */
+  .backup-bar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 24px 16px 4px; position: relative; z-index: 1; }
+
+  /* ── OFFLINE ── */
+  #offlinePill { display: none; position: fixed; left: 16px; bottom: 16px; z-index: 2500; background: var(--text); color: var(--bg); font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; padding: 6px 12px; border-radius: 20px; box-shadow: var(--shadow-lg); }
+  #offlinePill.show { display: block; }
+
+  @media (max-width: 600px) {
+    .cover-thumb { width: 24px; height: 32px; }
+  }
 </style>
 </head>
 <body>
@@ -1878,6 +1905,19 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+// Offline-Modus: lokaler Cache + Schreib-Warteschlange (muss vor jedem anderen Firestore-Aufruf stehen)
+try {
+  db.enablePersistence({ synchronizeTabs: true })
+    .catch(function(e) { console.warn('Offline-Cache nicht aktiv:', e.code); });
+} catch(e) { console.warn('Offline-Cache nicht aktiv:', e); }
+
+// Liest offline direkt aus dem Cache statt auf den Server-Timeout zu warten
+async function fsGet(ref) {
+  if (!navigator.onLine) {
+    try { return await ref.get({ source: 'cache' }); } catch(e) { /* nicht im Cache → normal versuchen */ }
+  }
+  return ref.get();
+}
 
 const platforms = {
   "Atari":        {css:"c-atari",      label:"Atari 2600",      img:"img/atari.png",      color:"#D4874A", ebay:"Atari"},
@@ -1920,9 +1960,9 @@ let currentUserData = null; // { displayName, data:{Haben,Brauchen}, meta, platf
 async function apiGet() {
   const uid = auth.currentUser.uid;
   currentUserDocRef = db.collection('users').doc(uid);
-  const snap = await currentUserDocRef.get();
+  const snap = await fsGet(currentUserDocRef);
   if (!snap.exists) {
-    currentUserData = { displayName: (currentUser && currentUser.displayName) || 'Spieler', data: { Haben: {}, Brauchen: {} }, meta: {}, platforms: [] };
+    currentUserData = { displayName: (currentUser && currentUser.displayName) || 'Spieler', data: { Haben: {}, Brauchen: {} }, meta: {}, platforms: [], covers: {} };
     await currentUserDocRef.set(currentUserData);
   } else {
     currentUserData = snap.data();
@@ -1931,6 +1971,7 @@ async function apiGet() {
     if (!currentUserData.data.Brauchen) currentUserData.data.Brauchen = {};
     if (!currentUserData.meta) currentUserData.meta = {};
     if (!currentUserData.platforms) currentUserData.platforms = [];
+    if (!currentUserData.covers) currentUserData.covers = {};
   }
   metaCache = currentUserData.meta;
   (currentUserData.platforms || []).forEach(function(p) {
@@ -1941,11 +1982,19 @@ async function apiGet() {
 }
 
 async function persistUserDoc() {
-  await currentUserDocRef.update({
+  const write = currentUserDocRef.update({
     data: currentUserData.data,
     meta: currentUserData.meta,
-    platforms: currentUserData.platforms
+    platforms: currentUserData.platforms,
+    covers: currentUserData.covers || {}
   });
+  // Offline: Firestore speichert lokal und synchronisiert später – nicht auf den Server warten
+  if (!navigator.onLine) {
+    write.catch(function(e) { console.warn('Sync-Fehler:', e); });
+    return;
+  }
+  // Online: auf Bestätigung warten, aber bei wackeligem Netz nicht ewig hängen
+  await Promise.race([write, new Promise(function(r) { setTimeout(r, 6000); })]);
 }
 
 async function apiPost(payload) {
@@ -2095,8 +2144,9 @@ function showToast(msg, isError) {
 }
 
 // ── Modal ──────────────────────────────────────────────────────────────────
-function openModal(text, onConfirm) {
+function openModal(text, onConfirm, confirmLabel) {
   document.getElementById('modalText').textContent = text;
+  document.getElementById('modalConfirmBtn').textContent = confirmLabel || 'Löschen';
   document.getElementById('modalConfirmBtn').onclick = function() { closeModal(); onConfirm(); };
   document.getElementById('confirmModal').classList.add('open');
 }
@@ -2255,6 +2305,7 @@ function renderGames() {
       '</div>' +
     '</div>' + gamesHtml;
 
+  hydrateCovers(content);
   content.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
@@ -2396,7 +2447,7 @@ function gameItemHtml(name, index, cfg) {
 
   const itemHtml =
     '<div class="game-item" style="border-left-color:' + (cfg.color||'var(--accent)') + ';color:var(--text)" id="gi-' + index + '">' +
-      '<span class="game-bullet ' + cfg.css + '"></span>' +
+      coverThumbHtml(index, cfg) +
       '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
       zustandBadgeHtml +
       '<span class="note-indicator" id="note-ind-' + index + '" style="' + noteIndStyle + '" title="Notiz vorhanden">&#128203;</span>' +
@@ -3320,7 +3371,7 @@ function resizeImageToBase64(file, maxSize) {
 async function loadPlatformImages() {
   try {
     const uid = auth.currentUser.uid;
-    const snap = await db.collection('users').doc(uid).collection('images').get();
+    const snap = await fsGet(db.collection('users').doc(uid).collection('images'));
     const imgs = {};
     snap.forEach(function(doc) { imgs[doc.id] = doc.data().data; });
     platformImages = imgs;
@@ -3512,7 +3563,7 @@ auth.onAuthStateChanged(async function(user) {
   if (user) {
     let displayName = user.email.split('@')[0];
     try {
-      const snap = await db.collection('users').doc(user.uid).get();
+      const snap = await fsGet(db.collection('users').doc(user.uid));
       if (snap.exists && snap.data().displayName) displayName = snap.data().displayName;
     } catch(e) {}
     currentUser = { uid: user.uid, displayName: displayName };
@@ -4060,7 +4111,539 @@ function onBarcodeFound(ean) {
 }
 </script>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.0-firestore</div>
+<div class="backup-bar">
+  <button class="theme-toggle" onclick="exportBackup()" title="Komplette Sammlung als Datei sichern">&#11015; Backup exportieren</button>
+  <button class="theme-toggle" onclick="document.getElementById('backupImportInput').click()" title="Sammlung aus Backup-Datei wiederherstellen">&#11014; Backup importieren</button>
+  <input type="file" id="backupImportInput" accept="application/json,.json" style="display:none" onchange="handleBackupImport(event)">
+</div>
+
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.1</div>
+
+<div id="offlinePill">OFFLINE</div>
+
+<div id="coverModal" onclick="if(event.target===this)closeCover()">
+  <div class="cover-box">
+    <h3 id="coverTitle"></h3>
+    <div class="cover-big" id="coverBig"></div>
+    <div class="cover-src" id="coverSrc"></div>
+    <div class="cover-actions">
+      <button class="theme-toggle" onclick="nextCover()">&#8635; Anderes Cover</button>
+      <button class="theme-toggle" onclick="setNoCover()">Kein Cover</button>
+      <button class="theme-toggle" onclick="resetCover()">Automatisch</button>
+      <button class="theme-toggle" onclick="closeCover()">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// OFFLINE-MODUS — Service Worker + Status-Anzeige
+// ══════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').catch(function(e) { console.warn('SW-Registrierung fehlgeschlagen:', e); });
+  });
+}
+
+function updateOnlineState() {
+  const pill = document.getElementById('offlinePill');
+  if (pill) pill.classList.toggle('show', !navigator.onLine);
+}
+window.addEventListener('offline', function() {
+  updateOnlineState();
+  showToast('Offline – Änderungen werden lokal gespeichert');
+});
+window.addEventListener('online', function() {
+  updateOnlineState();
+  if (!currentUserDocRef) return;
+  showToast('Wieder online – synchronisiere …');
+  db.waitForPendingWrites()
+    .then(function() { showToast('Synchronisiert ✓'); })
+    .catch(function() {});
+});
+updateOnlineState();
+
+// ══════════════════════════════════════════════════════
+// AUTOMATISCHE COVER
+// Quelle 1: libretro-thumbnails (GitHub) – Boxarts je Plattform
+// Quelle 2: englische Wikipedia (Fallback, z. B. Switch / PS5)
+// ══════════════════════════════════════════════════════
+const COVER_REPOS = {
+  'atari': 'Atari_-_2600',
+  'commodore64': 'Commodore_-_64',
+  'nes': 'Nintendo_-_Nintendo_Entertainment_System',
+  'mastersystem': 'Sega_-_Master_System_-_Mark_III',
+  'snes': 'Nintendo_-_Super_Nintendo_Entertainment_System',
+  'megadrive': 'Sega_-_Mega_Drive_-_Genesis',
+  'ps1': 'Sony_-_PlayStation',
+  'saturn': 'Sega_-_Saturn',
+  'n64': 'Nintendo_-_Nintendo_64',
+  'gamecube': 'Nintendo_-_GameCube',
+  'ps2': 'Sony_-_PlayStation_2',
+  'ps3': 'Sony_-_PlayStation_3',
+  'ps4': 'Sony_-_PlayStation_4',
+  'gb': 'Nintendo_-_Game_Boy',
+  'gbc': 'Nintendo_-_Game_Boy_Color',
+  'gba': 'Nintendo_-_Game_Boy_Advance',
+  'nds': 'Nintendo_-_Nintendo_DS',
+  '3ds': 'Nintendo_-_Nintendo_3DS',
+  'amiga500': 'Commodore_-_Amiga',
+  'amiga': 'Commodore_-_Amiga',
+  'pc': 'DOS',
+  'xbox': 'Microsoft_-_Xbox',
+  'xbox360': 'Microsoft_-_Xbox_360',
+  'wii': 'Nintendo_-_Wii',
+  'psp': 'Sony_-_PlayStation_Portable'
+};
+const COVER_SKIP = ['konsole/parts'];
+const COVER_TTL_HIT = 30 * 864e5;   // gefundenes Cover 30 Tage merken
+const COVER_TTL_MISS = 7 * 864e5;   // "nichts gefunden" 7 Tage merken
+const INDEX_TTL = 30 * 864e5;
+
+function platKey(p) { return String(p || '').toLowerCase().replace(/\s+/g, ''); }
+function coverRepo(platform) { return COVER_REPOS[platKey(platform)] || null; }
+function coverEnabled(platform) { return COVER_SKIP.indexOf(platKey(platform)) === -1; }
+
+// ── Mini-IndexedDB-Speicher (Cover-Cache + Titel-Listen) ─────────────────
+const coverIdb = (function() {
+  let dbp = null;
+  function open() {
+    if (dbp) return dbp;
+    dbp = new Promise(function(res, rej) {
+      if (!window.indexedDB) { rej(new Error('no idb')); return; }
+      const r = indexedDB.open('collect-covers', 1);
+      r.onupgradeneeded = function() { r.result.createObjectStore('kv'); };
+      r.onsuccess = function() { res(r.result); };
+      r.onerror = function() { rej(r.error); };
+    });
+    return dbp;
+  }
+  return {
+    get: function(k) {
+      return open().then(function(d) {
+        return new Promise(function(res) {
+          const q = d.transaction('kv').objectStore('kv').get(k);
+          q.onsuccess = function() { res(q.result); };
+          q.onerror = function() { res(undefined); };
+        });
+      }).catch(function() { return undefined; });
+    },
+    set: function(k, v) {
+      return open().then(function(d) {
+        return new Promise(function(res) {
+          const tx = d.transaction('kv', 'readwrite');
+          tx.objectStore('kv').put(v, k);
+          tx.oncomplete = function() { res(); };
+          tx.onerror = function() { res(); };
+        });
+      }).catch(function() {});
+    }
+  };
+})();
+
+// ── Titel normalisieren für den Abgleich ─────────────────────────────────
+const ABBR = { gta:'grand theft auto', ff:'final fantasy', mgs:'metal gear solid', cod:'call of duty', lotr:'lord of the rings', nfs:'need for speed', gt:'gran turismo' };
+const ROMAN = { ii:'2', iii:'3', iv:'4', v:'5', vi:'6', vii:'7', viii:'8', ix:'9', x:'10', xi:'11', xii:'12', xiii:'13' };
+function normTitle(t) {
+  let s = String(t || '').toLowerCase();
+  s = s.replace(/\s*[\(\[].*$/, '');                                          // Region/Version-Tags ab erster Klammer weg
+  s = s.replace(/^(.*?), (the|a|an|der|die|das)(\s-\s|$)/, '$2 $1$3');         // "Legend of Zelda, The - …" → "the legend of zelda - …"
+  s = s.replace(/ _ /g, ' & ').replace(/&/g, ' and ').replace(/['’`´]/g, '');
+  s = s.replace(/é/g, 'e').replace(/[^a-z0-9äöüß]+/g, ' ').trim();
+  s = s.split(' ').map(function(w) { return ROMAN[w] || w; }).join(' ').replace(/^the /, '');
+  return s.replace(/^(gta|ff|mgs|cod|lotr|nfs|gt)(?= |$)/, function(m) { return ABBR[m]; });
+}
+
+function regionScore(full) {
+  const f = full.toLowerCase();
+  let sc = 1;
+  if (/\((?:[^)]*)germany/.test(f)) sc = 6;
+  else if (/\((?:[^)]*)europe/.test(f)) sc = 5;
+  else if (/\(world/.test(f)) sc = 4;
+  else if (/\((?:[^)]*)usa/.test(f)) sc = 3;
+  else if (/\(japan/.test(f)) sc = 0;
+  if (/\((beta|proto|demo|sample|kiosk|promo|unl|pirate|taikenban|aftermarket|program)/.test(f) || /\((?:[^)]*)(beta|proto|demo)/.test(f)) sc -= 6;
+  if (/\((rev|v\d)/.test(f)) sc -= 0.5;
+  // Sondereditionen (Virtual Console, Promo, Disc-Angaben …) leicht abwerten
+  (full.match(/\([^)]*\)/g) || []).slice(1).forEach(function(g) {
+    if (!/^\([A-Z][a-z](,[A-Z][a-z])*\)$/.test(g)) sc -= 0.3;
+  });
+  return sc;
+}
+
+function matchScore(u, c) {
+  if (!u || !c) return 0;
+  if (c === u) return 100;
+  const uw = u.split(' '), cw = c.split(' ');
+  if (c.indexOf(u + ' ') === 0) {
+    const nextWord = cw[uw.length];
+    return /^\d+$/.test(nextWord) ? 35 : 80 - Math.min(20, cw.length - uw.length);  // "Gran Turismo" ≠ "Gran Turismo 2"
+  }
+  if (u.indexOf(c + ' ') === 0) {
+    const nextWord = uw[cw.length];
+    return /^\d+$/.test(nextWord) ? 30 : 70 - Math.min(20, uw.length - cw.length);
+  }
+  const set = {}; cw.forEach(function(w) { set[w] = 1; });
+  let hit = 0; uw.forEach(function(w) { if (set[w]) hit++; });
+  const j = hit / (uw.length + cw.length - hit);
+  return j >= 0.6 ? Math.round(55 * j) : 0;
+}
+
+// ── Titel-Liste einer Plattform (einmal laden, 30 Tage cachen) ───────────
+const coverIndexMem = {};
+const coverIndexBlockedUntil = {};
+async function loadCoverIndex(repo) {
+  if (coverIndexMem[repo]) return coverIndexMem[repo];
+  const cached = await coverIdb.get('idx:' + repo);
+  if (cached && cached.names && (Date.now() - cached.t < INDEX_TTL || !navigator.onLine)) {
+    return (coverIndexMem[repo] = prepIndex(cached.names));
+  }
+  if (!navigator.onLine || (coverIndexBlockedUntil[repo] || 0) > Date.now()) {
+    return cached && cached.names ? (coverIndexMem[repo] = prepIndex(cached.names)) : null;
+  }
+  try {
+    const api = 'https://api.github.com/repos/libretro-thumbnails/' + repo + '/git/trees/';
+    const root = await fetch(api + 'master').then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+    const node = (root.tree || []).find(function(t) { return t.path === 'Named_Boxarts'; });
+    if (!node) throw new Error('keine Boxarts');
+    const sub = await fetch(api + node.sha).then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+    const names = (sub.tree || []).filter(function(t) { return t.type === 'blob' && /\.png$/i.test(t.path); })
+                                  .map(function(t) { return t.path.replace(/\.png$/i, ''); });
+    await coverIdb.set('idx:' + repo, { t: Date.now(), names: names });
+    return (coverIndexMem[repo] = prepIndex(names));
+  } catch(e) {
+    console.warn('Cover-Liste nicht geladen (' + repo + '):', e.message);
+    coverIndexBlockedUntil[repo] = Date.now() + 36e5;   // GitHub-Limit: 1 h Pause
+    return cached && cached.names ? (coverIndexMem[repo] = prepIndex(cached.names)) : null;
+  }
+}
+function prepIndex(names) {
+  return names.map(function(n) { return { n: n, k: normTitle(n), r: regionScore(n) }; });
+}
+
+function libretroUrl(repo, file) {
+  return 'https://raw.githubusercontent.com/libretro-thumbnails/' + repo + '/master/Named_Boxarts/' + encodeURIComponent(file) + '.png';
+}
+
+async function libretroCandidates(name, platform) {
+  const repo = coverRepo(platform);
+  if (!repo) return [];
+  const idx = await loadCoverIndex(repo);
+  if (!idx) return [];
+  const u = normTitle(name);
+  const scored = [];
+  for (let i = 0; i < idx.length; i++) {
+    const m = matchScore(u, idx[i].k);
+    if (m > 0) scored.push({ n: idx[i].n, s: m * 10 + idx[i].r });
+  }
+  scored.sort(function(a, b) { return b.s - a.s; });
+  const seen = {};
+  return scored.filter(function(c) { const k = normTitle(c.n); if (seen[k] && seen[k] > 2) return false; seen[k] = (seen[k] || 0) + 1; return true; })
+               .slice(0, 8).map(function(c) { return { url: libretroUrl(repo, c.n), src: 'libretro · ' + c.n }; });
+}
+
+async function wikiCandidates(name, platform) {
+  if (!navigator.onLine) return [];
+  const cfg = platforms[platform] || {};
+  const q = name + ' ' + (cfg.label || platform) + ' video game';
+  const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrlimit=4' +
+              '&prop=pageimages&piprop=thumbnail&pithumbsize=400&pilicense=any&gsrsearch=' + encodeURIComponent(q);
+  try {
+    const j = await fetch(url).then(function(r) { return r.json(); });
+    const pages = Object.values((j.query && j.query.pages) || {}).sort(function(a, b) { return a.index - b.index; });
+    const u = normTitle(name);
+    return pages.filter(function(p) { return p.thumbnail && matchScore(u, normTitle(p.title)) > 0; })
+                .map(function(p) { return { url: p.thumbnail.source, src: 'Wikipedia · ' + p.title }; });
+  } catch(e) { return []; }
+}
+
+async function coverCandidates(name, platform) {
+  const a = await libretroCandidates(name, platform);
+  const b = await wikiCandidates(name, platform);
+  return a.concat(b);
+}
+
+// ── Cover für ein Spiel ermitteln (Override → Cache → Suche) ─────────────
+const coverMem = {};   // key → url | ''
+function coverKey(platform, name) { return platform + '::' + name; }
+function coverOverride(platform, name) {
+  const c = currentUserData && currentUserData.covers;
+  return c ? c[coverKey(platform, name)] : undefined;
+}
+
+async function resolveCover(platform, name) {
+  const key = coverKey(platform, name);
+  const ov = coverOverride(platform, name);
+  if (ov === 'none') return '';
+  if (ov) return ov;
+  if (coverMem[key] !== undefined) return coverMem[key];
+  const cached = await coverIdb.get('c:' + key);
+  if (cached && (Date.now() - cached.t < (cached.u ? COVER_TTL_HIT : COVER_TTL_MISS) || !navigator.onLine)) {
+    return (coverMem[key] = cached.u);
+  }
+  if (!navigator.onLine) return '';
+  let url = '';
+  const lib = await libretroCandidates(name, platform);
+  if (lib.length) url = lib[0].url;
+  else {
+    const wiki = await wikiCandidates(name, platform);
+    if (wiki.length) url = wiki[0].url;
+  }
+  // Nur "nichts gefunden" merken, wenn die Titelliste auch wirklich geladen war
+  if (url || !coverRepo(platform) || coverIndexMem[coverRepo(platform)]) {
+    await coverIdb.set('c:' + key, { u: url, t: Date.now() });
+  }
+  return (coverMem[key] = url);
+}
+
+// ── Rendering in der Spieleliste ─────────────────────────────────────────
+function coverThumbHtml(index, cfg) {
+  if (!coverEnabled(currentPlatform)) return '<span class="game-bullet ' + cfg.css + '"></span>';
+  return '<span class="cover-thumb no-cover" data-idx="' + index + '" onclick="openCover(' + index + ')" title="Cover">' +
+           '<span class="game-bullet ' + cfg.css + '"></span>' +
+         '</span>';
+}
+
+function setThumb(el, url) {
+  if (!url) { el.classList.add('no-cover'); return; }
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.alt = '';
+  img.onload = function() { el.innerHTML = ''; el.appendChild(img); el.classList.remove('no-cover'); };
+  img.onerror = function() {
+    if (img.crossOrigin) { img.removeAttribute('crossorigin'); img.crossOrigin = null; img.src = url; return; }  // Fallback ohne CORS
+    el.classList.add('no-cover');
+  };
+  img.src = url;
+}
+
+const coverQueue = [];
+let coverActive = 0;
+function pumpCoverQueue() {
+  while (coverActive < 3 && coverQueue.length) {
+    const job = coverQueue.shift();
+    coverActive++;
+    resolveCover(job.platform, job.name)
+      .then(function(url) { if (job.el.isConnected) setThumb(job.el, url); })
+      .catch(function() {})
+      .then(function() { coverActive--; pumpCoverQueue(); });
+  }
+}
+
+let coverObserver = null;
+function hydrateCovers(root) {
+  const platform = currentPlatform;
+  const games = getTabData()[platform] || [];
+  coverQueue.length = 0;
+  if (coverObserver) coverObserver.disconnect();
+  const els = root.querySelectorAll('.cover-thumb[data-idx]');
+  if (!els.length) return;
+  function enqueue(el) {
+    const name = games[+el.dataset.idx];
+    if (!name) return;
+    const key = coverKey(platform, name);
+    const ov = coverOverride(platform, name);
+    if (ov !== undefined) { setThumb(el, ov === 'none' ? '' : ov); return; }
+    if (coverMem[key] !== undefined) { setThumb(el, coverMem[key]); return; }
+    coverQueue.push({ el: el, platform: platform, name: name });
+    pumpCoverQueue();
+  }
+  if (!('IntersectionObserver' in window)) { els.forEach(enqueue); return; }
+  coverObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) { coverObserver.unobserve(e.target); enqueue(e.target); }
+    });
+  }, { rootMargin: '400px 0px' });
+  els.forEach(function(el) { coverObserver.observe(el); });
+}
+
+// ── Großansicht + Cover wechseln ─────────────────────────────────────────
+let coverCtx = null; // { platform, name, list, pos }
+function showCoverBig(url, src) {
+  const big = document.getElementById('coverBig');
+  if (!url) { big.innerHTML = 'KEIN COVER'; document.getElementById('coverSrc').textContent = src || ''; return; }
+  big.innerHTML = 'LADE …';
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function() { big.innerHTML = ''; big.appendChild(img); };
+  img.onerror = function() {
+    if (img.crossOrigin) { img.removeAttribute('crossorigin'); img.crossOrigin = null; img.src = url; return; }
+    big.innerHTML = 'BILD NICHT ERREICHBAR';
+  };
+  img.src = url;
+  document.getElementById('coverSrc').textContent = src || '';
+}
+
+async function openCover(index) {
+  const platform = currentPlatform;
+  const name = (getTabData()[platform] || [])[index];
+  if (!name) return;
+  coverCtx = { platform: platform, name: name, list: null, pos: -1 };
+  document.getElementById('coverTitle').textContent = name;
+  document.getElementById('coverModal').classList.add('open');
+  const url = await resolveCover(platform, name);
+  const ov = coverOverride(platform, name);
+  showCoverBig(url, ov === 'none' ? 'manuell ausgeblendet' : ov ? 'manuell gewählt' : (url ? 'automatisch' : 'nichts gefunden'));
+}
+
+function closeCover() {
+  document.getElementById('coverModal').classList.remove('open');
+  coverCtx = null;
+}
+
+async function saveCoverOverride(value) {
+  if (!coverCtx || !currentUserData) return;
+  const key = coverKey(coverCtx.platform, coverCtx.name);
+  if (!currentUserData.covers) currentUserData.covers = {};
+  if (value === undefined) delete currentUserData.covers[key];
+  else currentUserData.covers[key] = value;
+  try { await persistUserDoc(); } catch(e) { showToast('Fehler beim Speichern', true); }
+  // Liste aktualisieren
+  if (currentPlatform === coverCtx.platform) {
+    const idx = (getTabData()[currentPlatform] || []).indexOf(coverCtx.name);
+    const el = document.querySelector('.cover-thumb[data-idx="' + idx + '"]');
+    if (el) {
+      if (value === undefined) { el.innerHTML = ''; el.classList.add('no-cover'); resolveCover(coverCtx.platform, coverCtx.name).then(function(u) { setThumb(el, u); }); }
+      else setThumb(el, value === 'none' ? '' : value);
+    }
+  }
+}
+
+async function nextCover() {
+  if (!coverCtx) return;
+  if (!navigator.onLine && !coverCtx.list) { showToast('Offline – andere Cover erst online suchbar', true); return; }
+  if (!coverCtx.list) {
+    document.getElementById('coverBig').innerHTML = 'SUCHE …';
+    coverCtx.list = await coverCandidates(coverCtx.name, coverCtx.platform);
+    const current = coverOverride(coverCtx.platform, coverCtx.name) || coverMem[coverKey(coverCtx.platform, coverCtx.name)];
+    coverCtx.pos = coverCtx.list.findIndex(function(c) { return c.url === current; });
+  }
+  if (!coverCtx.list.length) { showCoverBig('', 'keine Alternativen gefunden'); return; }
+  coverCtx.pos = (coverCtx.pos + 1) % coverCtx.list.length;
+  const c = coverCtx.list[coverCtx.pos];
+  showCoverBig(c.url, (coverCtx.pos + 1) + '/' + coverCtx.list.length + ' · ' + c.src);
+  saveCoverOverride(c.url);
+}
+
+function setNoCover() {
+  showCoverBig('', 'manuell ausgeblendet');
+  saveCoverOverride('none');
+}
+
+async function resetCover() {
+  if (!coverCtx) return;
+  const key = coverKey(coverCtx.platform, coverCtx.name);
+  delete coverMem[key];
+  await coverIdb.set('c:' + key, { u: '', t: 0 });
+  await saveCoverOverride(undefined);
+  const url = await resolveCover(coverCtx.platform, coverCtx.name);
+  showCoverBig(url, url ? 'automatisch' : 'nichts gefunden');
+}
+
+// ══════════════════════════════════════════════════════
+// BACKUP — Export / Import
+// ══════════════════════════════════════════════════════
+function countGames(d) {
+  let h = 0, b = 0;
+  Object.values((d && d.Haben) || {}).forEach(function(a) { h += (a || []).filter(Boolean).length; });
+  Object.values((d && d.Brauchen) || {}).forEach(function(a) { b += (a || []).filter(Boolean).length; });
+  return { h: h, b: b };
+}
+
+function exportBackup() {
+  if (!currentUserData) { showToast('Bitte zuerst einloggen', true); return; }
+  const payload = {
+    app: 'COLLECT',
+    format: 1,
+    appVersion: 'v2.1',
+    exportedAt: new Date().toISOString(),
+    displayName: currentUserData.displayName || '',
+    data: currentUserData.data,
+    meta: currentUserData.meta || {},
+    platforms: currentUserData.platforms || [],
+    covers: currentUserData.covers || {},
+    images: platformImages || {}
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
+  const d = new Date();
+  const stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'collect-backup-' + stamp + '.json';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function() { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  const c = countGames(currentUserData.data);
+  showToast('Backup erstellt ✓ (' + c.h + ' Haben / ' + c.b + ' Brauchen)');
+}
+
+function cleanTab(tab) {
+  const out = {};
+  Object.keys(tab || {}).forEach(function(plat) {
+    const arr = Array.isArray(tab[plat]) ? tab[plat] : [];
+    const clean = Array.from(new Set(arr.filter(function(g) { return typeof g === 'string' && g.trim(); }).map(function(g) { return g.trim(); })));
+    clean.sort(function(a, b) { return a.localeCompare(b, 'de'); });
+    out[plat] = clean;
+  });
+  return out;
+}
+
+function handleBackupImport(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  if (!currentUserData) { showToast('Bitte zuerst einloggen', true); return; }
+  const reader = new FileReader();
+  reader.onload = function() {
+    let obj;
+    try { obj = JSON.parse(reader.result); } catch(e) { showToast('Datei ist kein gültiges Backup', true); return; }
+    if (!obj || obj.app !== 'COLLECT' || !obj.data || typeof obj.data.Haben !== 'object') {
+      showToast('Datei ist kein COLLECT-Backup', true); return;
+    }
+    const neu = countGames(obj.data), alt = countGames(currentUserData.data);
+    const when = obj.exportedAt ? new Date(obj.exportedAt).toLocaleDateString('de-DE') : 'unbekannt';
+    openModal('Backup vom ' + when + ' importieren?\n\nBackup: ' + neu.h + ' Haben / ' + neu.b + ' Brauchen\nAktuell: ' + alt.h + ' Haben / ' + alt.b + ' Brauchen\n\nDie aktuelle Sammlung wird ersetzt.',
+      function() { applyBackup(obj); }, 'Importieren');
+  };
+  reader.readAsText(file);
+}
+
+async function applyBackup(obj) {
+  showToast('Backup wird eingespielt …');
+  try {
+    currentUserData.data = { Haben: cleanTab(obj.data.Haben), Brauchen: cleanTab(obj.data.Brauchen || {}) };
+    currentUserData.meta = (obj.meta && typeof obj.meta === 'object') ? obj.meta : {};
+    currentUserData.platforms = Array.isArray(obj.platforms) ? obj.platforms : [];
+    currentUserData.covers = (obj.covers && typeof obj.covers === 'object') ? obj.covers : {};
+    data = currentUserData.data;
+    metaCache = currentUserData.meta;
+    currentUserData.platforms.forEach(function(p) {
+      if (!p || !p.name) return;
+      if (!platforms[p.name]) platforms[p.name] = { css: 'c-parts', label: p.name, img: '', color: p.color || '#888888', ebay: p.name };
+      else if (p.color) platforms[p.name].color = p.color;
+    });
+    await persistUserDoc();
+
+    const imgs = (obj.images && typeof obj.images === 'object') ? obj.images : {};
+    const uid = auth.currentUser.uid;
+    for (const plat of Object.keys(imgs)) {
+      if (typeof imgs[plat] !== 'string' || imgs[plat].indexOf('data:image/') !== 0) continue;
+      const w = db.collection('users').doc(uid).collection('images').doc(plat).set({ data: imgs[plat] });
+      if (navigator.onLine) await w; else w.catch(function() {});
+      platformImages[plat] = imgs[plat];
+    }
+
+    renderPlatformButtons();
+    if (currentPlatform) renderGames();
+    updateValueDisplay();
+    const c = countGames(data);
+    showToast('Backup importiert ✓ (' + c.h + ' Haben / ' + c.b + ' Brauchen)' + (navigator.onLine ? '' : ' – Sync folgt online'));
+  } catch(e) {
+    console.error(e);
+    showToast('Import fehlgeschlagen: ' + (e.message || e), true);
+  }
+}
+</script>
 
 </body>
 </html>
