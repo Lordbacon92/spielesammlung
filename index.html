@@ -1597,6 +1597,45 @@
   @media (max-width: 600px) {
     .cover-thumb { width: 24px; height: 32px; }
   }
+
+  /* ── ANZAHL / EDITION ── */
+  .qty-badge, .ed-badge { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.5px; padding: 1px 6px; border-radius: 10px; flex-shrink: 0; white-space: nowrap; }
+  .qty-badge { background: var(--text); color: var(--bg); font-weight: 600; }
+  .ed-badge { border: 1px solid var(--border); color: var(--text-dim); }
+  .ctx-qty { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 4px 10px 8px; }
+  .ctx-qty-btn { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font-size: 16px; cursor: pointer; }
+  #ctxQtyVal { font-family: var(--font-mono); font-size: 15px; min-width: 20px; text-align: center; color: var(--text); }
+  .ctx-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 4px 10px 8px; max-width: 220px; }
+  .ctx-chip { font-size: 11px; padding: 3px 8px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; }
+  .ctx-chip.active { border-color: var(--text); color: var(--text); font-weight: 600; }
+
+  /* ── SHEETS (Daten prüfen / Wertverlauf) ── */
+  .sheet-modal { display: none; position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 16px; }
+  .sheet-modal.open { display: flex; }
+  .sheet-box { background: var(--surface); border-radius: var(--radius-lg); padding: 18px 16px; width: 100%; max-width: 560px; max-height: 88vh; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--shadow-lg); }
+  .sheet-box h3 { font-family: var(--font-head); font-size: 22px; letter-spacing: 0.5px; color: var(--text); }
+  .sheet-sub { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+  .mt-list { overflow-y: auto; flex: 1; min-height: 60px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 4px 0; }
+  .mt-list h4 { font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); margin: 12px 0 4px; }
+  .mt-list h4 small { text-transform: none; letter-spacing: 0; }
+  .mt-row { display: flex; gap: 10px; align-items: flex-start; padding: 7px 2px; font-size: 13px; color: var(--text); line-height: 1.35; cursor: pointer; border-bottom: 1px solid var(--bg2); }
+  .mt-row input { margin-top: 2px; width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--accent); }
+  .mt-row s { color: var(--text-dim); }
+  .mt-row small { display: block; color: var(--text-dim); font-size: 11px; margin-top: 2px; }
+  .mt-backup { border: none; font-size: 12px; }
+  .mt-empty { padding: 20px 0; text-align: center; color: var(--text-dim); }
+  .vh-link { font-size: 10px; opacity: 0.7; }
+  .vh-now { font-family: var(--font-head); font-size: 38px; color: var(--value); line-height: 1; }
+  .vh-wrap { position: relative; }
+  .vh-svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
+  .vh-grid { stroke: var(--border); stroke-width: 1; }
+  .vh-ylab, .vh-xlab { font-family: var(--font-mono); font-size: 11px; fill: var(--text-dim); }
+  .vh-line { fill: none; stroke: var(--value); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .vh-dot { fill: var(--value); stroke: var(--surface); stroke-width: 2; }
+  .vh-cross { stroke: var(--text-dim); stroke-width: 1; stroke-dasharray: 3 3; }
+  .vh-hdot { fill: var(--value); stroke: var(--surface); stroke-width: 2; }
+  .vh-tip { display: none; position: absolute; top: 0; transform: translateX(-50%); background: var(--text); color: var(--bg); font-size: 11px; padding: 5px 8px; border-radius: 6px; pointer-events: none; white-space: nowrap; text-align: center; }
+  @media (max-width: 600px) { .qty-badge, .ed-badge { font-size: 9px; padding: 1px 4px; } }
 </style>
 </head>
 <body>
@@ -1847,7 +1886,7 @@
 
 <footer>
   <div>GAME COUNT: <span id="totalCount">0</span> SPIELE</div>
-  <div style="margin-top:8px">GESCHÄTZTER WERT: <span id="collectionValue" style="color:var(--value);font-weight:600">–</span></div>
+  <div style="margin-top:8px;cursor:pointer" onclick="openValueHistory()" title="Wertverlauf anzeigen">GESCHÄTZTER WERT: <span id="collectionValue" style="color:var(--value);font-weight:600">–</span> <span class="vh-link">&#128200; Verlauf</span></div>
 </footer>
 
 <div id="confirmModal">
@@ -1875,6 +1914,22 @@
     <button class="ctx-menu-item ctx-reset"    onclick="ctxSetZustand(null)">    <span class="ctx-dot"></span> Zur&#252;cksetzen</button>
     <div class="ctx-separator"></div>
   </div>
+  <div class="ctx-menu-title">Anzahl</div>
+  <div class="ctx-qty" onclick="event.stopPropagation()">
+    <button class="ctx-qty-btn" onclick="ctxQty(-1)">&minus;</button>
+    <span id="ctxQtyVal">1</span>
+    <button class="ctx-qty-btn" onclick="ctxQty(1)">+</button>
+  </div>
+  <div class="ctx-menu-title">Edition</div>
+  <div class="ctx-chips" id="ctxEditionRow" onclick="event.stopPropagation()">
+    <button class="ctx-chip" data-ed="" onclick="ctxEdition('')">Standard</button>
+    <button class="ctx-chip" data-ed="Platinum" onclick="ctxEdition('Platinum')">Platinum</button>
+    <button class="ctx-chip" data-ed="Steelbook" onclick="ctxEdition('Steelbook')">Steelbook</button>
+    <button class="ctx-chip" data-ed="Big Box" onclick="ctxEdition('Big Box')">Big Box</button>
+    <button class="ctx-chip" data-ed="Limited" onclick="ctxEdition('Limited')">Limited</button>
+    <button class="ctx-chip" data-ed="Collector's" onclick="ctxEdition(&quot;Collector's&quot;)">Collector's</button>
+  </div>
+  <div class="ctx-separator"></div>
   <button class="ctx-menu-item ctx-note"   onclick="event.stopPropagation();ctxOpenNote()">&#128203; Notiz bearbeiten</button>
 </div>
 <div id="ctxNotePopup" style="display:none" onclick="event.stopPropagation()">
@@ -1974,6 +2029,7 @@ async function apiGet() {
     if (!currentUserData.meta) currentUserData.meta = {};
     if (!currentUserData.platforms) currentUserData.platforms = [];
     if (!currentUserData.covers) currentUserData.covers = {};
+    if (!currentUserData.valueHistory) currentUserData.valueHistory = {};
   }
   metaCache = currentUserData.meta;
   (currentUserData.platforms || []).forEach(function(p) {
@@ -1988,7 +2044,8 @@ async function persistUserDoc() {
     data: currentUserData.data,
     meta: currentUserData.meta,
     platforms: currentUserData.platforms,
-    covers: currentUserData.covers || {}
+    covers: currentUserData.covers || {},
+    valueHistory: currentUserData.valueHistory || {}
   });
   // Offline: Firestore speichert lokal und synchronisiert später – nicht auf den Server warten
   if (!navigator.onLine) {
@@ -2013,19 +2070,16 @@ async function apiPost(payload) {
     const arr = currentUserData.data[tab][platform] || [];
     const idx = arr.indexOf(game);
     if (idx > -1) arr.splice(idx, 1);
+    forgetKeyDataIfUnused(platform, game);
   } else if (action === 'edit') {
-    const tab = payload.tab, platform = payload.platform, game = payload.game, newName = payload.newName;
-    const arr = currentUserData.data[tab][platform] || [];
-    const idx = arr.indexOf(game);
-    if (idx === -1) throw new Error('Spiel nicht gefunden: ' + game);
-    arr[idx] = newName;
-    arr.sort((a, b) => a.localeCompare(b, 'de'));
+    // Seltenheit, Zustand, Notiz, Anzahl, Edition und Cover wandern mit
+    renameInData(payload.tab, payload.platform, payload.game, payload.newName);
   } else if (action === 'setMeta') {
     const platform = payload.platform, game = payload.game, rarity = payload.rarity, note = payload.note, zustand = payload.zustand;
     const k = platform + '::' + game;
-    const isEmpty = (!rarity) && (!note) && (!zustand);
-    if (isEmpty) delete currentUserData.meta[k];
-    else currentUserData.meta[k] = { rarity: rarity || '', note: note || '', zustand: zustand || '' };
+    const m = cleanMeta(Object.assign({}, currentUserData.meta[k] || {}, { rarity: rarity || '', note: note || '', zustand: zustand || '' }));
+    if (metaIsEmpty(m)) delete currentUserData.meta[k];
+    else currentUserData.meta[k] = m;
   } else if (action === 'addPlatform') {
     const platformName = payload.platformName, color = payload.color;
     if (!currentUserData.platforms.some(p => p.name === platformName)) {
@@ -2238,10 +2292,10 @@ function renderPlatformButtons() {
     const col = cfg.color || '#888';
     btn.style.color = col;
     btn.style.borderColor = col;
-    btn.innerHTML = '<span class="label-text">' + cfg.label + '</span><span class="count">' + games.length + '</span>';
+    btn.innerHTML = '<span class="label-text">' + cfg.label + '</span><span class="count">' + piecesOf(key, games) + '</span>';
     btn.onclick = function() { selectPlatform(key); };
     btns.appendChild(btn);
-    total += games.length;
+    total += piecesOf(key, games);
     rendered.add(key);
   });
 
@@ -2256,10 +2310,10 @@ function renderPlatformButtons() {
     const col = cfg.color || '#888';
     btn.style.color = col;
     btn.style.borderColor = col;
-    btn.innerHTML = '<span class="label-text">' + cfg.label + '</span><span class="count">' + games.length + '</span>';
+    btn.innerHTML = '<span class="label-text">' + cfg.label + '</span><span class="count">' + piecesOf(key, games) + '</span>';
     btn.onclick = function() { selectPlatform(key); };
     btns.appendChild(btn);
-    total += games.length;
+    total += piecesOf(key, games);
   });
 
   section.appendChild(btns);
@@ -2303,7 +2357,7 @@ function renderGames() {
         '<h2 style="color:' + platColor + '">' + cfg.label +
           ' <button class="icon-btn" style="opacity:0.55;font-size:13px;vertical-align:middle" title="Farbe ändern" onclick="triggerPlatColorPicker(\'' + currentPlatform + '\')">&#127912;</button>' +
         '</h2>' +
-        '<p>' + games.length + ' SPIEL' + (games.length !== 1 ? 'E' : '') + '</p>' +
+        '<p>' + piecesOf(currentPlatform, games) + ' SPIEL' + (piecesOf(currentPlatform, games) !== 1 ? 'E' : '') + '</p>' +
       '</div>' +
     '</div>' + gamesHtml;
 
@@ -2451,6 +2505,7 @@ function gameItemHtml(name, index, cfg) {
     '<div class="game-item" style="border-left-color:' + (cfg.color||'var(--accent)') + ';color:var(--text)" id="gi-' + index + '">' +
       coverThumbHtml(index, cfg) +
       '<a class="game-name game-link" href="' + soldUrl + '" target="_blank" title="Beendete Angebote">' + safe + '</a>' +
+      gameMetaBadges(name, currentPlatform) +
       zustandBadgeHtml +
       '<span class="note-indicator" id="note-ind-' + index + '" style="' + noteIndStyle + '" title="Notiz vorhanden">&#128203;</span>' +
       '<a class="scan-btn" href="' + auctionUrl + '" target="_blank" title="Laufende Auktionen">Auktion</a>' +
@@ -2673,7 +2728,7 @@ const zustandPriceMult = { modul: 1.0, cib: 2.2, sealed: 5.0 };
 
 function estimateGamePrice(name, platform) {
   const base = platformAvgPrice[platform] || 10;
-  const lower = name.toLowerCase();
+  const lower = (name + ' ' + (getNote(name, platform) || '') + ' ' + (editionOf(platform, name) || '')).toLowerCase();
   let mult = 1.0;
   for (const r of rareKeywords) {
     if (r.words.some(w => lower.includes(w))) {
@@ -2693,7 +2748,7 @@ function estimateTotalValue() {
   const haben = data['Haben'] || {};
   for (const [platform, games] of Object.entries(haben)) {
     for (const game of games) {
-      total += estimateGamePrice(game, platform);
+      total += estimateGamePrice(game, platform) * qtyOf(platform, game);
     }
   }
   return total;
@@ -4117,9 +4172,34 @@ function onBarcodeFound(ean) {
   <button class="theme-toggle" onclick="exportBackup()" title="Komplette Sammlung als Datei sichern">&#11015; Backup exportieren</button>
   <button class="theme-toggle" onclick="document.getElementById('backupImportInput').click()" title="Sammlung aus Backup-Datei wiederherstellen">&#11014; Backup importieren</button>
   <input type="file" id="backupImportInput" accept="application/json,.json" style="display:none" onchange="handleBackupImport(event)">
+  <button class="theme-toggle" onclick="openMaintenance()" title="Aufräum-Vorschläge anzeigen">&#129529; Daten prüfen</button>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.4</div>
+<div id="maintModal" class="sheet-modal" onclick="if(event.target===this)closeMaintenance()">
+  <div class="sheet-box">
+    <h3>Daten prüfen</h3>
+    <p class="sheet-sub">Häkchen = übernehmen. Nichts passiert ohne „Übernehmen“.</p>
+    <div id="maintList" class="mt-list"></div>
+    <label class="mt-row mt-backup" id="maintBackupRow"><input type="checkbox" id="maintBackup" checked><span>Vorher Backup herunterladen</span></label>
+    <div class="cover-actions">
+      <button class="theme-toggle" id="maintApply" onclick="applyMaintenance()">&#10003; Übernehmen</button>
+      <button class="theme-toggle" onclick="closeMaintenance()">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<div id="valueModal" class="sheet-modal" onclick="if(event.target===this)closeValueHistory()">
+  <div class="sheet-box">
+    <h3>Wertverlauf</h3>
+    <div class="vh-now" id="vhNow">–</div>
+    <div class="sheet-sub" id="vhDelta"></div>
+    <div class="vh-wrap" id="vhChart"></div>
+    <p class="sheet-sub">Geschätzter Wert deiner Haben-Liste (ohne Konsolen &amp; Teile). Wird bei jeder Änderung automatisch gespeichert – ältere Tage werden zu Monatswerten zusammengefasst.</p>
+    <div class="cover-actions"><button class="theme-toggle" onclick="closeValueHistory()">Schließen</button></div>
+  </div>
+</div>
+
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.5</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -4869,13 +4949,14 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.4',
+    appVersion: 'v2.5',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
     meta: currentUserData.meta || {},
     platforms: currentUserData.platforms || [],
     covers: currentUserData.covers || {},
+    valueHistory: currentUserData.valueHistory || {},
     images: platformImages || {}
   };
   const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
@@ -4929,6 +5010,7 @@ async function applyBackup(obj) {
     currentUserData.meta = (obj.meta && typeof obj.meta === 'object') ? obj.meta : {};
     currentUserData.platforms = Array.isArray(obj.platforms) ? obj.platforms : [];
     currentUserData.covers = (obj.covers && typeof obj.covers === 'object') ? obj.covers : {};
+    if (obj.valueHistory && typeof obj.valueHistory === 'object') currentUserData.valueHistory = obj.valueHistory;
     data = currentUserData.data;
     metaCache = currentUserData.meta;
     currentUserData.platforms.forEach(function(p) {
@@ -4959,5 +5041,664 @@ async function applyBackup(obj) {
 }
 </script>
 
+<script>
+// ══════════════════════════════════════════════════════
+// ANZAHL & EDITION (Meta-Felder)
+// ══════════════════════════════════════════════════════
+const EDITIONS = ['Platinum', 'Steelbook', 'Big Box', 'Limited', "Collector's"];
+
+function metaOf(platform, name) {
+  return (currentUserData && currentUserData.meta && currentUserData.meta[platform + '::' + name]) || {};
+}
+function qtyOf(platform, name) {
+  const q = parseInt(metaOf(platform, name).anzahl, 10);
+  return q > 1 ? q : 1;
+}
+function editionOf(platform, name) { return metaOf(platform, name).edition || ''; }
+function piecesOf(platform, games) {
+  return (games || []).reduce(function(s, g) { return s + qtyOf(platform, g); }, 0);
+}
+function metaIsEmpty(m) {
+  return !m.rarity && !m.note && !m.zustand && !(parseInt(m.anzahl, 10) > 1) && !m.edition;
+}
+function cleanMeta(m) {
+  const out = {};
+  Object.keys(m).forEach(function(k) {
+    const v = m[k];
+    if (v === null || v === undefined || v === '') return;
+    if (k === 'anzahl' && !(parseInt(v, 10) > 1)) return;
+    out[k] = v;
+  });
+  return out;
+}
+async function setMetaFields(platform, name, fields) {
+  const k = platform + '::' + name;
+  const m = cleanMeta(Object.assign({}, currentUserData.meta[k] || {}, fields));
+  if (metaIsEmpty(m)) delete currentUserData.meta[k];
+  else currentUserData.meta[k] = m;
+  await persistUserDoc();
+}
+
+function gameMetaBadges(name, platform) {
+  const q = qtyOf(platform, name), ed = editionOf(platform, name);
+  let h = '';
+  if (q > 1) h += '<span class="qty-badge" title="Anzahl">' + q + '×</span>';
+  if (ed) h += '<span class="ed-badge" title="Edition">' + ed.replace(/</g, '&lt;') + '</span>';
+  return h;
+}
+
+// Eine Zeile neu zeichnen, ohne die Liste zu springen
+function refreshGameRow(index) {
+  const el = document.getElementById('giw-' + index);
+  const name = (getTabData()[currentPlatform] || [])[index];
+  if (!el || !name) { renderGames(); return; }
+  const cfg = platforms[currentPlatform] || { css: 'c-parts', label: currentPlatform };
+  el.outerHTML = gameItemHtml(name, index, cfg);
+  renderPlatformButtons();
+  updateValueDisplay();
+}
+
+function ctxQty(delta) {
+  if (ctxIndex === null) return;
+  const idx = ctxIndex;
+  const name = getTabData()[currentPlatform][idx];
+  const q = Math.max(1, qtyOf(currentPlatform, name) + delta);
+  const val = document.getElementById('ctxQtyVal');
+  if (val) val.textContent = q;
+  setMetaFields(currentPlatform, name, { anzahl: q > 1 ? q : null })
+    .then(function() { refreshGameRow(idx); })
+    .catch(function() { showToast('Fehler beim Speichern', true); });
+}
+function ctxEdition(ed) {
+  if (ctxIndex === null) return;
+  const idx = ctxIndex;
+  const name = getTabData()[currentPlatform][idx];
+  closeRarityMenu();
+  setMetaFields(currentPlatform, name, { edition: ed || null })
+    .then(function() { refreshGameRow(idx); })
+    .catch(function() { showToast('Fehler beim Speichern', true); });
+}
+// Kontextmenü: aktuelle Anzahl/Edition anzeigen
+(function() {
+  const _open = openRarityMenu;
+  openRarityMenu = function(e, index) {
+    _open(e, index);
+    const name = getTabData()[currentPlatform][index];
+    const val = document.getElementById('ctxQtyVal');
+    if (val) val.textContent = qtyOf(currentPlatform, name);
+    const ed = editionOf(currentPlatform, name);
+    document.querySelectorAll('#ctxEditionRow .ctx-chip').forEach(function(b) {
+      b.classList.toggle('active', (b.dataset.ed || '') === ed);
+    });
+    // Menü ist jetzt höher → im Bild halten
+    const menu = document.getElementById('rarityContextMenu');
+    const r = menu.getBoundingClientRect();
+    if (r.bottom > window.innerHeight - 8) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+  };
+})();
+
+// ══════════════════════════════════════════════════════
+// UMBENENNEN / LÖSCHEN – Angaben wandern mit
+// ══════════════════════════════════════════════════════
+function mergeMeta(dst, src, sumQty) {
+  const out = Object.assign({}, dst);
+  ['rarity', 'zustand'].forEach(function(f) { if (!out[f] && src[f]) out[f] = src[f]; });
+  const notes = [];
+  if (dst.note) notes.push(dst.note);
+  if (src.note && notes.indexOf(src.note) === -1) notes.push(src.note);
+  if (sumQty) {
+    out.anzahl = (parseInt(dst.anzahl, 10) > 1 ? parseInt(dst.anzahl, 10) : 1) + (parseInt(src.anzahl, 10) > 1 ? parseInt(src.anzahl, 10) : 1);
+    if (src.edition && src.edition !== dst.edition) {
+      const sq = parseInt(src.anzahl, 10) > 1 ? parseInt(src.anzahl, 10) : 1;
+      notes.push('davon ' + sq + '× ' + src.edition);
+    }
+  } else if (!out.edition && src.edition) {
+    out.edition = src.edition;
+  }
+  if (notes.length) out.note = notes.join(' · ');
+  return cleanMeta(out);
+}
+
+// Überträgt Angaben + Cover von altem auf neuen Namen
+function moveKeyData(platform, oldName, newName, keepOld, merging) {
+  const ok = platform + '::' + oldName, nk = platform + '::' + newName;
+  const meta = currentUserData.meta;
+  const src = meta[ok];
+  if (src || merging) {
+    // Reines Umbenennen: alle Felder mitnehmen; Zusammenlegen: Anzahl addieren
+    const merged = merging ? mergeMeta(meta[nk] || {}, src || {}, true) : cleanMeta(Object.assign({}, src || {}, meta[nk] || {}));
+    if (metaIsEmpty(merged)) delete meta[nk]; else meta[nk] = merged;
+    if (!keepOld) delete meta[ok];
+  }
+  if (!currentUserData.covers) currentUserData.covers = {};
+  const cov = currentUserData.covers;
+  if (cov[nk] === undefined) {
+    if (cov[ok] !== undefined) cov[nk] = cov[ok];
+    else if (typeof COVER_DB !== 'undefined' && COVER_DB[ok] !== undefined) cov[nk] = COVER_DB[ok] || 'none';
+  }
+  if (!keepOld) delete cov[ok];
+}
+
+function renameInData(tab, platform, oldName, newName) {
+  const arr = currentUserData.data[tab][platform] || [];
+  const idx = arr.indexOf(oldName);
+  if (idx === -1) throw new Error('Spiel nicht gefunden: ' + oldName);
+  if (oldName === newName) return;
+  const other = tab === 'Haben' ? 'Brauchen' : 'Haben';
+  const keepOld = ((currentUserData.data[other] || {})[platform] || []).indexOf(oldName) !== -1;
+  const merging = arr.indexOf(newName) !== -1;
+  if (merging) arr.splice(idx, 1); else arr[idx] = newName;
+  arr.sort(function(a, b) { return a.localeCompare(b, 'de'); });
+  moveKeyData(platform, oldName, newName, keepOld, merging);
+}
+
+function forgetKeyDataIfUnused(platform, name) {
+  const inUse = ['Haben', 'Brauchen'].some(function(t) {
+    return ((currentUserData.data[t] || {})[platform] || []).indexOf(name) !== -1;
+  });
+  if (inUse) return;
+  const k = platform + '::' + name;
+  delete currentUserData.meta[k];
+  if (currentUserData.covers) delete currentUserData.covers[k];
+}
+
+// ══════════════════════════════════════════════════════
+// DOPPELT-CHECK BEIM HINZUFÜGEN
+// ══════════════════════════════════════════════════════
+function findInTab(tab, platform, name) {
+  const low = name.trim().toLowerCase();
+  return ((data[tab] || {})[platform] || []).find(function(g) { return g.toLowerCase() === low; }) || null;
+}
+(function() {
+  const _confirmAdd = confirmAdd;
+  confirmAdd = async function() {
+    const platform = document.getElementById('addPlatformSelect').value;
+    const name = document.getElementById('addNameInput').value.trim();
+    if (!name) return _confirmAdd();
+    const tab = getTabKey();
+    const other = tab === 'Haben' ? 'Brauchen' : 'Haben';
+    const same = findInTab(tab, platform, name);
+    const inOther = findInTab(other, platform, name);
+    if (same) {
+      openModal('„' + same + '“ steht schon in ' + tab + '.\n\nAnzahl auf ' + (qtyOf(platform, same) + 1) + ' erhöhen?', async function() {
+        await setMetaFields(platform, same, { anzahl: qtyOf(platform, same) + 1 });
+        document.getElementById('addNameInput').value = '';
+        showToast('„' + same + '“: jetzt ' + qtyOf(platform, same) + '×');
+        if (currentPlatform === platform) renderGames();
+        renderPlatformButtons(); updateValueDisplay();
+      }, 'Erhöhen');
+      return;
+    }
+    if (inOther && tab === 'Haben') {
+      openModal('„' + inOther + '“ steht auf deiner Brauchen-Liste.\n\nNach Haben verschieben?', async function() {
+        await apiPost({ action: 'add', tab: 'Haben', platform: platform, game: inOther });
+        await apiPost({ action: 'delete', tab: 'Brauchen', platform: platform, game: inOther });
+        document.getElementById('addNameInput').value = '';
+        showToast('„' + inOther + '“ → Haben ✓');
+        if (currentPlatform === platform) renderGames();
+        renderPlatformButtons(); updateValueDisplay();
+      }, 'Verschieben');
+      return;
+    }
+    if (inOther && tab === 'Brauchen') {
+      openModal('„' + inOther + '“ hast du schon (Haben).\n\nTrotzdem auf Brauchen setzen?', function() { _confirmAdd(); }, 'Trotzdem');
+      return;
+    }
+    return _confirmAdd();
+  };
+})();
+
+// ══════════════════════════════════════════════════════
+// DATEN PRÜFEN (einmalige Aufräum-Vorschläge)
+// ══════════════════════════════════════════════════════
+// Bekannte Umbenennungen, deren Angaben verloren gegangen sind
+const ORPHAN_HINTS = {
+  "SNES::Mickey's Magical Quest": 'Magical Quest',
+  "SNES::Mickey's Magical Quest (OVP)": 'Magical Quest',
+  'Amiga 500::Gauntlet 3 (Big Box)': 'Gauntlet 3',
+  'SNES::Probotector': 'Super Probotector',
+  'SNES::Harvest Moon (OVP)': 'Harvest Moon',
+  'SNES::Parodius Jap': 'Jikkyou Oshaberi Parodius',
+  'SNES::Super Castlevania IV': 'Castlevania IV',
+  'SNES::Star Wars: Empire Strikes Back': 'Super Star Wars: The Empire Strikes Back',
+  'PS1::Time Crisis mit Gun': 'Time Crisis'
+};
+// Tippfehler / Schreibweisen (nur Vorschläge, du bestätigst)
+const TYPO_FIXES = {
+  'PS4::Gradn Theft Auto Trilogy': 'Grand Theft Auto Trilogy',
+  'PS5::Amored Core VI': 'Armored Core VI',
+  'PS3::Unreal Turnament 3': 'Unreal Tournament 3',
+  'Xbox360::Kinnect Adventures!': 'Kinect Adventures!',
+  'Megadrive::Eco the Dolphin': 'Ecco the Dolphin',
+  "NDS::Tony Hawk's: American Sk8teland": "Tony Hawk's American Sk8land",
+  'PS1::Tom Raider: Die Chronik': 'Tomb Raider: Die Chronik',
+  'Switch::Octopath Traveller': 'Octopath Traveler',
+  'PS1::Oddworld: Abe´s Oddysee': "Oddworld: Abe's Oddysee",
+  'PS3::Tom Clancy´s Endwar': "Tom Clancy's EndWar",
+  'Ps2::Baldurs Gate Dark Alliance 1+2': "Baldur's Gate: Dark Alliance 1+2",
+  'PS1::Hercs Adventure': "Herc's Adventures",
+  'Switch::Potion permit': 'Potion Permit',
+  "N64::Cruisin' USA": "Cruis'n USA",
+  'N64::Golden Eye': 'GoldenEye 007',
+  'PS1::Crusader:No Remorse': 'Crusader: No Remorse',
+  'PS1::Crusader: no remorse': 'Crusader: No Remorse',
+  'PS3::Battlefield bad Company 2': 'Battlefield: Bad Company 2',
+  'PS3::Assassins Creed 2': "Assassin's Creed 2",
+  'PS1::Kingsfield': "King's Field",
+  'Ps2::Metal Gear Solid 3 Subsistence': 'Metal Gear Solid 3: Subsistence',
+  'PS1::Legacy of kain: blood omen': 'Legacy of Kain: Blood Omen',
+  'Ps2::The Matrix: path of Neo': 'The Matrix: Path of Neo',
+  'GBA::Planet of the apes': 'Planet of the Apes',
+  'Ps2::Silent Hill 4 : The Room': 'Silent Hill 4: The Room',
+  'PS1::Castlevania: Symphony Of The Night': 'Castlevania: Symphony of the Night',
+  'PS3::Last of Us': 'The Last of Us',
+  'PS4::The Last of us Part 2': 'The Last of Us Part 2',
+  'Switch::Bloodstained: Ritual of The Night': 'Bloodstained: Ritual of the Night',
+  'Switch::Zelda: Breath of The Wild': 'Zelda: Breath of the Wild',
+  'PC::Day Of The Tentacle': 'Day of the Tentacle',
+  'Ps2::Legend Of Kay': 'Legend of Kay',
+  'GBA::Warioland 4': 'Wario Land 4',
+  'SNES::Topgear': 'Top Gear',
+  'SNES::Streetracer': 'Street Racer',
+  'SNES::ToyStory': 'Toy Story',
+  'SNES::Act Raiser 2': 'ActRaiser 2',
+  'SNES::Act Raiser': 'ActRaiser',
+  'NES::KungFu': 'Kung Fu',
+  'SNES::Rock n Roll Racing': "Rock n' Roll Racing",
+  'Ps2::Spider Man': 'Spider-Man',
+  'PC::XWing': 'X-Wing',
+  'Switch::Metroid: Dread': 'Metroid Dread',
+  'GB::Dr.Mario': 'Dr. Mario',
+  'GBC::Pokemon Kristall': 'Pokémon: Kristall',
+  'SNES::Super Mario Allstars': 'Super Mario All-Stars',
+  '3DS::Yoshis New Island': "Yoshi's New Island",
+  'PS1::Divers Dream': "Diver's Dream",
+  'Ps2::Eye Toy Play': 'EyeToy: Play',
+  'PS3::F.E.A.R 2': 'F.E.A.R. 2'
+};
+
+// Titel-Zusätze → Felder
+function parseTitleExtras(title, platform) {
+  let t = title;
+  const f = {}, notes = [];
+  function setZ(z) {
+    if (zustandEnabled(platform)) f.zustand = z;
+    else notes.push(z === 'cib' ? 'OVP' : 'Sealed');
+  }
+  let m = t.match(/\s+x\s?(\d+)\s*$/i) || t.match(/\s+(\d+)\s?x\s*$/i);
+  if (m) { f.anzahl = parseInt(m[1], 10); t = t.slice(0, m.index); }
+  t = t.replace(/\s*\(([^)]*)\)/g, function(_, inner) {
+    const s = inner.trim(), l = s.toLowerCase();
+    if (l === 'ovp') { setZ('cib'); return ''; }
+    if (l === 'repro ovp') { setZ('cib'); notes.push('Repro'); return ''; }
+    if (l === 'sealed') { setZ('sealed'); return ''; }
+    if (l === 'steelbook') { f.edition = 'Steelbook'; return ''; }
+    if (l === 'big box') { f.edition = 'Big Box'; return ''; }
+    if (l === 'limited edition' || l === 'limited') { f.edition = 'Limited'; return ''; }
+    if (l === 'platinum' || l === 'platin') { f.edition = 'Platinum'; return ''; }
+    if (l === 'selten') { f.rarity = 'rare'; return ''; }
+    if (s) notes.push(s);
+    return '';
+  });
+  m = t.match(/\s+platinum\s*$/i);  if (m) { f.edition = 'Platinum';  t = t.slice(0, m.index); }
+  m = t.match(/\s+steelbook\s*$/i); if (m) { f.edition = 'Steelbook'; t = t.slice(0, m.index); }
+  t = t.replace(/\s+/g, ' ').trim();
+  if (notes.length) f.noteAdd = notes.join(', ');
+  return { title: t || title, fields: f };
+}
+// Notizen wie „2x“, „Big Box“, „2x Platin“ → Felder
+function parseNoteExtras(note) {
+  const n = (note || '').trim(), l = n.toLowerCase();
+  let m;
+  if ((m = l.match(/^(\d+)\s?x$/))) return { anzahl: parseInt(m[1], 10), note: '' };
+  if (l === 'big box') return { edition: 'Big Box', note: '' };
+  if (l === 'platin' || l === 'platinum') return { edition: 'Platinum', note: '' };
+  if ((m = l.match(/^(\d+)\s?x\s+platin(um)?$/))) return { anzahl: parseInt(m[1], 10), edition: 'Platinum', note: '' };
+  return null;
+}
+function describeFields(f) {
+  const p = [];
+  if (f.anzahl > 1) p.push('Anzahl ' + f.anzahl);
+  if (f.edition) p.push('Edition ' + f.edition);
+  if (f.zustand) p.push('Zustand ' + ({ cib: 'CIB', sealed: 'Sealed', modul: 'Modul' }[f.zustand] || f.zustand));
+  if (f.rarity) p.push('Selten');
+  if (f.noteAdd) p.push('Notiz „' + f.noteAdd + '“');
+  return p.join(' · ');
+}
+
+function allNames(platform) {
+  const s = {};
+  ['Haben', 'Brauchen'].forEach(function(t) { ((data[t] || {})[platform] || []).forEach(function(g) { s[g] = 1; }); });
+  return Object.keys(s);
+}
+
+function buildMaintenance() {
+  const items = { orphans: [], extras: [], typos: [], dupes: [] };
+  if (!currentUserData) return items;
+
+  // A) verwaiste Angaben
+  const keys = Object.keys(currentUserData.meta || {}).concat(Object.keys(currentUserData.covers || {}));
+  const seen = {};
+  keys.forEach(function(k) {
+    if (seen[k]) return; seen[k] = 1;
+    const i = k.indexOf('::'); if (i < 0) return;
+    const p = k.slice(0, i), g = k.slice(i + 2);
+    const names = allNames(p);
+    if (names.indexOf(g) !== -1) return;
+    let target = ORPHAN_HINTS[k] && names.indexOf(ORPHAN_HINTS[k]) !== -1 ? ORPHAN_HINTS[k] : null;
+    if (!target) {
+      const G = titleTokens(g);
+      let best = null, second = 0;
+      names.forEach(function(n) {
+        const N = titleTokens(n);
+        const s = Math.max(matchTokens(G, N), matchTokens(N, G));
+        if (!best || s > best.s) { second = best ? best.s : 0; best = { n: n, s: s }; }
+        else if (s > second) second = s;
+      });
+      if (best && best.s >= 60 && best.s > second) target = best.n;
+    }
+    items.orphans.push({ platform: p, from: g, to: target, key: k, on: !!target });
+  });
+
+  // B) Titel-Zusätze + Notiz-Kürzel
+  ['Haben', 'Brauchen'].forEach(function(tab) {
+    Object.keys(data[tab] || {}).forEach(function(p) {
+      (data[tab][p] || []).forEach(function(g) {
+        const r = parseTitleExtras(g, p);
+        const noteFix = parseNoteExtras(metaOf(p, g).note);
+        const f = Object.assign({}, r.fields);
+        if (noteFix) { Object.assign(f, noteFix); f.noteFromShort = true; }
+        if (r.title === g && !Object.keys(r.fields).length && !noteFix) return;
+        items.extras.push({ tab: tab, platform: p, from: g, to: r.title, fields: f, on: true });
+      });
+    });
+  });
+
+  // C) Tippfehler
+  ['Haben', 'Brauchen'].forEach(function(tab) {
+    Object.keys(data[tab] || {}).forEach(function(p) {
+      (data[tab][p] || []).forEach(function(g) {
+        const fix = TYPO_FIXES[p + '::' + g];
+        if (fix && fix !== g) items.typos.push({ tab: tab, platform: p, from: g, to: fix, on: true });
+      });
+    });
+  });
+
+  // D) Doppelt in Haben und Brauchen
+  Object.keys(data.Brauchen || {}).forEach(function(p) {
+    (data.Brauchen[p] || []).forEach(function(g) {
+      const h = findInTab('Haben', p, g);
+      // Repro in Haben + Original gesucht → kein echter Doppel-Eintrag
+      if (h && !/repro/i.test(metaOf(p, h).note || '')) items.dupes.push({ platform: p, from: g, on: true });
+    });
+  });
+  return items;
+}
+
+let maintItems = null;
+function maintRow(kind, i, it, html) {
+  return '<label class="mt-row"><input type="checkbox" data-kind="' + kind + '" data-i="' + i + '"' + (it.on ? ' checked' : '') + '><span>' + html + '</span></label>';
+}
+function escH(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function platLabel(p) { return escH((platforms[p] && platforms[p].label) || p); }
+
+function openMaintenance() {
+  if (!currentUserData) { showToast('Bitte zuerst einloggen', true); return; }
+  maintItems = buildMaintenance();
+  const it = maintItems;
+  const total = it.orphans.length + it.extras.length + it.typos.length + it.dupes.length;
+  let h = '';
+  if (!total) {
+    h = '<p class="mt-empty">Alles sauber – nichts zu tun. ✓</p>';
+  } else {
+    if (it.orphans.length) {
+      h += '<h4>Verlorene Angaben wieder zuordnen <small>(Seltenheit, Zustand, Notiz, Cover)</small></h4>';
+      it.orphans.forEach(function(o, i) {
+        h += maintRow('orphans', i, o, platLabel(o.platform) + ' · <s>' + escH(o.from) + '</s> → ' + (o.to ? '<b>' + escH(o.to) + '</b>' : '<i>kein passendes Spiel – Angaben löschen</i>'));
+      });
+    }
+    if (it.extras.length) {
+      h += '<h4>Zusätze aus Titeln in Felder verschieben</h4>';
+      it.extras.forEach(function(o, i) {
+        const same = o.to === o.from;
+        const merge = !same && allNames(o.platform).indexOf(o.to) !== -1 && ((data[o.tab] || {})[o.platform] || []).indexOf(o.to) !== -1;
+        h += maintRow('extras', i, o, platLabel(o.platform) + ' · ' + (same ? '<b>' + escH(o.from) + '</b>' : '<s>' + escH(o.from) + '</s> → <b>' + escH(o.to) + '</b>') +
+          '<small>' + escH(describeFields(o.fields)) + (o.fields.noteFromShort ? ' (aus Notiz)' : '') + (merge ? ' · wird mit vorhandenem Eintrag zusammengelegt' : '') + '</small>');
+      });
+    }
+    if (it.typos.length) {
+      h += '<h4>Tippfehler &amp; Schreibweisen</h4>';
+      it.typos.forEach(function(o, i) {
+        h += maintRow('typos', i, o, platLabel(o.platform) + ' · <s>' + escH(o.from) + '</s> → <b>' + escH(o.to) + '</b>');
+      });
+    }
+    if (it.dupes.length) {
+      h += '<h4>Steht in Haben und Brauchen</h4>';
+      it.dupes.forEach(function(o, i) {
+        h += maintRow('dupes', i, o, platLabel(o.platform) + ' · <b>' + escH(o.from) + '</b><small>aus Brauchen entfernen</small>');
+      });
+    }
+  }
+  document.getElementById('maintList').innerHTML = h;
+  document.getElementById('maintApply').style.display = total ? '' : 'none';
+  document.getElementById('maintBackupRow').style.display = total ? '' : 'none';
+  document.getElementById('maintModal').classList.add('open');
+}
+function closeMaintenance() { document.getElementById('maintModal').classList.remove('open'); }
+
+async function applyMaintenance() {
+  const it = maintItems;
+  if (!it) return;
+  const on = {};
+  document.querySelectorAll('#maintList input[type=checkbox]').forEach(function(cb) {
+    if (cb.checked) (on[cb.dataset.kind] = on[cb.dataset.kind] || {})[cb.dataset.i] = 1;
+  });
+  const pick = function(kind) { return it[kind].filter(function(_, i) { return on[kind] && on[kind][i]; }); };
+  if (document.getElementById('maintBackup').checked) exportBackup();
+  let changes = 0;
+  const renamed = {};   // "tab::plat::alt" → neu
+  try {
+    // A) verwaiste Angaben
+    pick('orphans').forEach(function(o) {
+      const meta = currentUserData.meta, cov = currentUserData.covers || {};
+      if (o.to) {
+        const nk = o.platform + '::' + o.to;
+        if (meta[o.key]) {
+          const merged = mergeMeta(meta[nk] || {}, meta[o.key], false);
+          if (metaIsEmpty(merged)) delete meta[nk]; else meta[nk] = merged;
+        }
+        if (cov[o.key] !== undefined && cov[nk] === undefined) cov[nk] = cov[o.key];
+      }
+      delete meta[o.key];
+      delete cov[o.key];
+      changes++;
+    });
+    // B) Zusätze
+    pick('extras').forEach(function(o) {
+      const arr = (currentUserData.data[o.tab] || {})[o.platform] || [];
+      if (arr.indexOf(o.from) === -1) return;
+      const f = o.fields;
+      const k0 = o.platform + '::' + o.from;
+      const m = Object.assign({}, currentUserData.meta[k0] || {});
+      if (f.noteFromShort) m.note = '';
+      if (f.anzahl) m.anzahl = Math.max(f.anzahl, parseInt(m.anzahl, 10) || 1);
+      if (f.edition) m.edition = f.edition;
+      if (f.zustand && !m.zustand) m.zustand = f.zustand;
+      if (f.rarity && !m.rarity) m.rarity = f.rarity;
+      if (f.noteAdd) m.note = m.note ? m.note + ' · ' + f.noteAdd : f.noteAdd;
+      const cm = cleanMeta(m);
+      if (metaIsEmpty(cm)) delete currentUserData.meta[k0]; else currentUserData.meta[k0] = cm;
+      if (o.to !== o.from) {
+        renameInData(o.tab, o.platform, o.from, o.to);
+        renamed[o.tab + '::' + o.platform + '::' + o.from] = o.to;
+      }
+      changes++;
+    });
+    // C) Tippfehler (auf den ggf. schon bereinigten Namen)
+    pick('typos').forEach(function(o) {
+      const cur = renamed[o.tab + '::' + o.platform + '::' + o.from] || o.from;
+      const arr = (currentUserData.data[o.tab] || {})[o.platform] || [];
+      if (arr.indexOf(cur) === -1) return;
+      renameInData(o.tab, o.platform, cur, o.to);
+      changes++;
+    });
+    // D) Doppelte aus Brauchen
+    pick('dupes').forEach(function(o) {
+      const arr = (currentUserData.data.Brauchen || {})[o.platform] || [];
+      const i = arr.indexOf(o.from);
+      if (i !== -1) { arr.splice(i, 1); changes++; }
+    });
+    data = currentUserData.data;
+    metaCache = currentUserData.meta;
+    await persistUserDoc();
+    closeMaintenance();
+    renderPlatformButtons();
+    if (currentPlatform) renderGames();
+    updateValueDisplay();
+    showToast(changes + ' Änderungen übernommen ✓');
+  } catch(e) {
+    console.error(e);
+    showToast('Fehler: ' + (e.message || e), true);
+  }
+}
+
+// Einmaliger Hinweis nach dem Laden, wenn es Vorschläge gibt
+(function() {
+  const _initM = init;
+  init = async function() {
+    const r = await _initM.apply(this, arguments);
+    setTimeout(function() {
+      try {
+        if (localStorage.getItem('maintHint_v1')) return;
+        const it = buildMaintenance();
+        const n = it.orphans.length + it.extras.length + it.typos.length + it.dupes.length;
+        if (n) { showToast(n + ' Aufräum-Vorschläge – ganz unten „Daten prüfen“'); localStorage.setItem('maintHint_v1', '1'); }
+      } catch(e) {}
+    }, 4000);
+    return r;
+  };
+})();
+
+// ══════════════════════════════════════════════════════
+// WERTVERLAUF
+// Täglicher Schnappschuss (nur wenn sich etwas ändert), ältere Tage → Monatswert.
+// Alles lokal berechnet, keine Netzabfrage.
+// ══════════════════════════════════════════════════════
+function dayKey(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function totalPieces() {
+  let n = 0;
+  Object.keys(data.Haben || {}).forEach(function(p) { if (p !== 'Konsole/Parts') n += piecesOf(p, data.Haben[p]); });
+  return n;
+}
+function compactHistory(h) {
+  const cutoff = dayKey(new Date(Date.now() - 90 * 864e5));
+  Object.keys(h).filter(function(k) { return k.length === 10 && k < cutoff; }).sort().forEach(function(k) {
+    h[k.slice(0, 7)] = h[k];     // letzter Tag des Monats gewinnt
+    delete h[k];
+  });
+}
+let valueSaveTimer = null;
+function recordValueSnapshot() {
+  if (!currentUserData || !currentUserDocRef) return;
+  const h = currentUserData.valueHistory || (currentUserData.valueHistory = {});
+  const v = estimateTotalValue(), n = totalPieces(), k = dayKey();
+  const keys = Object.keys(h).sort();
+  const last = keys.length ? h[keys[keys.length - 1]] : null;
+  if (last && last.v === v && last.n === n) return;
+  h[k] = { v: v, n: n };
+  compactHistory(h);
+  clearTimeout(valueSaveTimer);
+  valueSaveTimer = setTimeout(function() { persistUserDoc().catch(function() {}); }, 4000);
+}
+(function() {
+  const _uvd = updateValueDisplay;
+  updateValueDisplay = function() {
+    _uvd.apply(this, arguments);
+    try { recordValueSnapshot(); } catch(e) {}
+  };
+})();
+
+function historyPoints() {
+  const h = (currentUserData && currentUserData.valueHistory) || {};
+  return Object.keys(h).sort().map(function(k) {
+    const d = k.length === 7 ? new Date(+k.slice(0, 4), +k.slice(5, 7), 0) : new Date(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10));
+    return { d: d, v: h[k].v, n: h[k].n, monthly: k.length === 7 };
+  });
+}
+function fmtEuro(v) { return v.toLocaleString('de-DE') + ' €'; }
+function fmtDate(d, long) {
+  return d.toLocaleDateString('de-DE', long ? { day: '2-digit', month: '2-digit', year: 'numeric' } : { month: 'short', year: '2-digit' });
+}
+
+function openValueHistory() {
+  if (!currentUserData) return;
+  recordValueSnapshot();
+  const pts = historyPoints();
+  const cur = estimateTotalValue();
+  document.getElementById('vhNow').textContent = fmtEuro(cur);
+  const first = pts[0];
+  const diff = first ? cur - first.v : 0;
+  document.getElementById('vhDelta').textContent = pts.length > 1
+    ? (diff >= 0 ? '+' : '−') + fmtEuro(Math.abs(diff)) + ' seit ' + fmtDate(first.d, true)
+    : 'Der Verlauf startet heute und füllt sich automatisch.';
+  document.getElementById('vhChart').innerHTML = pts.length > 1 ? renderValueChart(pts) : '';
+  document.getElementById('valueModal').classList.add('open');
+}
+function closeValueHistory() { document.getElementById('valueModal').classList.remove('open'); }
+
+function renderValueChart(pts) {
+  const W = 600, H = 220, L = 64, R = 12, T = 12, B = 28;
+  const fmtAxis = function(v) { return v >= 10000 ? (v / 1000).toFixed(1).replace('.', ',') + 'k €' : Math.round(v).toLocaleString('de-DE') + ' €'; };
+  const t0 = pts[0].d.getTime(), t1 = pts[pts.length - 1].d.getTime();
+  let vmin = Math.min.apply(null, pts.map(function(p) { return p.v; }));
+  let vmax = Math.max.apply(null, pts.map(function(p) { return p.v; }));
+  if (vmax === vmin) { vmax += 50; vmin = Math.max(0, vmin - 50); }
+  const pad = (vmax - vmin) * 0.12; vmax += pad; vmin = Math.max(0, vmin - pad);
+  const x = function(t) { return L + (t1 === t0 ? (W - L - R) / 2 : (t - t0) / (t1 - t0) * (W - L - R)); };
+  const y = function(v) { return T + (1 - (v - vmin) / (vmax - vmin)) * (H - T - B); };
+  let grid = '';
+  for (let i = 0; i <= 2; i++) {
+    const v = vmin + (vmax - vmin) * i / 2, yy = y(v).toFixed(1);
+    grid += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" class="vh-grid"/>' +
+            '<text x="' + (L - 6) + '" y="' + yy + '" class="vh-ylab" text-anchor="end" dominant-baseline="middle">' + fmtAxis(v) + '</text>';
+  }
+  const path = pts.map(function(p, i) { return (i ? 'L' : 'M') + x(p.d.getTime()).toFixed(1) + ' ' + y(p.v).toFixed(1); }).join(' ');
+  const xl = '<text x="' + L + '" y="' + (H - 8) + '" class="vh-xlab">' + fmtDate(pts[0].d) + '</text>' +
+             '<text x="' + (W - R) + '" y="' + (H - 8) + '" class="vh-xlab" text-anchor="end">' + fmtDate(pts[pts.length - 1].d) + '</text>';
+  const lastP = pts[pts.length - 1];
+  const data = JSON.stringify(pts.map(function(p) { return [x(p.d.getTime()), y(p.v), p.v, p.n, p.d.getTime(), p.monthly ? 1 : 0]; }));
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="vh-svg" data-pts=\'' + data + '\' onpointermove="vhHover(event,this)" onpointerleave="vhLeave(this)" onpointerdown="vhHover(event,this)">' +
+    grid + xl +
+    '<path d="' + path + '" class="vh-line"/>' +
+    '<circle cx="' + x(lastP.d.getTime()).toFixed(1) + '" cy="' + y(lastP.v).toFixed(1) + '" r="4" class="vh-dot"/>' +
+    '<line class="vh-cross" y1="' + T + '" y2="' + (H - B) + '" x1="-10" x2="-10"/>' +
+    '<circle class="vh-hdot" r="5" cx="-10" cy="-10"/>' +
+    '</svg><div class="vh-tip" id="vhTip"></div>';
+}
+function vhHover(e, svg) {
+  const pts = JSON.parse(svg.dataset.pts);
+  const r = svg.getBoundingClientRect();
+  const sx = (e.clientX - r.left) / r.width * 600;
+  let best = pts[0];
+  pts.forEach(function(p) { if (Math.abs(p[0] - sx) < Math.abs(best[0] - sx)) best = p; });
+  svg.querySelector('.vh-cross').setAttribute('x1', best[0]); svg.querySelector('.vh-cross').setAttribute('x2', best[0]);
+  const hd = svg.querySelector('.vh-hdot'); hd.setAttribute('cx', best[0]); hd.setAttribute('cy', best[1]);
+  const tip = document.getElementById('vhTip');
+  const d = new Date(best[4]);
+  tip.innerHTML = '<b>' + fmtEuro(best[2]) + '</b><br>' + (best[5] ? d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }) : fmtDate(d, true)) + ' · ' + best[3] + ' Spiele';
+  tip.style.display = 'block';
+  const left = best[0] / 600 * r.width;
+  tip.style.left = Math.min(Math.max(left, 60), r.width - 60) + 'px';
+}
+function vhLeave(svg) {
+  const tip = document.getElementById('vhTip'); if (tip) tip.style.display = 'none';
+  svg.querySelector('.vh-cross').setAttribute('x1', -10); svg.querySelector('.vh-cross').setAttribute('x2', -10);
+  svg.querySelector('.vh-hdot').setAttribute('cx', -10);
+}
+
+</script>
 </body>
 </html>
