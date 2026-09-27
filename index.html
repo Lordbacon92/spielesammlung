@@ -1644,6 +1644,13 @@
     .game-item .game-actions { margin-left: auto; }
     .game-item:has(input) { padding-left: 10px; flex-wrap: nowrap; }
   }
+
+  .sh-h { font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); margin-top: 6px; }
+  .sh-h small { text-transform: none; letter-spacing: 0; }
+  .sh-link { width: 100%; font-family: var(--font-mono); font-size: 12px; padding: 9px 10px; border-radius: var(--radius); border: 1.5px solid var(--border); background: var(--surface2); color: var(--text); margin-bottom: 4px; }
+  .sh-rules { background: var(--surface2); border-radius: var(--radius); padding: 10px; font-size: 12px; color: var(--text); line-height: 1.45; }
+  .sh-rules pre { font-family: var(--font-mono); font-size: 11px; white-space: pre-wrap; background: var(--bg); padding: 8px; border-radius: 4px; margin: 8px 0; overflow-x: auto; }
+  #shareModal .cover-actions { justify-content: flex-start; }
 </style>
 </head>
 <body>
@@ -1708,7 +1715,7 @@
 
 <!-- Theme Toggle -->
 <div style="position:fixed;top:16px;right:16px;z-index:1000;display:flex;gap:8px;align-items:center">
-  <button class="theme-toggle" style="position:static" onclick="exportPDF()" title="Als PDF exportieren">📄 Export</button>
+  <button class="theme-toggle" style="position:static" onclick="openShare()" title="Teilen oder als PDF exportieren">📤 Teilen</button>
   <button class="theme-toggle" style="position:static" onclick="toggleTheme()" id="themeBtn">🌙 Dunkel</button>
 </div>
 
@@ -4196,6 +4203,36 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
+
+<div id="shareModal" class="sheet-modal" onclick="if(event.target===this)closeShare()">
+  <div class="sheet-box">
+    <h3>Teilen</h3>
+    <h4 class="sh-h">Link zum Ansehen <small>– bleibt automatisch aktuell</small></h4>
+    <label class="mt-row"><input type="checkbox" id="shHaben" onchange="updateShareOptions()"><span>Sammlung (Haben)</span></label>
+    <label class="mt-row"><input type="checkbox" id="shBrauchen" onchange="updateShareOptions()"><span>Suchliste (Brauchen)</span></label>
+    <label class="mt-row"><input type="checkbox" id="shParts" onchange="updateShareOptions()"><span>Konsolen &amp; Teile mit anzeigen</span></label>
+    <div id="shLinkOff" class="cover-actions"><button class="theme-toggle" id="shCreate" onclick="enableShareLink()">&#128279; Link erstellen</button></div>
+    <div id="shLinkBox">
+      <input id="shLink" class="sh-link" readonly onclick="this.select()">
+      <div class="cover-actions">
+        <button class="theme-toggle" onclick="sendShareLink()">&#128228; Senden</button>
+        <button class="theme-toggle" onclick="copyShareLink()">Kopieren</button>
+        <button class="theme-toggle" onclick="disableShareLink()">Deaktivieren</button>
+      </div>
+    </div>
+    <div id="shRules" class="sh-rules" style="display:none">
+      <p>Einmalig nötig: In der <b>Firebase-Konsole → Firestore → Regeln</b> diesen Block innerhalb von <code>match /databases/{database}/documents { … }</code> einfügen und „Veröffentlichen“. Danach nochmal „Link erstellen“.</p>
+      <pre id="shRulesCode"></pre>
+      <div class="cover-actions"><button class="theme-toggle" onclick="copyShareRules()">Regel kopieren</button></div>
+    </div>
+    <h4 class="sh-h">Oder direkt</h4>
+    <div class="cover-actions">
+      <button class="theme-toggle" onclick="shareAsText()">&#128221; Aktuelle Liste als Text</button>
+      <button class="theme-toggle" onclick="closeShare();exportPDF()">&#128196; Als PDF</button>
+    </div>
+    <div class="cover-actions"><button class="theme-toggle" onclick="closeShare()">Schließen</button></div>
+  </div>
+</div>
 <div id="valueModal" class="sheet-modal" onclick="if(event.target===this)closeValueHistory()">
   <div class="sheet-box">
     <h3>Wertverlauf</h3>
@@ -4207,7 +4244,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.6</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.7</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -4957,7 +4994,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.6',
+    appVersion: 'v2.7',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -5705,6 +5742,191 @@ function vhLeave(svg) {
   const tip = document.getElementById('vhTip'); if (tip) tip.style.display = 'none';
   svg.querySelector('.vh-cross').setAttribute('x1', -10); svg.querySelector('.vh-cross').setAttribute('x2', -10);
   svg.querySelector('.vh-hdot').setAttribute('cx', -10);
+}
+
+</script>
+<script>
+// ══════════════════════════════════════════════════════
+// TEILEN – Link (nur lesen, bleibt aktuell), Text, PDF
+// ══════════════════════════════════════════════════════
+const SHARE_BASE = location.origin + location.pathname.replace(/[^/]*$/, '') + 'share.html?id=';
+
+function shareSettings() { return (currentUserData && currentUserData.share) || null; }
+function shareUrl(id) { return SHARE_BASE + encodeURIComponent(id); }
+function randomId(n) {
+  const a = 'abcdefghijkmnpqrstuvwxyz23456789';
+  const buf = new Uint8Array(n); crypto.getRandomValues(buf);
+  return Array.from(buf).map(function(b) { return a[b % a.length]; }).join('');
+}
+
+function buildShareSnapshot(opts) {
+  const lists = {};
+  ['Haben', 'Brauchen'].forEach(function(tab) {
+    if (!opts[tab === 'Haben' ? 'haben' : 'brauchen']) return;
+    const out = {};
+    Object.keys(data[tab] || {}).forEach(function(p) {
+      if (tab === 'Haben' && p === 'Konsole/Parts' && !opts.parts) return;
+      const games = (data[tab][p] || []).filter(Boolean);
+      if (!games.length) return;
+      out[p] = games.map(function(g) {
+        const row = { n: g };
+        const q = qtyOf(p, g); if (q > 1) row.q = q;
+        const e = editionOf(p, g); if (e) row.e = e;
+        const z = zustandEnabled(p) ? getZustand(g, p) : ''; if (z) row.z = z;
+        const c = coverEnabled(p) ? knownCover(p, g) : ''; if (c) row.c = c;
+        return row;
+      });
+    });
+    lists[tab] = out;
+  });
+  const labels = {}, colors = {};
+  Object.keys(platforms).forEach(function(k) { labels[k] = platforms[k].label || k; colors[k] = platforms[k].color || ''; });
+  return {
+    owner: auth.currentUser.uid,
+    name: currentUserData.displayName || '',
+    updated: new Date().toISOString(),
+    order: platformOrder,
+    labels: labels,
+    colors: colors,
+    lists: lists
+  };
+}
+
+async function writeShare() {
+  const s = shareSettings();
+  if (!s || !s.id) return;
+  await db.collection('shares').doc(s.id).set(buildShareSnapshot(s));
+}
+
+// Nach jeder Speicherung den geteilten Stand mitziehen (gebündelt)
+let shareTimer = null;
+(function() {
+  const _persist = persistUserDoc;
+  persistUserDoc = async function() {
+    const r = await _persist.apply(this, arguments);
+    const s = shareSettings();
+    if (s && s.id) {
+      clearTimeout(shareTimer);
+      shareTimer = setTimeout(function() { writeShare().catch(function(e) { console.warn('Teilen-Update:', e); }); }, 5000);
+    }
+    return r;
+  };
+})();
+
+const SHARE_RULES = "match /shares/{id} {\n  allow read: if true;\n  allow create: if request.auth != null && request.resource.data.owner == request.auth.uid;\n  allow update, delete: if request.auth != null && resource.data.owner == request.auth.uid;\n}";
+
+function renderShareSheet() {
+  const s = shareSettings();
+  const on = !!(s && s.id);
+  const opt = s || { haben: true, brauchen: true, parts: false };
+  document.getElementById('shHaben').checked = !!opt.haben;
+  document.getElementById('shBrauchen').checked = !!opt.brauchen;
+  document.getElementById('shParts').checked = !!opt.parts;
+  document.getElementById('shLinkBox').style.display = on ? '' : 'none';
+  document.getElementById('shLinkOff').style.display = on ? 'none' : '';
+  if (on) document.getElementById('shLink').value = shareUrl(s.id);
+  document.getElementById('shRules').style.display = 'none';
+}
+function openShare() {
+  if (!currentUserData) { showToast('Bitte zuerst einloggen', true); return; }
+  renderShareSheet();
+  document.getElementById('shareModal').classList.add('open');
+}
+function closeShare() { document.getElementById('shareModal').classList.remove('open'); }
+function shareOptsFromForm() {
+  return {
+    haben: document.getElementById('shHaben').checked,
+    brauchen: document.getElementById('shBrauchen').checked,
+    parts: document.getElementById('shParts').checked
+  };
+}
+
+async function enableShareLink() {
+  const o = shareOptsFromForm();
+  if (!o.haben && !o.brauchen) { showToast('Mindestens eine Liste auswählen', true); return; }
+  if (!navigator.onLine) { showToast('Offline – Link erst online möglich', true); return; }
+  const prev = shareSettings();
+  const s = Object.assign({ id: (prev && prev.id) || randomId(10) }, o);
+  const btn = document.getElementById('shCreate');
+  btn.disabled = true;
+  try {
+    await db.collection('shares').doc(s.id).set(Object.assign(buildShareSnapshot(s)));
+    currentUserData.share = s;
+    await currentUserDocRef.update({ share: s });
+    renderShareSheet();
+    showToast('Link erstellt ✓');
+  } catch(e) {
+    console.warn(e);
+    if (String(e.code || e.message).indexOf('permission') !== -1) {
+      document.getElementById('shRules').style.display = '';
+      document.getElementById('shRulesCode').textContent = SHARE_RULES;
+    } else showToast('Fehler: ' + (e.message || e), true);
+  }
+  btn.disabled = false;
+}
+async function updateShareOptions() {
+  const s = shareSettings();
+  if (!s || !s.id) return;
+  const o = shareOptsFromForm();
+  if (!o.haben && !o.brauchen) { showToast('Mindestens eine Liste auswählen', true); renderShareSheet(); return; }
+  Object.assign(s, o);
+  try {
+    await currentUserDocRef.update({ share: s });
+    await writeShare();
+    showToast('Freigabe aktualisiert ✓');
+  } catch(e) { showToast('Fehler: ' + (e.message || e), true); }
+}
+async function disableShareLink() {
+  const s = shareSettings();
+  if (!s || !s.id) return;
+  openModal('Link wirklich deaktivieren?\n\nWer ihn hat, sieht danach nichts mehr. Ein neuer Link bekommt eine neue Adresse.', async function() {
+    try {
+      await db.collection('shares').doc(s.id).delete();
+      currentUserData.share = null;
+      await currentUserDocRef.update({ share: null });
+      renderShareSheet();
+      showToast('Link deaktiviert');
+    } catch(e) { showToast('Fehler: ' + (e.message || e), true); }
+  }, 'Deaktivieren');
+}
+async function sendShareLink() {
+  const s = shareSettings(); if (!s) return;
+  const url = shareUrl(s.id);
+  const title = 'Spielesammlung von ' + (currentUserData.displayName || 'mir');
+  if (navigator.share) { try { await navigator.share({ title: title, url: url }); return; } catch(e) { if (e.name === 'AbortError') return; } }
+  copyText(url, 'Link kopiert ✓');
+}
+function copyText(t, msg) {
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject())
+    .then(function() { showToast(msg || 'Kopiert ✓'); })
+    .catch(function() {
+      const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); showToast(msg || 'Kopiert ✓'); } catch(e) { showToast('Kopieren nicht möglich', true); }
+      ta.remove();
+    });
+}
+function copyShareLink() { const s = shareSettings(); if (s) copyText(shareUrl(s.id), 'Link kopiert ✓'); }
+function copyShareRules() { copyText(SHARE_RULES, 'Regel kopiert ✓'); }
+
+// Als Text (z. B. für WhatsApp): aktuelle Liste des offenen Tabs
+async function shareAsText() {
+  const tab = getTabKey();
+  const lines = [(tab === 'Haben' ? '🎮 Meine Sammlung' : '🔎 Suche folgende Spiele') + (currentUserData.displayName ? ' (' + currentUserData.displayName + ')' : ''), ''];
+  const keys = platformOrder.concat(Object.keys(data[tab] || {}).filter(function(k) { return platformOrder.indexOf(k) === -1; }));
+  keys.forEach(function(p) {
+    const games = ((data[tab] || {})[p] || []).filter(Boolean);
+    if (!games.length || (tab === 'Haben' && p === 'Konsole/Parts')) return;
+    lines.push((platforms[p] && platforms[p].label) || p);
+    games.forEach(function(g) {
+      const q = qtyOf(p, g), e = editionOf(p, g), z = zustandEnabled(p) ? getZustand(g, p) : '';
+      const extra = [q > 1 ? q + '×' : '', e, z === 'cib' ? 'CIB' : z === 'sealed' ? 'Sealed' : ''].filter(Boolean).join(', ');
+      lines.push('• ' + g + (extra ? ' (' + extra + ')' : ''));
+    });
+    lines.push('');
+  });
+  const text = lines.join('\n').trim();
+  if (navigator.share) { try { await navigator.share({ text: text }); return; } catch(e) { if (e.name === 'AbortError') return; } }
+  copyText(text, 'Liste kopiert ✓');
 }
 
 </script>
