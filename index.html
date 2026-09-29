@@ -180,6 +180,20 @@
   .header-logo-svg { width: 100%; height: auto; display: block; }
   @media (max-width: 600px) { h1.header-logo { max-width: 340px; font-size: 0; } }
 
+  /* ── ANIMATIONEN (v2.12): Cartridge-Insert & CRT-Power-On ── */
+  .game-item-wrap.anim-cart::after {
+    content: ''; position: absolute; left: 6%; right: 6%; bottom: 0; height: 3px; z-index: 5;
+    border-radius: 2px; background: linear-gradient(90deg, #8b5cf6, #ff3fa4, #ff8a4c);
+    box-shadow: 0 0 10px rgba(255,63,164,0.9), 0 0 22px rgba(139,92,246,0.6);
+    animation: slotGlow 0.9s ease-out forwards;
+  }
+  @keyframes slotGlow { 0% { opacity: 0; transform: scaleX(0.3); } 20% { opacity: 1; transform: scaleX(1); } 75% { opacity: 1; } 100% { opacity: 0; } }
+  .game-item.anim-scan::before {
+    content: ''; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.28) 0 1px, transparent 1px 3px);
+  }
+  .game-item-wrap.anim-crt { overflow: visible; }
+
   /* ── LOADING ── */
   #loadingOverlay {
     position: fixed;
@@ -2336,7 +2350,7 @@ async function confirmAdd() {
     await apiPost({ action: 'add', tab: getTabKey(), platform, game: name });
     document.getElementById('addNameInput').value = '';
     showToast('"' + name + '" wurde hinzugefuegt');
-    if (currentPlatform === platform) renderGames();
+    if (currentPlatform === platform) { renderGames(); highlightNewEntry(platform, name); }
     renderPlatformButtons();
     updateValueDisplay();
   } catch(e) {
@@ -2912,8 +2926,11 @@ async function moveToHaben(index) {
   const platform = currentPlatform;
 
   try {
+    const wrap = document.getElementById('giw-' + index);
+    const anim = animCartridgeInsert(wrap);
     await apiPost({ action: 'add', tab: 'Haben', platform, game: name });
     await apiPost({ action: 'delete', tab: 'Brauchen', platform, game: name });
+    await anim;
 
     showToast('"' + name + '" → Haben ✓');
     renderGames();
@@ -2921,7 +2938,78 @@ async function moveToHaben(index) {
     updateValueDisplay();
   } catch(e) {
     showToast('Fehler: ' + e.message, true);
+    const w = document.getElementById('giw-' + index);
+    if (w) {
+      w.getAnimations({ subtree: true }).forEach(function(a) { a.cancel(); });
+      w.classList.remove('anim-cart');
+      const c = w.querySelector('.game-item'); if (c) c.classList.remove('anim-scan');
+    }
   }
+}
+
+// ── Animationen (v2.12) ───────────────────────────────────────────────────
+function animsOff() {
+  return !Element.prototype.animate || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+// Brauchen → Haben: Karte rutscht wie ein Modul in den Schacht
+function animCartridgeInsert(wrap) {
+  if (!wrap || animsOff()) return Promise.resolve();
+  const card = wrap.querySelector('.game-item');
+  if (!card) return Promise.resolve();
+  wrap.classList.remove('swiped', 'note-swiped');
+  wrap.classList.add('anim-cart');
+  card.classList.add('anim-scan');
+  const h = wrap.offsetHeight;
+  const insert = card.animate([
+    { transform: 'translateY(0) scale(1)', filter: 'brightness(1)', offset: 0 },
+    { transform: 'translateY(-6px) scale(1.02)', filter: 'brightness(1.35)', offset: 0.2 },
+    { transform: 'translateY(-6px) scale(1.02)', filter: 'brightness(0.8)', offset: 0.28 },
+    { transform: 'translateY(-6px) scale(1.02)', filter: 'brightness(1.3)', offset: 0.34 },
+    { transform: 'translateY(105%) scale(0.94, 1)', filter: 'brightness(0.6)', offset: 1 }
+  ], { duration: 650, easing: 'cubic-bezier(0.55, 0, 0.75, 0.2)', fill: 'forwards' });
+  return insert.finished.then(function() {
+    return wrap.animate([
+      { height: h + 'px', marginBottom: '4px' },
+      { height: '0px', marginBottom: '0px' }
+    ], { duration: 260, easing: 'ease-in-out', fill: 'forwards' }).finished;
+  }).catch(function() {});
+}
+// Neuer Eintrag: Karte schaltet sich an wie ein Röhrenfernseher
+function animCrtPowerOn(wrap) {
+  if (!wrap || animsOff()) return;
+  const card = wrap.querySelector('.game-item');
+  if (!card) return;
+  wrap.classList.add('anim-crt');
+  card.classList.add('anim-scan');
+  card.animate([
+    { transform: 'scale(0, 0.03)', filter: 'brightness(4) saturate(0)', offset: 0 },
+    { transform: 'scale(1, 0.03)', filter: 'brightness(4) saturate(0)', offset: 0.3 },
+    { transform: 'scale(1, 1.08)', filter: 'brightness(1.8) saturate(0.6)', offset: 0.55 },
+    { transform: 'scale(1, 0.97)', filter: 'brightness(0.85)', offset: 0.66 },
+    { transform: 'scale(1, 1)', filter: 'brightness(1.25)', offset: 0.74 },
+    { transform: 'scale(1, 1)', filter: 'brightness(0.9)', offset: 0.82 },
+    { transform: 'scale(1, 1)', filter: 'brightness(1)', offset: 1 }
+  ], { duration: 750, easing: 'ease-out' });
+  card.animate([
+    { boxShadow: '0 0 0 rgba(255,63,164,0)' },
+    { boxShadow: '0 0 14px rgba(255,63,164,0.8), 0 0 28px rgba(139,92,246,0.5)', offset: 0.4 },
+    { boxShadow: '0 0 0 rgba(255,63,164,0)' }
+  ], { duration: 1600, delay: 500, easing: 'ease-out' }).finished.catch(function() {}).then(function() {
+    wrap.classList.remove('anim-crt');
+    card.classList.remove('anim-scan');
+  });
+}
+function highlightNewEntry(platform, name) {
+  if (currentPlatform !== platform) return;
+  const games = getTabData()[platform] || [];
+  let i = games.indexOf(name);
+  if (i < 0) { const n = name.toLowerCase(); i = games.findIndex(function(g) { return g.toLowerCase() === n; }); }
+  const wrap = i >= 0 ? document.getElementById('giw-' + i) : null;
+  if (!wrap) return;
+  wrap.scrollIntoView({ behavior: animsOff() ? 'auto' : 'smooth', block: 'center' });
+  const card = wrap.querySelector('.game-item');
+  if (card && !animsOff()) card.style.opacity = '0';
+  setTimeout(function() { if (card) card.style.opacity = ''; animCrtPowerOn(wrap); }, animsOff() ? 0 : 250);
 }
 
 // ── Dictation (Web Speech API) ────────────────────────────────────────────────
@@ -4322,7 +4410,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.11</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.12</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5072,7 +5160,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.11',
+    appVersion: 'v2.12',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
