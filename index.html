@@ -2741,16 +2741,97 @@ async function saveEdit(index) {
 function deleteGame(index) {
   const name = getTabData()[currentPlatform][index];
   openModal('"' + name + '" wirklich loeschen?', async function() {
+    const wrap = document.getElementById('giw-' + index);
+    const decay = animPixelDecay(wrap);
     try {
       await apiPost({ action: 'delete', tab: getTabKey(), platform: currentPlatform, game: name });
+      await decay.done;
       showToast('"' + name + '" geloescht');
       renderGames();
       renderPlatformButtons();
       updateValueDisplay();
     } catch(e) {
+      decay.undo();
       showToast('Fehler: ' + e.message, true);
     }
   });
+}
+
+// ── Pixel-Zerfall beim Löschen (v2.15) ──────────────────────────────────────
+function animPixelDecay(wrap) {
+  const noop = { done: Promise.resolve(), undo: function() {} };
+  const reduced = !Element.prototype.animate || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const card = wrap && wrap.querySelector('.game-item');
+  if (!card || reduced) return noop;
+  wrap.classList.remove('swiped', 'note-swiped');
+  let layer = null, cancelled = false;
+  const anims = [];
+  const track = function(a) { anims.push(a); return a; };
+
+  // 1) Rotes "Treffer"-Flackern
+  const hit = track(card.animate([
+    { filter: 'none' },
+    { filter: 'sepia(1) saturate(6) hue-rotate(-50deg) brightness(1.1)' },
+    { filter: 'none' },
+    { filter: 'sepia(1) saturate(6) hue-rotate(-50deg) brightness(1.1)' },
+    { filter: 'none' },
+    { filter: 'sepia(1) saturate(6) hue-rotate(-50deg) brightness(1.2)' }
+  ], { duration: 320, easing: 'steps(6, end)', fill: 'forwards' }));
+
+  const done = hit.finished.then(function() {
+    if (cancelled) return;
+    // 2) Karte in Pixelblöcke zerlegen (Klone mit Ausschnitt)
+    const r = card.getBoundingClientRect();
+    const T = r.width > 500 ? 24 : 18;
+    const cols = Math.ceil(r.width / T), rows = Math.ceil(r.height / T);
+    layer = document.createElement('div');
+    layer.style.cssText = 'position:fixed;left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;height:' + r.height + 'px;z-index:7000;pointer-events:none';
+    const proto = card.cloneNode(true);
+    proto.removeAttribute('id');
+    proto.style.cssText += ';position:absolute;margin:0;width:' + r.width + 'px;height:' + r.height + 'px;transform:none;filter:sepia(1) saturate(6) hue-rotate(-50deg) brightness(1.2)';
+    const blocks = [];
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const t = document.createElement('div');
+      t.style.cssText = 'position:absolute;overflow:hidden;left:' + (x * T) + 'px;top:' + (y * T) + 'px;width:' + T + 'px;height:' + T + 'px';
+      const c = proto.cloneNode(true);
+      c.style.left = (-x * T) + 'px'; c.style.top = (-y * T) + 'px';
+      t.appendChild(c); layer.appendChild(t);
+      blocks.push({ el: t, x: x });
+    }
+    document.body.appendChild(layer);
+    card.style.visibility = 'hidden';
+
+    // 3) Von rechts nach links zerbröseln und nach unten rieseln
+    const SPREAD = 520, FALL = 520;
+    const falls = blocks.map(function(b) {
+      const d = (cols - 1 - b.x) / Math.max(1, cols - 1) * SPREAD + Math.random() * 120;
+      const dx = (Math.random() - 0.5) * 30, dy = 30 + Math.random() * 50;
+      return track(b.el.animate([
+        { transform: 'translate(0,0) scale(1)', opacity: 1 },
+        { transform: 'translate(' + dx * 0.3 + 'px,-4px) scale(0.9)', opacity: 1, offset: 0.2 },
+        { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(0.4)', opacity: 0 }
+      ], { duration: FALL, delay: d, easing: 'steps(7, end)', fill: 'both' })).finished;
+    });
+    return Promise.all(falls);
+  }).then(function() {
+    if (cancelled) return;
+    if (layer) { layer.remove(); layer = null; }
+    const h = wrap.offsetHeight;
+    return track(wrap.animate([
+      { height: h + 'px', marginBottom: '4px' },
+      { height: '0px', marginBottom: '0px' }
+    ], { duration: 240, easing: 'ease-in-out', fill: 'forwards' })).finished;
+  }).catch(function() {});
+
+  return {
+    done: done,
+    undo: function() {
+      cancelled = true;
+      anims.forEach(function(a) { try { a.cancel(); } catch(e) {} });
+      if (layer) { layer.remove(); layer = null; }
+      card.style.visibility = '';
+    }
+  };
 }
 
 // ── Tab switch ─────────────────────────────────────────────────────────────
@@ -4459,7 +4540,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.14</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.15</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5209,7 +5290,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.14',
+    appVersion: 'v2.15',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
