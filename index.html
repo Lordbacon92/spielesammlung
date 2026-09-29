@@ -125,6 +125,29 @@
   }
   .theme-toggle:hover { border-color: var(--text-dim); color: var(--text); }
 
+  /* ── EINSTELLUNGEN (v2.17) ── */
+  .settings-btn { padding: 6px 9px; }
+  .settings-btn svg { width: 18px; height: 18px; display: block; transition: transform 0.4s; }
+  .settings-btn:hover svg { transform: rotate(60deg); }
+  #settingsModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9000; align-items: center; justify-content: center; }
+  #settingsModal.open { display: flex; }
+  #settingsModal .modal-box { text-align: left; max-width: 340px; }
+  .settings-title { font-family: 'DM Mono', monospace; font-size: 13px; letter-spacing: 3px; color: var(--text-dim); margin-bottom: 18px; text-align: center; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+  .settings-title + .settings-row { border-top: none; }
+  .settings-label { font-size: 14px; font-weight: 600; color: var(--text); }
+  .seg { display: flex; border: 1.5px solid var(--border); border-radius: 20px; overflow: hidden; }
+  .seg button { background: none; border: none; padding: 6px 12px; font: inherit; font-size: 12px; font-weight: 600; color: var(--text-dim); cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .switch span { position: absolute; inset: 0; background: var(--border); border-radius: 13px; cursor: pointer; transition: background 0.2s; }
+  .switch span::after { content: ''; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(20px); }
+  .switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .settings-close { margin-top: 18px; width: 100%; }
+
   /* ── HEADER ── */
   header {
     text-align: center;
@@ -1735,7 +1758,7 @@
 <!-- Theme Toggle -->
 <div style="position:fixed;top:16px;right:16px;z-index:1000;display:flex;gap:8px;align-items:center">
   <button class="theme-toggle" style="position:static" onclick="openShare()" title="Teilen oder als PDF exportieren">📤 Teilen</button>
-  <button class="theme-toggle" style="position:static" onclick="toggleTheme()" id="themeBtn">🌙 Dunkel</button>
+  <button class="theme-toggle settings-btn" style="position:static" onclick="openSettings()" title="Einstellungen" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
 </div>
 
 <!-- Loading overlay -->
@@ -1944,6 +1967,25 @@
   <div>GAME COUNT: <span id="totalCount">0</span> SPIELE</div>
   <div style="margin-top:8px;cursor:pointer" onclick="openValueHistory()" title="Wertverlauf anzeigen">GESCHÄTZTER WERT: <span id="collectionValue" style="color:var(--value);font-weight:600">–</span> <span class="vh-link">&#128200; Verlauf</span></div>
 </footer>
+
+<div id="settingsModal" onclick="if(event.target===this)closeSettings()">
+  <div class="modal-box" role="dialog" aria-label="Einstellungen">
+    <div class="settings-title">EINSTELLUNGEN</div>
+    <div class="settings-row">
+      <span class="settings-label">Design</span>
+      <div class="seg"><button id="setThemeLight" onclick="setTheme('light')">☀️ Hell</button><button id="setThemeDark" onclick="setTheme('dark')">🌙 Dunkel</button></div>
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">Animationen</span>
+      <label class="switch"><input type="checkbox" id="setAnims" onchange="setPref('anims', this.checked)"><span></span></label>
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">Sounds</span>
+      <label class="switch"><input type="checkbox" id="setSounds" onchange="setPref('sounds', this.checked)"><span></span></label>
+    </div>
+    <button class="modal-btn cancel settings-close" onclick="closeSettings()">Schließen</button>
+  </div>
+</div>
 
 <div id="confirmModal">
   <div class="modal-box">
@@ -2300,8 +2342,8 @@ async function init() {
 // ── Power-On-Boot beim App-Start (v2.14) ─────────────────────────────────
 function bootTransition() {
   const ov = document.getElementById('loadingOverlay');
-  const reduced = !Element.prototype.animate || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  if (!ov || reduced) { if (ov) ov.classList.add('hidden'); return; }
+  const reduced = animsOff();
+  if (!ov || reduced) { if (ov) ov.classList.add('hidden'); SFX.boot(); return; }
   // Ladebildschirm sofort weg, schwarze Röhre davor – Bild geht von Punkt → Linie → voll an
   ov.style.transition = 'none';
   ov.classList.add('hidden');
@@ -2761,9 +2803,9 @@ function deleteGame(index) {
 // ── Pixel-Zerfall beim Löschen (v2.15) ──────────────────────────────────────
 function animPixelDecay(wrap) {
   const noop = { done: Promise.resolve(), undo: function() {} };
-  const reduced = !Element.prototype.animate || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const reduced = animsOff();
   const card = wrap && wrap.querySelector('.game-item');
-  if (!card || reduced) return noop;
+  if (!card || reduced) { SFX.hit(); setTimeout(SFX.decay, 320); return noop; }
   wrap.classList.remove('swiped', 'note-swiped');
   let layer = null, cancelled = false;
   const anims = [];
@@ -3034,24 +3076,39 @@ function updateThemeColor() {
   if (meta) meta.setAttribute('content', isDark ? '#111111' : '#F2EDE4');
 }
 
-function toggleTheme() {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  document.documentElement.setAttribute('data-theme', isDark ? '' : 'dark');
-  document.getElementById('themeBtn').textContent = isDark ? '🌙 Dunkel' : '☀️ Hell';
-  localStorage.setItem('theme', isDark ? 'light' : 'dark');
+function setTheme(mode) {
+  const dark = mode === 'dark';
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+  syncSettingsUI();
   try { if (currentUserData) { renderPlatformButtons(); if (currentPlatform) renderGames(); } } catch(e) {}
+}
+function toggleTheme() {
+  setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
 }
 // Load saved theme
 (function() {
-  const saved = localStorage.getItem('theme');
-  if (saved === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
-    document.addEventListener('DOMContentLoaded', function() {
-      const btn = document.getElementById('themeBtn');
-      if (btn) btn.textContent = '☀️ Hell';
-    });
-  }
+  if (localStorage.getItem('theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
 })();
+
+// ── Einstellungen (v2.17) ─────────────────────────────────────────────────
+function prefOn(key) { try { return localStorage.getItem('pref_' + key) !== 'off'; } catch(e) { return true; } }
+function setPref(key, on) {
+  try { localStorage.setItem('pref_' + key, on ? 'on' : 'off'); } catch(e) {}
+  if (key === 'sounds' && on) SFX.blip();
+}
+function syncSettingsUI() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const l = document.getElementById('setThemeLight'), d = document.getElementById('setThemeDark');
+  if (l) l.classList.toggle('on', !dark);
+  if (d) d.classList.toggle('on', dark);
+  const a = document.getElementById('setAnims'), so = document.getElementById('setSounds');
+  if (a) a.checked = prefOn('anims');
+  if (so) so.checked = prefOn('sounds');
+}
+function openSettings() { syncSettingsUI(); document.getElementById('settingsModal').classList.add('open'); }
+function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeSettings(); });
 
 async function moveToHaben(index) {
   const tabData = getTabData();
@@ -3124,8 +3181,12 @@ const SFX = (function() {
     n.connect(f); f.connect(g); g.connect(master); n.start(t); n.stop(t + dur + 0.02);
     return f;
   }
-  function ok() { return ac() && ctx.state === 'running'; }
+  function ok() { return prefOn('sounds') && ac() && ctx.state === 'running'; }
   return {
+    blip: function() {
+      if (!ok()) return; const t = ctx.currentTime;
+      tone('square', 660, 660, t, 0.06, 0.12); tone('square', 990, 990, t + 0.07, 0.1, 0.12);
+    },
     // Brauchen → Haben: Modul anheben, reinschieben, "klack" + Bestätigungs-Blip
     cartridge: function() {
       if (!ok()) return; const t = ctx.currentTime;
@@ -3172,11 +3233,11 @@ const SFX = (function() {
 
 // ── Animationen (v2.12) ───────────────────────────────────────────────────
 function animsOff() {
-  return !Element.prototype.animate || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  return !prefOn('anims') || !Element.prototype.animate || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
 // Brauchen → Haben: Karte rutscht wie ein Modul in den Schacht
 function animCartridgeInsert(wrap) {
-  if (!wrap || animsOff()) return Promise.resolve();
+  if (!wrap || animsOff()) { SFX.cartridge(); return Promise.resolve(); }
   const card = wrap.querySelector('.game-item');
   if (!card) return Promise.resolve();
   wrap.classList.remove('swiped', 'note-swiped');
@@ -3200,7 +3261,7 @@ function animCartridgeInsert(wrap) {
 }
 // Neuer Eintrag: Karte schaltet sich an wie ein Röhrenfernseher
 function animCrtPowerOn(wrap) {
-  if (!wrap || animsOff()) return;
+  if (!wrap || animsOff()) { SFX.crt(); return; }
   const card = wrap.querySelector('.game-item');
   if (!card) return;
   wrap.classList.add('anim-crt');
@@ -4635,7 +4696,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.16</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.17</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5385,7 +5446,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.16',
+    appVersion: 'v2.17',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
