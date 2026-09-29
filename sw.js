@@ -1,6 +1,6 @@
 // COLLECT – Service Worker (Offline-Modus)
 // Bei jeder Änderung an dieser Datei SHELL_CACHE hochzählen.
-const SHELL_CACHE = 'collect-shell-v2.11';
+const SHELL_CACHE = 'collect-shell-v2.21';
 const COVER_CACHE = 'collect-covers-v1';
 const COVER_MAX = 2500;
 
@@ -15,7 +15,7 @@ const PRECACHE_LOCAL = [
   'img/3ds.png', 'img/amiga.png', 'img/atari.png', 'img/gamecube.png', 'img/gb.png',
   'img/gba.png', 'img/gbc.png', 'img/konsole.png', 'img/mastersystem.png', 'img/megadrive.png',
   'img/n64.png', 'img/nds.png', 'img/nes.png', 'img/pc.png', 'img/ps1.png', 'img/ps2.png',
-  'img/ps3.png', 'img/ps4.png', 'img/ps5.png', 'img/saturn.png', 'img/snes.png', 'img/switch.png'
+  'img/ps3.png', 'img/ps4.png', 'img/ps5.png', 'img/saturn.png', 'img/snes.png', 'img/switch.png', 'img/switch2.png'
 ];
 const PRECACHE_REMOTE = [
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
