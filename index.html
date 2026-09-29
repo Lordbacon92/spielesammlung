@@ -2262,7 +2262,7 @@ async function init() {
     setLoadProgress(100);
     renderPlatformButtons();
     updateValueDisplay();
-    setTimeout(() => { document.getElementById('loadingOverlay').classList.add('hidden'); }, 250);
+    setTimeout(bootTransition, 250);
   }
   const ticker = setInterval(() => {
     const v = videoPct();
@@ -2295,6 +2295,50 @@ async function init() {
       '<div style="color:#888;font-size:11px;margin-top:16px;font-family:sans-serif">Seite neu laden zum Wiederholen</div>';
     console.error(e);
   }
+}
+
+// ── Power-On-Boot beim App-Start (v2.13) ─────────────────────────────────
+function bootTransition() {
+  const ov = document.getElementById('loadingOverlay');
+  const reduced = !Element.prototype.animate || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  if (!ov || reduced) { if (ov) ov.classList.add('hidden'); return; }
+  const bg = getComputedStyle(ov).backgroundColor;
+  const OFF = 700;   // Dauer Röhre-aus
+  const collapse = ov.animate([
+    { transform: 'scale(1, 1)', filter: 'brightness(1)', backgroundColor: bg, opacity: 1, offset: 0 },
+    { transform: 'scale(1, 0.006)', filter: 'brightness(2)', backgroundColor: '#ffffff', opacity: 1, offset: 0.42 },
+    { transform: 'scale(0.012, 0.006)', filter: 'brightness(2)', backgroundColor: '#ffffff', opacity: 1, offset: 0.78 },
+    { transform: 'scale(0, 0)', filter: 'brightness(2)', backgroundColor: '#ffffff', opacity: 0, offset: 1 }
+  ], { duration: OFF, easing: 'cubic-bezier(0.6, 0, 0.4, 1)', fill: 'forwards' });
+
+  // App baut sich von oben nach unten auf
+  const visible = function(el) { return el && el.offsetParent !== null; };
+  const blocks = ['header', '.tab-bar', '.search-wrap', '.add-bar']
+    .map(function(sel) { return document.querySelector(sel); }).filter(visible);
+  const btns = Array.prototype.slice.call(document.querySelectorAll('#platformGrid .plat-btn')).filter(visible);
+  const start = OFF * 0.8;
+  blocks.forEach(function(el, i) {
+    el.animate([
+      { opacity: 0, transform: 'translateY(-14px)', filter: 'blur(3px) brightness(1.8)' },
+      { opacity: 1, transform: 'translateY(0)', filter: 'blur(0) brightness(1)' }
+    ], { duration: 420, delay: start + i * 110, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'backwards' });
+  });
+  const btnStart = start + blocks.length * 110 + 60;
+  btns.forEach(function(el, i) {
+    el.animate([
+      { opacity: 0, transform: 'translateY(-10px) scale(0.9)' },
+      { opacity: 1, transform: 'translateY(2px) scale(1.03)', offset: 0.7 },
+      { opacity: 1, transform: 'translateY(0) scale(1)' }
+    ], { duration: 360, delay: btnStart + Math.min(i, 24) * 35, easing: 'ease-out', fill: 'backwards' });
+  });
+
+  collapse.finished.catch(function() {}).then(function() {
+    ov.style.transition = 'none';
+    ov.classList.add('hidden');
+    collapse.cancel();
+    void ov.offsetHeight;
+    ov.style.transition = '';
+  });
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
@@ -4410,7 +4454,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.12</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.13</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5160,7 +5204,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.12',
+    appVersion: 'v2.13',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
