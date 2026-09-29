@@ -2347,49 +2347,76 @@ function bootTransition() {
   const ov = document.getElementById('loadingOverlay');
   const reduced = animsOff();
   if (!ov || reduced) { if (ov) ov.classList.add('hidden'); SFX.boot(); return; }
-  // Ladebildschirm sofort weg, schwarze Röhre davor – Bild geht von Punkt → Linie → voll an
-  ov.style.transition = 'none';
-  ov.classList.add('hidden');
-  void ov.offsetHeight;
-  ov.style.transition = '';
-  const scr = document.createElement('div');
-  scr.style.cssText = 'position:fixed;left:50%;top:50%;width:0;height:2px;transform:translate(-50%,-50%);' +
-    'z-index:9000;pointer-events:none;background:#fff;box-shadow:0 0 30px 8px rgba(255,255,255,0.9), 0 0 0 200vmax #000;border-radius:50%';
-  document.body.appendChild(scr);
-  SFX.boot();
-  const OFF = 900;   // Dauer Röhre-an
-  const collapse = scr.animate([
-    { width: '0px', height: '2px', borderRadius: '50%', background: 'rgba(255,255,255,1)', offset: 0 },
-    { width: '6px', height: '2px', borderRadius: '50%', background: 'rgba(255,255,255,1)', offset: 0.08 },
-    { width: '104vw', height: '2px', borderRadius: '2px', background: 'rgba(255,255,255,1)', offset: 0.38 },
-    { width: '104vw', height: '104vh', borderRadius: '24px', background: 'rgba(255,255,255,0.75)', offset: 0.62 },
-    { width: '104vw', height: '104vh', borderRadius: '0px', background: 'rgba(255,255,255,0)', offset: 0.78 },
-    { width: '104vw', height: '104vh', borderRadius: '0px', background: 'rgba(255,255,255,0.12)', offset: 0.84 },
-    { width: '104vw', height: '104vh', borderRadius: '0px', background: 'rgba(255,255,255,0)', offset: 1 }
-  ], { duration: OFF, easing: 'cubic-bezier(0.3, 0, 0.3, 1)', fill: 'forwards' });
 
-  // App baut sich von oben nach unten auf
-  const visible = function(el) { return el && el.offsetParent !== null; };
-  const blocks = ['header', '.tab-bar', '.search-wrap', '.add-bar']
-    .map(function(sel) { return document.querySelector(sel); }).filter(visible);
-  const btns = Array.prototype.slice.call(document.querySelectorAll('#platformGrid .plat-btn')).filter(visible);
-  const start = OFF * 0.55;
-  blocks.forEach(function(el, i) {
-    el.animate([
-      { opacity: 0, transform: 'translateY(-14px)', filter: 'blur(3px) brightness(1.8)' },
-      { opacity: 1, transform: 'translateY(0)', filter: 'blur(0) brightness(1)' }
-    ], { duration: 420, delay: start + i * 110, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'backwards' });
-  });
-  const btnStart = start + blocks.length * 110 + 60;
-  btns.forEach(function(el, i) {
-    el.animate([
-      { opacity: 0, transform: 'translateY(-10px) scale(0.9)' },
-      { opacity: 1, transform: 'translateY(2px) scale(1.03)', offset: 0.7 },
-      { opacity: 1, transform: 'translateY(0) scale(1)' }
-    ], { duration: 360, delay: btnStart + Math.min(i, 24) * 35, easing: 'ease-out', fill: 'backwards' });
+  // Röhre: schwarzer Vorhang (zwei Hälften) + Leuchtlinie + Blitz – nur transform/opacity (GPU)
+  const T = 900;
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;inset:0;z-index:9000;pointer-events:none;overflow:hidden;contain:strict';
+  const half = 'position:absolute;left:0;right:0;height:calc(50% + 2px);background:#000;will-change:transform;';
+  box.innerHTML =
+    '<div style="' + half + 'top:0"></div>' +
+    '<div style="' + half + 'bottom:0"></div>' +
+    '<div style="position:absolute;inset:0;background:#fff;opacity:0;will-change:opacity"></div>' +
+    '<div style="position:absolute;left:0;right:0;top:50%;height:3px;margin-top:-1.5px;background:#fff;' +
+      'box-shadow:0 0 12px 3px rgba(255,255,255,0.9),0 0 40px 10px rgba(180,160,255,0.55);transform:scaleX(0);will-change:transform,opacity"></div>';
+  document.body.appendChild(box);
+  const top = box.children[0], bot = box.children[1], flash = box.children[2], line = box.children[3];
+
+  // Erst Ladebildschirm hinter dem Schwarz entfernen, damit das teure erste Zeichnen der App
+  // passiert, bevor die Animation startet (sonst ruckelt der Anfang)
+  requestAnimationFrame(function() {
+    ov.style.transition = 'none';
+    ov.classList.add('hidden');
+    void ov.offsetHeight;
+    ov.style.transition = '';
+    requestAnimationFrame(function() { requestAnimationFrame(run); });
   });
 
-  collapse.finished.catch(function() {}).then(function() { scr.remove(); });
+  function run() {
+    SFX.boot();
+    const o = { duration: T, fill: 'forwards' };
+    line.animate([
+      { transform: 'scaleX(0)', opacity: 1, offset: 0 },
+      { transform: 'scaleX(0.015)', opacity: 1, offset: 0.1 },
+      { transform: 'scaleX(1)', opacity: 1, offset: 0.38, easing: 'ease-in' },
+      { transform: 'scaleX(1) scaleY(6)', opacity: 0, offset: 0.56 },
+      { transform: 'scaleX(1) scaleY(6)', opacity: 0, offset: 1 }
+    ], Object.assign({ easing: 'cubic-bezier(0.3,0,0.3,1)' }, o));
+    const open = [
+      { transform: 'translateY(0)', offset: 0 },
+      { transform: 'translateY(0)', offset: 0.38, easing: 'cubic-bezier(0.5,0,0.2,1)' },
+      { transform: 'translateY(DIR102%)', offset: 0.62 },
+      { transform: 'translateY(DIR102%)', offset: 1 }
+    ];
+    top.animate(JSON.parse(JSON.stringify(open).replace(/DIR/g, '-')), o);
+    bot.animate(JSON.parse(JSON.stringify(open).replace(/DIR/g, '')), o);
+    flash.animate([
+      { opacity: 0, offset: 0 }, { opacity: 0, offset: 0.38 },
+      { opacity: 0.75, offset: 0.5 }, { opacity: 0, offset: 0.78 },
+      { opacity: 0.12, offset: 0.84 }, { opacity: 0, offset: 1 }
+    ], o).finished.catch(function() {}).then(function() { box.remove(); });
+
+    // App baut sich von oben nach unten auf (nur opacity/transform)
+    const visible = function(el) { return el && el.offsetParent !== null; };
+    const blocks = ['header', '.tab-bar', '.search-wrap', '.add-bar']
+      .map(function(sel) { return document.querySelector(sel); }).filter(visible);
+    const btns = Array.prototype.slice.call(document.querySelectorAll('#platformGrid .plat-btn')).filter(visible);
+    const start = T * 0.5;
+    blocks.forEach(function(el, i) {
+      el.animate([
+        { opacity: 0, transform: 'translate3d(0,-14px,0)' },
+        { opacity: 1, transform: 'translate3d(0,0,0)' }
+      ], { duration: 420, delay: start + i * 110, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'backwards' });
+    });
+    const btnStart = start + blocks.length * 110 + 60;
+    btns.forEach(function(el, i) {
+      el.animate([
+        { opacity: 0, transform: 'translate3d(0,-10px,0) scale(0.9)' },
+        { opacity: 1, transform: 'translate3d(0,2px,0) scale(1.03)', offset: 0.7 },
+        { opacity: 1, transform: 'translate3d(0,0,0) scale(1)' }
+      ], { duration: 360, delay: btnStart + Math.min(i, 24) * 35, easing: 'ease-out', fill: 'backwards' });
+    });
+  }
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
@@ -3155,7 +3182,7 @@ const SFX = (function() {
   }
   // Audio auf Mobilgeräten beim ersten Antippen freischalten
   ['pointerdown', 'touchstart', 'keydown'].forEach(function(ev) {
-    window.addEventListener(ev, function unlock() { ac(); window.removeEventListener(ev, unlock, true); }, true);
+    window.addEventListener(ev, function unlock() { if (ac()) noise(); window.removeEventListener(ev, unlock, true); }, true);
   });
   function noise() {
     if (!noiseBuf) {
@@ -4797,7 +4824,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.21</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.22</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5547,7 +5574,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.21',
+    appVersion: 'v2.22',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
