@@ -4639,7 +4639,6 @@ function onBarcodeFound(ean) {
   <button class="theme-toggle" onclick="exportBackup()" title="Komplette Sammlung als Datei sichern">&#11015; Backup exportieren</button>
   <button class="theme-toggle" onclick="document.getElementById('backupImportInput').click()" title="Sammlung aus Backup-Datei wiederherstellen">&#11014; Backup importieren</button>
   <input type="file" id="backupImportInput" accept="application/json,.json" style="display:none" onchange="handleBackupImport(event)">
-  <button class="theme-toggle" onclick="openMaintenance()" title="Aufräum-Vorschläge anzeigen">&#129529; Daten prüfen</button>
 </div>
 
 <div id="maintModal" class="sheet-modal" onclick="if(event.target===this)closeMaintenance()">
@@ -4696,7 +4695,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.17</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.18</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5446,7 +5445,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.17',
+    appVersion: 'v2.18',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -6058,23 +6057,6 @@ async function applyMaintenance() {
     showToast('Fehler: ' + (e.message || e), true);
   }
 }
-
-// Einmaliger Hinweis nach dem Laden, wenn es Vorschläge gibt
-(function() {
-  const _initM = init;
-  init = async function() {
-    const r = await _initM.apply(this, arguments);
-    setTimeout(function() {
-      try {
-        if (localStorage.getItem('maintHint_v1')) return;
-        const it = buildMaintenance();
-        const n = it.orphans.length + it.extras.length + it.typos.length + it.dupes.length;
-        if (n) { showToast(n + ' Aufräum-Vorschläge – ganz unten „Daten prüfen“'); localStorage.setItem('maintHint_v1', '1'); }
-      } catch(e) {}
-    }, 4000);
-    return r;
-  };
-})();
 
 // ══════════════════════════════════════════════════════
 // WERTVERLAUF
