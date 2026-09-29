@@ -3574,6 +3574,52 @@ document.addEventListener('keydown', function(e) {
   }, { passive: true });
 })();
 
+// ── Tabs per Wischen wechseln (mobil, v2.19) ────────────────────────────────
+(function() {
+  const ORDER = ['haben', 'brauchen', 'check'];
+  let sx = 0, sy = 0, st = 0, ok = false;
+  function hScrollable(el) {
+    for (; el && el !== document.body; el = el.parentElement) {
+      if (el.scrollWidth > el.clientWidth + 4) {
+        const ox = getComputedStyle(el).overflowX;
+        if (ox === 'auto' || ox === 'scroll') return true;
+      }
+    }
+    return false;
+  }
+  function blocked(t) {
+    if (window.innerWidth > 900) return true;
+    if (!t || !t.closest) return true;
+    if (t.closest('.game-item-wrap, input, textarea, select, [contenteditable], #loginOverlay, #loadingOverlay, #scannerModal')) return true;
+    if (document.querySelector('.open[id$="Modal"], .sheet-modal.open')) return true;
+    return hScrollable(t);
+  }
+  document.addEventListener('touchstart', function(e) {
+    ok = e.touches.length === 1 && !blocked(e.target);
+    if (!ok) return;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+  }, { passive: true });
+  document.addEventListener('touchend', function(e) {
+    if (!ok) return; ok = false;
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8 || Date.now() - st > 700) return;
+    const i = ORDER.indexOf(currentTab);
+    const next = i + (dx < 0 ? 1 : -1);
+    if (i < 0 || next < 0 || next >= ORDER.length) return;
+    switchTab(ORDER[next]);
+    if (animsOff()) return;
+    const from = dx < 0 ? 40 : -40;
+    ['.tab-bar', '.search-wrap', '.add-bar', '#checkBox', '#platformGrid', '#gameContent'].forEach(function(sel, k) {
+      const el = document.querySelector(sel);
+      if (!el || el.offsetParent === null) return;
+      el.animate([
+        { transform: 'translateX(' + (sel === '.tab-bar' ? 0 : from) + 'px)', opacity: sel === '.tab-bar' ? 1 : 0 },
+        { transform: 'translateX(0)', opacity: 1 }
+      ], { duration: 260, delay: k * 20, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'backwards' });
+    });
+  }, { passive: true });
+})();
+
 // ── Schnäppchen Suche ────────────────────────────────────────────────────────
 const typoMap = {
   'playstation': ['plastation', 'playtation', 'plystation', 'playstaion'],
@@ -4695,7 +4741,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.18</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.19</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5445,7 +5491,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.18',
+    appVersion: 'v2.19',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
