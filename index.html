@@ -2311,6 +2311,7 @@ function bootTransition() {
   scr.style.cssText = 'position:fixed;left:50%;top:50%;width:0;height:2px;transform:translate(-50%,-50%);' +
     'z-index:9000;pointer-events:none;background:#fff;box-shadow:0 0 30px 8px rgba(255,255,255,0.9), 0 0 0 200vmax #000;border-radius:50%';
   document.body.appendChild(scr);
+  SFX.boot();
   const OFF = 900;   // Dauer Röhre-an
   const collapse = scr.animate([
     { width: '0px', height: '2px', borderRadius: '50%', background: 'rgba(255,255,255,1)', offset: 0 },
@@ -2769,6 +2770,7 @@ function animPixelDecay(wrap) {
   const track = function(a) { anims.push(a); return a; };
 
   // 1) Rotes "Treffer"-Flackern
+  SFX.hit();
   const hit = track(card.animate([
     { filter: 'none' },
     { filter: 'sepia(1) saturate(6) hue-rotate(-50deg) brightness(1.1)' },
@@ -2800,6 +2802,7 @@ function animPixelDecay(wrap) {
     }
     document.body.appendChild(layer);
     card.style.visibility = 'hidden';
+    SFX.decay();
 
     // 3) Von rechts nach links zerbröseln und nach unten rieseln
     const SPREAD = 520, FALL = 520;
@@ -3077,6 +3080,96 @@ async function moveToHaben(index) {
   }
 }
 
+// ── Sounds zu den Animationen (v2.16) – per Web Audio synthetisiert, keine Dateien ──
+const SFX = (function() {
+  let ctx = null, master = null, noiseBuf = null;
+  function ac() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+      master = ctx.createGain(); master.gain.value = 0.35; master.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') ctx.resume().catch(function() {});
+    return ctx;
+  }
+  // Audio auf Mobilgeräten beim ersten Antippen freischalten
+  ['pointerdown', 'touchstart', 'keydown'].forEach(function(ev) {
+    window.addEventListener(ev, function unlock() { ac(); window.removeEventListener(ev, unlock, true); }, true);
+  });
+  function noise() {
+    if (!noiseBuf) {
+      noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const n = ctx.createBufferSource(); n.buffer = noiseBuf; n.loop = true; return n;
+  }
+  function env(g, t, a, peak, dur) {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  }
+  function tone(type, f0, f1, t, dur, vol) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    env(g, t, 0.005, vol, dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function hiss(t, dur, vol, freq, q, type) {
+    const n = noise(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    f.type = type || 'bandpass'; f.frequency.value = freq; f.Q.value = q || 1;
+    env(g, t, 0.005, vol, dur);
+    n.connect(f); f.connect(g); g.connect(master); n.start(t); n.stop(t + dur + 0.02);
+    return f;
+  }
+  function ok() { return ac() && ctx.state === 'running'; }
+  return {
+    // Brauchen → Haben: Modul anheben, reinschieben, "klack" + Bestätigungs-Blip
+    cartridge: function() {
+      if (!ok()) return; const t = ctx.currentTime;
+      hiss(t, 0.05, 0.25, 2500, 2);                         // anheben
+      hiss(t + 0.24, 0.35, 0.18, 900, 0.8, 'lowpass');      // reinrutschen
+      tone('square', 180, 70, t + 0.6, 0.09, 0.35);         // klack
+      hiss(t + 0.6, 0.06, 0.4, 1800, 1.5);
+      tone('square', 660, 660, t + 0.74, 0.07, 0.12);       // blip blip
+      tone('square', 990, 990, t + 0.82, 0.12, 0.12);
+    },
+    // Neuer Eintrag: kurzer Röhren-Einschaltton
+    crt: function() {
+      if (!ok()) return; const t = ctx.currentTime;
+      tone('sine', 60, 40, t, 0.12, 0.4);                   // Relais-Plopp
+      const f = hiss(t + 0.03, 0.5, 0.18, 400, 0.7);        // Rauschen
+      f.frequency.exponentialRampToValueAtTime(5000, t + 0.5);
+      tone('sine', 900, 7800, t + 0.08, 0.45, 0.05);        // Röhrenpfeifen
+    },
+    // App-Start: großer Röhren-Einschaltmoment
+    boot: function() {
+      if (!ok()) return; const t = ctx.currentTime;
+      tone('sine', 55, 35, t, 0.25, 0.55);                  // Wumm
+      hiss(t, 0.08, 0.35, 3000, 1);                         // Klick
+      const f = hiss(t + 0.05, 0.9, 0.2, 300, 0.6);         // Statik baut sich auf
+      f.frequency.exponentialRampToValueAtTime(6000, t + 0.8);
+      tone('sine', 1200, 9000, t + 0.1, 0.8, 0.04);         // Pfeifen
+      tone('triangle', 523, 523, t + 0.7, 0.12, 0.1);       // kleines Jingle
+      tone('triangle', 784, 784, t + 0.8, 0.12, 0.1);
+      tone('triangle', 1047, 1047, t + 0.9, 0.25, 0.12);
+    },
+    // Löschen, Teil 1: Treffer
+    hit: function() {
+      if (!ok()) return; const t = ctx.currentTime;
+      for (let i = 0; i < 3; i++) tone('square', 320, 160, t + i * 0.1, 0.07, 0.18);
+    },
+    // Löschen, Teil 2: Zerbröseln + Game-Over-Abstieg
+    decay: function() {
+      if (!ok()) return; const t = ctx.currentTime;
+      for (let i = 0; i < 12; i++) hiss(t + i * 0.055 + Math.random() * 0.02, 0.04, 0.12, 1200 + Math.random() * 3000, 3);
+      [523, 392, 330, 196].forEach(function(f, i) { tone('square', f, f * 0.97, t + 0.1 + i * 0.13, 0.12, 0.1); });
+    }
+  };
+})();
+
 // ── Animationen (v2.12) ───────────────────────────────────────────────────
 function animsOff() {
   return !Element.prototype.animate || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -3089,6 +3182,7 @@ function animCartridgeInsert(wrap) {
   wrap.classList.remove('swiped', 'note-swiped');
   wrap.classList.add('anim-cart');
   card.classList.add('anim-scan');
+  SFX.cartridge();
   const h = wrap.offsetHeight;
   const insert = card.animate([
     { transform: 'translateY(0) scale(1)', filter: 'brightness(1)', offset: 0 },
@@ -3111,6 +3205,7 @@ function animCrtPowerOn(wrap) {
   if (!card) return;
   wrap.classList.add('anim-crt');
   card.classList.add('anim-scan');
+  SFX.crt();
   card.animate([
     { transform: 'scale(0, 0.03)', filter: 'brightness(4) saturate(0)', offset: 0 },
     { transform: 'scale(1, 0.03)', filter: 'brightness(4) saturate(0)', offset: 0.3 },
@@ -4540,7 +4635,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.15</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.16</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5290,7 +5385,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.15',
+    appVersion: 'v2.16',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
