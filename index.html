@@ -2297,26 +2297,37 @@ async function init() {
   }
 }
 
-// ── Power-On-Boot beim App-Start (v2.13) ─────────────────────────────────
+// ── Power-On-Boot beim App-Start (v2.14) ─────────────────────────────────
 function bootTransition() {
   const ov = document.getElementById('loadingOverlay');
   const reduced = !Element.prototype.animate || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   if (!ov || reduced) { if (ov) ov.classList.add('hidden'); return; }
-  const bg = getComputedStyle(ov).backgroundColor;
-  const OFF = 700;   // Dauer Röhre-aus
-  const collapse = ov.animate([
-    { transform: 'scale(1, 1)', filter: 'brightness(1)', backgroundColor: bg, opacity: 1, offset: 0 },
-    { transform: 'scale(1, 0.006)', filter: 'brightness(2)', backgroundColor: '#ffffff', opacity: 1, offset: 0.42 },
-    { transform: 'scale(0.012, 0.006)', filter: 'brightness(2)', backgroundColor: '#ffffff', opacity: 1, offset: 0.78 },
-    { transform: 'scale(0, 0)', filter: 'brightness(2)', backgroundColor: '#ffffff', opacity: 0, offset: 1 }
-  ], { duration: OFF, easing: 'cubic-bezier(0.6, 0, 0.4, 1)', fill: 'forwards' });
+  // Ladebildschirm sofort weg, schwarze Röhre davor – Bild geht von Punkt → Linie → voll an
+  ov.style.transition = 'none';
+  ov.classList.add('hidden');
+  void ov.offsetHeight;
+  ov.style.transition = '';
+  const scr = document.createElement('div');
+  scr.style.cssText = 'position:fixed;left:50%;top:50%;width:0;height:2px;transform:translate(-50%,-50%);' +
+    'z-index:9000;pointer-events:none;background:#fff;box-shadow:0 0 30px 8px rgba(255,255,255,0.9), 0 0 0 200vmax #000;border-radius:50%';
+  document.body.appendChild(scr);
+  const OFF = 900;   // Dauer Röhre-an
+  const collapse = scr.animate([
+    { width: '0px', height: '2px', borderRadius: '50%', background: 'rgba(255,255,255,1)', offset: 0 },
+    { width: '6px', height: '2px', borderRadius: '50%', background: 'rgba(255,255,255,1)', offset: 0.08 },
+    { width: '104vw', height: '2px', borderRadius: '2px', background: 'rgba(255,255,255,1)', offset: 0.38 },
+    { width: '104vw', height: '104vh', borderRadius: '24px', background: 'rgba(255,255,255,0.75)', offset: 0.62 },
+    { width: '104vw', height: '104vh', borderRadius: '0px', background: 'rgba(255,255,255,0)', offset: 0.78 },
+    { width: '104vw', height: '104vh', borderRadius: '0px', background: 'rgba(255,255,255,0.12)', offset: 0.84 },
+    { width: '104vw', height: '104vh', borderRadius: '0px', background: 'rgba(255,255,255,0)', offset: 1 }
+  ], { duration: OFF, easing: 'cubic-bezier(0.3, 0, 0.3, 1)', fill: 'forwards' });
 
   // App baut sich von oben nach unten auf
   const visible = function(el) { return el && el.offsetParent !== null; };
   const blocks = ['header', '.tab-bar', '.search-wrap', '.add-bar']
     .map(function(sel) { return document.querySelector(sel); }).filter(visible);
   const btns = Array.prototype.slice.call(document.querySelectorAll('#platformGrid .plat-btn')).filter(visible);
-  const start = OFF * 0.8;
+  const start = OFF * 0.55;
   blocks.forEach(function(el, i) {
     el.animate([
       { opacity: 0, transform: 'translateY(-14px)', filter: 'blur(3px) brightness(1.8)' },
@@ -2332,13 +2343,7 @@ function bootTransition() {
     ], { duration: 360, delay: btnStart + Math.min(i, 24) * 35, easing: 'ease-out', fill: 'backwards' });
   });
 
-  collapse.finished.catch(function() {}).then(function() {
-    ov.style.transition = 'none';
-    ov.classList.add('hidden');
-    collapse.cancel();
-    void ov.offsetHeight;
-    ov.style.transition = '';
-  });
+  collapse.finished.catch(function() {}).then(function() { scr.remove(); });
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
@@ -4454,7 +4459,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.13</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.14</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5204,7 +5209,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.13',
+    appVersion: 'v2.14',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
