@@ -1840,12 +1840,55 @@
   .deal-badge2.b-src { border-color: var(--value); color: var(--value); }
   .deal-tg-val { flex: none; display: flex; align-items: center; gap: 6px; }
   .deal-tg-in { width: 76px; text-align: right; }
+
+  /* ── DEALS kompakt (v2.30) ── */
+  .deal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .deal-head .deal-status-line { margin: 0; align-items: center; }
+  .deal-head .deal-dot { top: 0; }
+  .deal-gear { flex: none; background: none; border: 1.5px solid var(--border); color: var(--text); border-radius: 16px; padding: 5px 11px; font: 600 12px var(--font-body); cursor: pointer; }
+  .deal-cond { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+  .deal-flex { flex: 1; }
+  .deal-pill { flex: none; border: 1.5px solid var(--border); background: none; color: var(--text-dim); border-radius: 16px; padding: 6px 13px; cursor: pointer;
+    font-family: var(--font-head); font-size: 14px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; }
+  .deal-pill.on { background: var(--purple); border-color: var(--purple); color: #fff; }
+  .deal-chips { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); padding-right: 24px; margin-bottom: 14px; }
+  .deal-card { display: grid; grid-template-columns: 84px minmax(0, 1fr); column-gap: 12px; row-gap: 10px; position: relative; padding: 12px; }
+  .deal-card.is-new { border-color: var(--border); }
+  .deal-card.is-new::before { content: 'NEU'; position: absolute; top: -8px; left: 12px; background: var(--green); color: var(--bg); border-radius: 4px; padding: 1px 6px;
+    font-family: var(--font-head); font-size: 10px; font-weight: 800; letter-spacing: 1px; }
+  .deal-img { width: 84px; height: 84px; border-radius: 8px; overflow: visible; position: relative; }
+  .deal-img img { border-radius: 8px; }
+  .deal-img { text-decoration: none; }
+  .deal-noimg { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-family: var(--font-head); font-weight: 800; font-size: 14px; letter-spacing: 1px; color: var(--text-dim); text-transform: uppercase; }
+  .deal-save { position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); white-space: nowrap; border-radius: 10px; padding: 1px 8px;
+    font-family: var(--font-head); font-size: 14px; font-weight: 800; background: var(--surface); border: 1.5px solid var(--green); color: var(--green); }
+  .deal-save.hot { background: var(--green); color: var(--bg); }
+  .deal-plat { font-size: 11px; letter-spacing: 1.5px; }
+  .deal-game { font-size: 19px; margin-top: 1px; }
+  .deal-title { -webkit-line-clamp: 1; }
+  .deal-price { margin-top: 5px; gap: 8px; }
+  .deal-price b { font-size: 19px; }
+  .deal-price s { font-size: 12px; color: var(--text-dim); }
+  .deal-meta { margin-top: 1px; }
+  .deal-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .dt { font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 9px; border: 1px solid var(--border); color: var(--text-dim); white-space: nowrap; }
+  .dt-fav { border-color: #E8B400; color: #E8B400; }
+  .dt-src { border-color: var(--value); color: var(--value); }
+  .dt-priv { border-color: var(--green); color: var(--green); }
+  .dt-pick { border-color: var(--accent2); color: var(--accent2); }
+  .dt-same { border-color: var(--purple); color: var(--purple); cursor: pointer; }
+  .deal-note { grid-column: 1 / -1; font-size: 12.5px; line-height: 1.4; border-radius: 6px; padding: 7px 9px; }
+  .deal-note-offer { color: var(--value); background: color-mix(in srgb, var(--value) 10%, transparent); }
+  .deal-note-warn { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .deal-card > .deal-actions { grid-column: 1 / -1; margin-top: 0; flex-wrap: nowrap; }
+  .deal-card > .deal-actions .deal-btn-open { flex: 1; text-align: center; }
+  .deal-btn-ic { width: 42px; padding: 7px 0; text-align: center; font-size: 15px; }
+  .deal-card > .deal-hide-why { grid-column: 1 / -1; margin-top: -2px; }
   @media (max-width: 600px) {
     .tab-bar { gap: 4px; padding: 16px 10px 0; flex-wrap: nowrap; }
     .tab-btn { padding: 8px 9px; font-size: 13px; letter-spacing: 0.6px; flex: 0 1 auto; min-width: 0; }
     .deal-badge { margin-left: 4px; min-width: 16px; height: 16px; line-height: 16px; font-size: 10px; padding: 0 4px; }
     .deals-box { padding: 18px 16px 8px; }
-    .deal-img { width: 64px; height: 64px; }
   }
 </style>
 </head>
@@ -2067,19 +2110,18 @@
 
 <div class="deals-box" id="dealsBox" style="display:none">
   <div class="check-section">
-    <div class="check-section-label">&#128176; eBay-Schnäppchen für deine Brauchen-Liste</div>
-    <div id="dealStatus"></div>
+    <div class="deal-head"><div id="dealStatus"></div><button class="deal-gear" onclick="dealOpenSettings()" title="Einstellungen">&#9881;&#xFE0E; Filter</button></div>
     <div class="deal-cond" id="dealCond"></div>
     <div class="deal-chips" id="dealChips"></div>
-    <div class="deal-sort" id="dealSort"></div>
+    <div class="deal-sort" id="dealSort" style="display:none"></div>
     <div class="deal-list" id="dealList"></div>
   </div>
   <div class="check-section">
     <details class="deal-details" id="dealTargetsWrap" ontoggle="if(this.open)renderDealTargets()">
-      <summary>Titel: Favoriten, Zielpreise, Alias</summary>
+      <summary>★ Titel &amp; Zielpreise</summary>
       <div id="dealTargets"></div>
     </details>
-    <details class="deal-details">
+    <details class="deal-details" id="dealSettingsWrap">
       <summary>Scanner-Einstellungen</summary>
       <div id="dealSettings"></div>
     </details>
@@ -5003,7 +5045,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.29</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.30</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5753,7 +5795,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.29',
+    appVersion: 'v2.30',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -6684,6 +6726,12 @@ let dealsUnsub = [];
 let dealFilter = 'all';
 let dealSort = (function() { try { return localStorage.getItem('dealSort') === 'price' ? 'price' : 'new'; } catch(e) { return 'new'; } })();
 function setDealSort(v) { dealSort = v; try { localStorage.setItem('dealSort', v); } catch(e) {} renderDeals(); }
+function dealOpenSettings() {
+  const d = document.getElementById('dealSettingsWrap');
+  if (!d) return;
+  d.open = true;
+  d.scrollIntoView({ behavior: animsOff() ? 'auto' : 'smooth', block: 'start' });
+}
 function dealTime(d) { return Date.parse(d.listedAt || '') || d.firstSeen || 0; }
 let dealTick = null;
 let dealStateErr = null;
@@ -6772,8 +6820,7 @@ function renderDealStatus() {
   const last = Math.max((dealState && dealState.lastRun) || 0, us.lastRun || 0) || null;
   const stale = !last || Date.now() - last > 3 * 3600000;
   el.innerHTML = '<div class="deal-status-line' + (stale ? ' stale' : '') + '">' +
-    '<span class="deal-dot"></span><span>Letzter Scan ' + dealAgo(last) + ' · ' + watched + ' Titel überwacht' +
-    (st ? ' · ' + st.items + ' Angebote geprüft' : '') + '</span></div>' +
+    '<span class="deal-dot"></span><span>Scan ' + dealAgo(last) + ' · ' + watched + ' Titel</span></div>' +
     (stale ? '<div class="deal-hint">' + (last ? 'Der Scanner hat länger nicht mehr gemeldet.' : 'Noch kein Scan gelaufen.') + ' Prüfe auf GitHub unter <b>Actions → Deal-Scanner</b>, ob der Lauf grün ist.</div>' : '');
 }
 
@@ -6788,9 +6835,12 @@ function renderDealCond() {
   const el = document.getElementById('dealCond');
   if (!el) return;
   const c = dealOpts().condition === 'all' ? 'all' : 'cib';
-  el.innerHTML = '<div class="seg deal-seg">' +
-    '<button class="' + (c === 'cib' ? 'on' : '') + '" onclick="setDealOpt(\'condition\', \'cib\')">Nur komplett mit OVP</button>' +
-    '<button class="' + (c === 'all' ? 'on' : '') + '" onclick="setDealOpt(\'condition\', \'all\')">Auch lose / Disc</button></div>';
+  el.innerHTML =
+    '<button class="deal-pill' + (c === 'cib' ? ' on' : '') + '" title="Nur komplett mit OVP" onclick="setDealOpt(\'condition\', \'cib\')">OVP</button>' +
+    '<button class="deal-pill' + (c === 'all' ? ' on' : '') + '" title="Auch lose Module / Discs" onclick="setDealOpt(\'condition\', \'all\')">Lose</button>' +
+    '<span class="deal-flex"></span>' +
+    '<button class="deal-pill' + (dealSort === 'new' ? ' on' : '') + '" onclick="setDealSort(\'new\')">Neuste</button>' +
+    '<button class="deal-pill' + (dealSort === 'price' ? ' on' : '') + '" onclick="setDealSort(\'price\')">Preis</button>';
 }
 
 function renderDeals(err) {
@@ -6807,11 +6857,12 @@ function renderDeals(err) {
     auction: active.filter(function(d) { return d.kind !== 'konvolut' && d.type === 'auction'; }).length,
     konvolut: active.filter(function(d) { return d.kind === 'konvolut'; }).length,
     pickup: active.filter(function(d) { return d.pickup; }).length,
+    fav: active.filter(function(d) { return d.fav; }).length,
     seller: active.filter(function(d) { return dealSellerCount(active, d) > 1; }).length,
     hidden: all.length - active.length
   };
-  const labels = { all: 'Alle', bin: 'Sofortkauf', auction: 'Auktion', konvolut: 'Konvolut', pickup: 'Abholung', seller: 'Gleicher Verkäufer', hidden: 'Ausgeblendet' };
-  chips.innerHTML = Object.keys(labels).filter(function(k) { return ['hidden', 'pickup', 'seller'].indexOf(k) === -1 || counts[k] || dealFilter === k; }).map(function(k) {
+  const labels = { all: 'Alle', fav: '★ Favoriten', bin: 'Sofortkauf', auction: 'Auktion', konvolut: 'Konvolut', pickup: 'Abholung', seller: 'Gleicher Verkäufer', hidden: 'Ausgeblendet' };
+  chips.innerHTML = Object.keys(labels).filter(function(k) { return ['hidden', 'pickup', 'seller', 'fav'].indexOf(k) === -1 || counts[k] || dealFilter === k; }).map(function(k) {
     return '<button class="deal-chip' + (dealFilter === k ? ' on' : '') + '" onclick="setDealFilter(\'' + k + '\')">' + labels[k] + ' <span>' + counts[k] + '</span></button>';
   }).join('');
 
@@ -6822,6 +6873,7 @@ function renderDeals(err) {
     if (dealFilter === 'auction') return d.kind !== 'konvolut' && d.type === 'auction';
     if (dealFilter === 'konvolut') return d.kind === 'konvolut';
     if (dealFilter === 'pickup') return !!d.pickup;
+    if (dealFilter === 'fav') return !!d.fav;
     if (dealFilter === 'seller') return dealSellerCount(active, d) > 1;
     return true;
   });
@@ -6831,9 +6883,7 @@ function renderDeals(err) {
     if (dealSort === 'price') return (a.total || 0) - (b.total || 0);
     return dealTime(b) - dealTime(a);
   });
-  document.getElementById('dealSort').innerHTML = '<span>Sortieren</span><div class="seg deal-seg deal-seg-sm">' +
-    '<button class="' + (dealSort === 'new' ? 'on' : '') + '" onclick="setDealSort(\'new\')">Neuste</button>' +
-    '<button class="' + (dealSort === 'price' ? 'on' : '') + '" onclick="setDealSort(\'price\')">Preis</button></div>';
+
 
   if (err) { list.innerHTML = '<div class="deal-empty">Deals konnten nicht geladen werden (' + dealEsc(err.code || err.message || err) + ').<br>Firestore-Regeln für <b>users/{uid}/deals</b> prüfen.</div>'; return; }
   if (!dealOpts().enabled && !rows.length) { list.innerHTML = ''; return; }
@@ -6847,55 +6897,61 @@ function renderDeals(err) {
 
 function dealCardHtml(d) {
   const cfg = platforms[d.platform] || { label: d.platform, color: '#888888' };
-  const pct = d.score ? Math.round(d.score * 100) : null;
-  const tier = pct === null ? '' : (pct <= 45 ? ' hot' : (pct <= 60 ? ' good' : ''));
-  let kind;
-  if (d.kind === 'konvolut') kind = 'Konvolut · ' + (d.matched || []).length + ' von deiner Liste';
-  else if (d.type === 'auction') kind = 'Auktion · noch ' + dealLeft(d.endsAt) + ' · ' + (d.bids || 0) + ' Gebote';
-  else kind = 'Sofortkauf';
+  const off = d.score ? Math.round((1 - d.score) * 100) : null;            // Ersparnis in %
   const isCart = ['Atari', 'NES', 'SNES', 'N64', 'Megadrive', 'Mastersystem', 'GB', 'GBC', 'GBA'].indexOf(d.platform) !== -1;
-  const cls = { modul: isCart ? 'Lose (Modul)' : 'Lose', cib: 'Komplett mit OVP', sealed: 'Sealed' }[d.cls] || '';
-  const ref = d.ref ? (d.kind === 'konvolut' ? 'Einzelwert ' : 'Markt ') + dealEur0(d.ref) + ' · du sparst ' + dealEur0(d.save) : '';
-  const tgt = d.target ? 'Zielpreis ' + dealEur(d.target) : '';
-  const seller = d.seller ? 'Verkäufer ' + (d.sellerFb != null ? d.sellerFb : '?') + (d.sellerPct != null ? ' (' + String(d.sellerPct).replace('.', ',') + ' %)' : '') : '';
-  const badges = [];
-  if (d.fav) badges.push('<span class="deal-badge2 b-fav">★ Favorit</span>');
-  const SRC = { typo: 'Tippfehler im Titel', nocat: 'Falsch einsortiert', alias: 'Anderer Titel', aufl: 'Auflösung' };
-  if (SRC[d.src]) badges.push('<span class="deal-badge2 b-src">' + SRC[d.src] + '</span>');
-  if (d.sellerType === 'INDIVIDUAL') badges.push('<span class="deal-badge2 b-priv">Privat</span>');
-  else if (d.sellerType === 'BUSINESS') badges.push('<span class="deal-badge2 b-biz">Händler</span>');
-  if (d.pickup) badges.push('<span class="deal-badge2 b-pick">📍 Abholung' + (d.city ? ' · ' + dealEsc(d.city) : (d.postal ? ' · ' + dealEsc(d.postal) : '')) + '</span>');
-  const sameSeller = dealSellerCount(dealActive, d);
-  if (sameSeller > 1) badges.push('<span class="deal-badge2 b-same" onclick="setDealFilter(\'seller\')">' + sameSeller + ' Titel bei diesem Verkäufer</span>');
+  const cls = { modul: isCart ? 'Modul' : 'Lose', cib: 'CIB', sealed: 'Sealed' }[d.cls] || '';
   const id = dealEsc(d._id);
   const hidden = d.status === 'hidden';
+  // Zeile unter dem Preis: Versand · Typ · Zustand
+  const ship = d.pickup ? '' : (d.shipKnown === false ? 'Versand ~5 €?' : (d.shipping ? 'inkl. ' + dealEur(d.shipping).replace(',00', '') + ' Versand' : 'versandfrei'));
+  let kind;
+  if (d.kind === 'konvolut') kind = 'Konvolut · ' + (d.matched || []).length + ' Titel';
+  else if (d.type === 'auction') kind = '⏱ noch ' + dealLeft(d.endsAt) + ' · ' + (d.bids || 0) + ' Gebote';
+  else kind = 'Sofortkauf';
+  const metaLine = [kind, ship, cls].filter(Boolean).join(' · ');
+  const refTxt = d.ref ? (d.kind === 'konvolut' ? 'Einzeln ' : 'Markt ') + dealEur0(d.ref) : (d.target ? 'Ziel ' + dealEur0(d.target) : '');
+  // Badges
+  const tags = [];
+  if (d.fav) tags.push('<span class="dt dt-fav">★ Favorit</span>');
+  const SRC = { typo: 'Tippfehler', nocat: 'Falsch einsortiert', alias: 'Anderer Titel', aufl: 'Auflösung' };
+  if (SRC[d.src]) tags.push('<span class="dt dt-src">' + SRC[d.src] + '</span>');
+  if (d.pickup) tags.push('<span class="dt dt-pick">📍 ' + dealEsc(d.city || d.postal || 'Abholung') + '</span>');
+  const fb = d.sellerFb != null ? ' · ' + d.sellerFb : '';
+  if (d.sellerType === 'INDIVIDUAL') tags.push('<span class="dt dt-priv">Privat' + fb + '</span>');
+  else if (d.sellerType === 'BUSINESS') tags.push('<span class="dt">Händler' + fb + '</span>');
+  else if (d.seller) tags.push('<span class="dt">Verkäufer' + fb + '</span>');
+  if (d.descOk) tags.push('<span class="dt dt-priv">✓ Beschreibung</span>');
+  const same = dealSellerCount(dealActive, d);
+  if (same > 1) tags.push('<span class="dt dt-same" onclick="setDealFilter(\'seller\')">' + same + '× gleicher Verkäufer</span>');
+  const soldUrl = ebayUrl(d.kind === 'konvolut' ? ((d.matched || [])[0] || d.game) : d.game, cfg.ebay !== undefined ? cfg.ebay : (cfg.label || d.platform));
   return '<div class="deal-card' + (d.status === 'new' ? ' is-new' : '') + '" id="deal-' + id + '">' +
-    '<a class="deal-img" href="' + dealEsc(d.url) + '" target="_blank" rel="noopener">' + (d.img ? '<img loading="lazy" alt="" src="' + dealEsc(d.img) + '">' : '') + '</a>' +
+    '<a class="deal-img" href="' + dealEsc(d.url) + '" target="_blank" rel="noopener">' +
+      (d.img ? '<img loading="lazy" alt="" src="' + dealEsc(d.img) + '">' : '<span class="deal-noimg">' + dealEsc((cfg.label || d.platform).slice(0, 4)) + '</span>') +
+      (off !== null && off > 0 ? '<span class="deal-save' + (off >= 50 ? ' hot' : '') + '">−' + off + ' %</span>' : '') +
+    '</a>' +
     '<div class="deal-body">' +
-      '<div class="deal-top"><span class="deal-plat" style="color:' + platCol(cfg.color) + '">' + dealEsc(cfg.label || d.platform) + '</span>' +
-        (pct !== null ? '<span class="deal-score' + tier + '">' + pct + ' %</span>' : '') + '</div>' +
-      '<a class="deal-game" href="' + dealEsc(ebayUrl(d.kind === 'konvolut' ? ((d.matched || [])[0] || d.game) : d.game, cfg.ebay !== undefined ? cfg.ebay : (cfg.label || d.platform))) + '" target="_blank" rel="noopener" title="Beendete Angebote">' + dealEsc(d.game) + '</a>' +
+      '<div class="deal-plat" style="color:' + platCol(cfg.color) + '">' + dealEsc(cfg.label || d.platform) + '</div>' +
+      '<a class="deal-game" href="' + dealEsc(soldUrl) + '" target="_blank" rel="noopener" title="Beendete Angebote">' + dealEsc(d.game) + '</a>' +
       '<div class="deal-title">' + dealEsc(d.title) + '</div>' +
-      (badges.length ? '<div class="deal-badges">' + badges.join('') + '</div>' : '') +
-      '<div class="deal-price"><b>' + dealEur(d.total) + '</b><span>' + (d.pickup ? 'bei Abholung' : d.shipKnown === false ? 'Versand unklar (~5 € angesetzt)' : (d.shipping ? 'inkl. ' + dealEur(d.shipping) + ' Versand' : 'versandkostenfrei')) + '</span></div>' +
-      '<div class="deal-meta">' + [ref, tgt, cls].filter(Boolean).map(dealEsc).join(' · ') + '</div>' +
-      '<div class="deal-meta">' + dealEsc([kind, seller].filter(Boolean).join(' · ')) + '</div>' +
-      (d.offer ? '<div class="deal-offer">💬 Preisvorschlag möglich – versuch\'s mit ' + dealEur0(d.offer) + (d.pickup ? '' : ' + Versand') + '</div>' : '') +
-      (d.descOk ? '<div class="deal-ok">✓ Beschreibung geprüft</div>' : '') +
-      (d.suspicious ? '<div class="deal-warn">⚠ Auffällig günstig – Verkäufer und Fotos genau prüfen</div>' : '') +
-      '<div class="deal-actions">' +
-        '<a class="deal-btn deal-btn-open" href="' + dealEsc(d.url) + '" target="_blank" rel="noopener">Bei eBay öffnen &#8599;</a>' +
-        (d.kind !== 'konvolut' ? '<button class="deal-btn" onclick="dealBought(\'' + id + '\')">Gekauft</button>' : '') +
-        (hidden ? '<button class="deal-btn" onclick="dealSetStatus(\'' + id + '\', \'seen\')">Einblenden</button>'
-                : '<button class="deal-btn" onclick="dealAskHide(this)">Ausblenden</button>') +
-      '</div>' +
-      '<div class="deal-hide-why" style="display:none"><span>Warum?</span>' +
-        '<button class="deal-btn" onclick="dealHide(\'' + id + '\', \'wrong\')">Falsches Spiel</button>' +
-        '<button class="deal-btn" onclick="dealHide(\'' + id + '\', \'incomplete\')">Unvollständig</button>' +
-        '<button class="deal-btn" onclick="dealHide(\'' + id + '\', \'expensive\')">Zu teuer</button>' +
-        '<button class="deal-btn" onclick="dealHide(\'' + id + '\', \'\')">Nur ausblenden</button>' +
-      '</div>' +
-    '</div></div>';
+      '<div class="deal-price"><b>' + dealEur(d.total) + '</b>' + (refTxt ? '<s>' + dealEsc(refTxt) + '</s>' : '') + '</div>' +
+      '<div class="deal-meta">' + dealEsc(metaLine) + '</div>' +
+      (tags.length ? '<div class="deal-tags">' + tags.join('') + '</div>' : '') +
+    '</div>' +
+    (d.offer ? '<div class="deal-note deal-note-offer">💬 Preisvorschlag möglich – versuch\'s mit ' + dealEur0(d.offer) + (d.pickup ? '' : ' + Versand') + '</div>' : '') +
+    (d.suspicious ? '<div class="deal-note deal-note-warn">⚠ Auffällig günstig – Verkäufer und Fotos genau prüfen</div>' : '') +
+    '<div class="deal-actions">' +
+      '<a class="deal-btn deal-btn-open" href="' + dealEsc(d.url) + '" target="_blank" rel="noopener">Bei eBay öffnen &#8599;</a>' +
+      (d.kind !== 'konvolut' && !hidden ? '<button class="deal-btn deal-btn-ic" title="Gekauft → Haben" aria-label="Gekauft" onclick="dealBought(\'' + id + '\')">&#10003;</button>' : '') +
+      (hidden ? '<button class="deal-btn" onclick="dealSetStatus(\'' + id + '\', \'seen\')">Einblenden</button>'
+              : '<button class="deal-btn deal-btn-ic" title="Ausblenden" aria-label="Ausblenden" onclick="dealAskHide(this)">&#10005;</button>') +
+    '</div>' +
+    '<div class="deal-hide-why" style="display:none"><span>Warum ausblenden?</span>' +
+      '<button class="deal-btn" onclick="dealHide(\'' + id + '\', \'wrong\')">Falsches Spiel</button>' +
+      '<button class="deal-btn" onclick="dealHide(\'' + id + '\', \'incomplete\')">Unvollständig</button>' +
+      '<button class="deal-btn" onclick="dealHide(\'' + id + '\', \'expensive\')">Zu teuer</button>' +
+      '<button class="deal-btn" onclick="dealHide(\'' + id + '\', \'\')">Nur so</button>' +
+    '</div>' +
+  '</div>';
 }
 
 let dealSeenTimer = null;
