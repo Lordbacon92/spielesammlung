@@ -1,18 +1,30 @@
 name: Deal-Scanner
 
+# Läuft als Dauerschleife: ein Lauf scannt ~5,5 Stunden lang alle 30 Minuten
+# und startet sich danach selbst neu. Der Zeitplan unten ist nur das Sicherheitsnetz,
+# falls die Kette einmal abreißt (GitHub-Zeitpläne sind oft stark verspätet).
 on:
   schedule:
-    - cron: '7,37 * * * *'     # alle 30 Minuten
-  workflow_dispatch: {}          # manuell starten: Actions → Deal-Scanner → Run workflow
+    - cron: '7 */3 * * *'
+  workflow_dispatch:
+    inputs:
+      single:
+        description: 'Nur einmal scannen (ohne Dauerschleife)'
+        type: boolean
+        default: false
 
 concurrency:
   group: deal-scanner
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 350
     defaults:
       run:
         working-directory: scanner
@@ -22,7 +34,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-audit --no-fund
-      - run: node scan.mjs
+      - name: Scannen (Schleife)
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
@@ -30,3 +42,16 @@ jobs:
           EBAY_ZIP: ${{ vars.EBAY_ZIP }}
           MAX_CALLS: ${{ vars.MAX_CALLS || '100' }}
           DEBUG_DEALS: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+          ROUNDS: ${{ inputs.single && '1' || '11' }}
+        run: |
+          for i in $(seq 1 "$ROUNDS"); do
+            echo "── Runde $i/$ROUNDS · $(date -u +%H:%M) UTC"
+            node scan.mjs || echo "::warning::Runde $i fehlgeschlagen"
+            DEBUG_DEALS=""
+            if [ "$i" -lt "$ROUNDS" ]; then sleep 1800; fi
+          done
+      - name: Nächste Schleife starten
+        if: ${{ always() && !inputs.single }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deal-scanner.yml --repo "$GITHUB_REPOSITORY" --ref main

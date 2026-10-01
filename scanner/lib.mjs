@@ -341,6 +341,9 @@ export function parseItem(it) {
     seller: seller.username || '',
     sellerFb: seller.feedbackScore != null ? Number(seller.feedbackScore) : null,
     sellerPct: seller.feedbackPercentage != null ? parseFloat(seller.feedbackPercentage) : null,
+    bestOffer: opts.includes('BEST_OFFER'),
+    postal: (it.itemLocation && it.itemLocation.postalCode) || '',
+    city: (it.itemLocation && (it.itemLocation.city || '')) || '',
     condition: it.condition || '',
     conditionId: it.conditionId || '',
     country: (it.itemLocation && it.itemLocation.country) || ''
@@ -354,16 +357,24 @@ export function sellerOk(p, opts) {
 }
 
 // Bewertet ein passendes Angebot. ref = { median, n } oder null; target = Zielpreis oder null
-export function evaluate(p, ref, target, opts, nowMs) {
+export function evaluate(p, ref, target, opts, nowMs, bonus) {
   if (!isFinite(p.price) || p.price <= 0) return null;
   const med = ref && ref.median ? ref.median : null;
   if (!med && !target) return null;                         // ohne Vergleichswert keine Aussage
   const base = med || target;
   const score = p.total / base;
   const save = base - p.total;
-  let hit = false;
+  const thr = opts.threshold + (bonus || 0);
+  // Grenze: Zielpreis oder Anteil vom Marktwert – die großzügigere gilt
+  const limit = Math.max(target || 0, med ? med * thr : 0);
+  let hit = false, offer = null;
   if (target && p.total <= target) hit = true;
-  if (med && score <= opts.threshold && save >= opts.minSave) hit = true;
+  if (med && score <= thr && save >= opts.minSave) hit = true;
+  // Preisvorschlag möglich: bis 20 % über der Grenze ist meist verhandelbar
+  if (!hit && p.type === 'bin' && p.bestOffer && limit && p.total <= limit * 1.2) {
+    hit = true;
+    offer = Math.max(1, Math.floor(limit - (p.shipping || 0)));
+  }
   if (p.type === 'auction') {
     const left = p.endsAt ? (Date.parse(p.endsAt) - nowMs) / 3600000 : Infinity;
     if (!(left > 0 && left <= opts.auctionHours)) hit = false;   // nur kurz vor Ende interessant
@@ -371,6 +382,7 @@ export function evaluate(p, ref, target, opts, nowMs) {
   if (!hit) return null;
   if (med && score < 0.25 && !(target && p.total <= target)) return null;   // so billig ist fast immer ein anderer Artikel
   return {
+    offer,
     ref: med ? r2(med) : null,
     refN: ref ? ref.n : 0,
     target: target || null,
@@ -391,12 +403,17 @@ export const DEFAULT_OPTS = {
   minSellerFb: 0,
   ntfyTopic: '',
   konvolut: true,
-  condition: 'cib'         // 'cib' = nur komplett mit OVP, 'all' = auch lose Module/Discs
+  condition: 'cib',        // 'cib' = nur komplett mit OVP, 'all' = auch lose Module/Discs
+  zip: '',                 // PLZ für Abholung in der Nähe
+  pickupRadius: 50,        // km
+  pickupBonus: 0.15,       // Abholung: Grenze 15 Prozentpunkte großzügiger (kein Versand, wenig Konkurrenz)
+  businessMalus: 0.1       // gewerbliche Verkäufer: Grenze 10 Prozentpunkte strenger
 };
 export function userOpts(dealScan) {
   const o = Object.assign({}, DEFAULT_OPTS, dealScan || {});
   if (o.condition !== 'all') o.condition = 'cib';
-  ['threshold', 'minSave', 'notifyBelow', 'auctionHours', 'minSellerPct', 'minSellerFb'].forEach(k => {
+  o.zip = /^\d{5}$/.test(String(o.zip || '').trim()) ? String(o.zip).trim() : '';
+  ['threshold', 'minSave', 'notifyBelow', 'auctionHours', 'minSellerPct', 'minSellerFb', 'pickupRadius', 'pickupBonus', 'businessMalus'].forEach(k => {
     const v = Number(o[k]); o[k] = isFinite(v) ? v : DEFAULT_OPTS[k];
   });
   return o;
@@ -414,6 +431,9 @@ export function buildTasks(brauchen, opts) {
     for (const game of games) {
       tasks.push({ kind: 'new', platform, game });
       tasks.push({ kind: 'end', platform, game });
+    }
+    if (opts.zip && games.length && PLATFORM_QUERY[platform]) {
+      tasks.push({ kind: 'pickup', platform, games });
     }
     if (opts.konvolut && games.length && platform !== 'Konsole/Parts' && PLATFORM_QUERY[platform] !== undefined) {
       tasks.push({ kind: 'konvolut', platform, games });

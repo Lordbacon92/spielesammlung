@@ -28,8 +28,11 @@ export function makeEbay({ clientId, clientSecret, zip }) {
     token = j.access_token; tokenExp = Date.now() + (j.expires_in || 7200) * 1000;
     return token;
   }
-  async function search({ q, sort, auctionOnly, category, limit }) {
-    const filters = ['deliveryCountry:DE', 'priceCurrency:EUR'];
+  async function search({ q, sort, auctionOnly, category, limit, pickup }) {
+    const filters = pickup
+      ? ['pickupCountry:DE', 'pickupPostalCode:' + pickup.zip, 'pickupRadius:' + pickup.radius, 'pickupRadiusUnit:km',
+         'deliveryOptions:{SELLER_ARRANGED_LOCAL_PICKUP}', 'priceCurrency:EUR']
+      : ['deliveryCountry:DE', 'priceCurrency:EUR'];
     if (auctionOnly) filters.push('buyingOptions:{AUCTION}');
     const params = new URLSearchParams({ q, limit: String(limit || 200), filter: filters.join(',') });
     if (sort) params.set('sort', sort);
@@ -147,11 +150,15 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
           const ev = evaluate(p, refFor(t.platform, t.game, p.cls), target, opts, now);
           if (ev) addDeal(p, Object.assign({ kind: 'title', platform: t.platform, game: t.game }, ev));
         }
-      } else if (t.kind === 'konvolut') {
-        const items = await ebay.search({ q: 'Konvolut ' + PLATFORM_QUERY[t.platform], sort: 'newlyListed', category: CAT_GAMES, limit: 100 });
+      } else if (t.kind === 'konvolut' || t.kind === 'pickup') {
+        const pickup = t.kind === 'pickup';
+        const items = await ebay.search(pickup
+          ? { q: PLATFORM_QUERY[t.platform], sort: 'newlyListed', category: t.platform === 'Konsole/Parts' ? null : CAT_GAMES, limit: 200, pickup: { zip: opts.zip, radius: opts.pickupRadius } }
+          : { q: 'Konvolut ' + PLATFORM_QUERY[t.platform], sort: 'newlyListed', category: CAT_GAMES, limit: 100 });
         used++; stats.tasks++; stats.items += items.length;
         for (const raw of items) {
           const p = parseItem(raw);
+          if (pickup) { p.pickup = true; p.shipping = 0; p.shipKnown = true; p.total = p.price; }
           if (!platformOk(p.title, t.platform, true)) continue;
           if (junkReason(p.title, '', opts) || !sellerOk(p, opts)) continue;
           if (!conditionOk(p.title, p.conditionId, opts)) continue;
@@ -160,6 +167,15 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
           if (!hits.length) continue;
           stats.matched++;
           const cls = conditionClass(p.title, t.platform, p.conditionId);
+          p.cls = cls;
+          // Abholung, genau ein Titel: normal bewerten, aber großzügiger
+          if (pickup && hits.length === 1) {
+            const g = hits[0];
+            if (variantReason(p.title, g) || contextReason(p.title, g) || !platformOk(p.title, t.platform, false)) continue;
+            const ev = evaluate(p, refFor(t.platform, g, cls), Number(targets[t.platform + '::' + g]) || null, opts, now, opts.pickupBonus);
+            if (ev) addDeal(p, Object.assign({ kind: 'title', platform: t.platform, game: g }, ev));
+            continue;
+          }
           let sum = 0, known = 0;
           for (const g of hits) {
             const r = refFor(t.platform, g, cls) || refFor(t.platform, g, 'modul');
@@ -173,11 +189,11 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
             if (!(left > 0 && left <= opts.auctionHours)) continue;
           }
           const score = p.total / sum, save = sum - p.total;
-          if (score > 1 || save < opts.minSave) continue;
+          if (score > (pickup ? 1 + opts.pickupBonus : 1) || save < opts.minSave) continue;
           addDeal(p, {
             kind: 'konvolut', platform: t.platform, game: hits.join(' · '), matched: hits, cls,
             ref: Math.round(sum * 100) / 100, refN: known, target: null,
-            score: Math.round(score * 100) / 100, save: Math.round(save * 100) / 100, suspicious: false
+            score: Math.round(score * 100) / 100, save: Math.round(save * 100) / 100, suspicious: false, offer: null
           });
         }
       }
@@ -199,7 +215,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
     checked.add(id);
     const old = existing.get(id);
     if (badItems[p.itemId]) continue;
-    if (old && old.descOk) { acceptDeal(p, Object.assign({ descOk: true }, extra)); continue; }
+    if (old && old.descOk) { acceptDeal(p, Object.assign({ descOk: true, sellerType: old.sellerType || '' }, extra)); continue; }
     if (!ebay.getItem || descCalls >= descBudget) { if (old) seen.add(id); continue; }   // nächster Lauf
     try {
       descCalls++; used++; stats.descChecked++;
@@ -208,7 +224,14 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
       const text = [it.conditionDescription, it.shortDescription, htmlToText(it.description)].filter(Boolean).join(' . ');
       const why = descriptionReason(text, opts);
       if (why) { badItems[p.itemId] = now; stats.descRejected++; continue; }
-      acceptDeal(p, Object.assign({ descOk: true }, extra));
+      const sellerType = it.seller && it.seller.sellerAccountType ? String(it.seller.sellerAccountType).toUpperCase() : '';
+      if (sellerType === 'BUSINESS' && !extra.offer && extra.ref && extra.kind !== 'konvolut' &&
+          extra.score > opts.threshold + (p.pickup ? opts.pickupBonus : 0) - opts.businessMalus &&
+          !(extra.target && p.total <= extra.target)) {
+        badItems[p.itemId] = now; stats.descRejected++; continue;               // Händler: nur bei deutlich besserem Preis
+      }
+      if (p.pickup && it.itemLocation && it.itemLocation.city) p.city = it.itemLocation.city;
+      acceptDeal(p, Object.assign({ descOk: true, sellerType }, extra));
     } catch (e) { stats.errors++; log('  ! Beschreibung ' + p.itemId + ': ' + e.message); if (old) seen.add(id); }
   }
   for (const k of Object.keys(badItems)) if (now - badItems[k] > 14 * 864e5) delete badItems[k];
@@ -234,6 +257,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
   }
   stats.deals = found.size;
   await store.writeDeals(upserts, deletes);
+  if (store.setStatus) await store.setStatus({ lastRun: now, lastStats: Object.assign({ calls: used, total: tasks.length }, stats) }).catch(e => log('  ! Status: ' + e.message));
   await store.setState({ cursor, refs, badItems, refVersion: 2, lastRun: now, lastStats: Object.assign({ calls: used, total: tasks.length, newDeals: fresh.length }, stats) });
 
   // ── Push ──
@@ -277,6 +301,7 @@ function firestoreStore(db, uid) {
   return {
     async getState() { const s = await stateRef.get(); return s.exists ? s.data() : {}; },
     async setState(st) { await stateRef.set(st); },
+    async setStatus(st) { await userRef.update({ dealStatus: st }); },
     async listDeals() { const q = await dealsCol.get(); return new Map(q.docs.map(d => [d.id, d.data()])); },
     async writeDeals(upserts, deletes) {
       const ops = [];
