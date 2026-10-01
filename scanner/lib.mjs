@@ -134,7 +134,10 @@ const JUNK = [
   'folie', 'schutzfolie', 'displayfolie', 'displayschutz', 'display schutz', 'screen protector', 'skin', 'aufkleberset',
   'ersatzhulle', 'ersatzhuelle', 'ersatz hulle', 'ersatz huelle', 'ersatzteil', 'ersatzteile', 'ersatz', 'replacement',
   'gehause', 'gehaeuse', 'shell', 'housing', 'batteriedeckel', 'akkudeckel', 'battery cover', 'tasche', 'sleeve',
-  'hulle fur', 'huelle fuer', 'case fur', 'case fuer', 'nur cover', 'reparatur', 'repair', 'kabel only', 'nur kabel'
+  'hulle fur', 'huelle fuer', 'case fur', 'case fuer', 'nur cover', 'reparatur', 'repair', 'kabel only', 'nur kabel',
+  // Deko / Merchandise
+  'plakette', 'deko', 'dekoration', 'wandbild', 'bild', 'schild', 'blechschild', 'lampe', 'leuchte', 'figur', 'figuren', 'tasse',
+  'shirt', 't shirt', 'merch', 'merchandise', 'miniatur', 'magnet', 'kuhlschrankmagnet', 'mousepad', 'mauspad', 'kissen', 'puzzle', 'lego'
 ];
 
 // Hinweise auf "nicht komplett" – im OVP-Modus immer raus
@@ -143,6 +146,7 @@ const INCOMPLETE = [
   'nur modul', 'modul only', 'cartridge only', 'cart only', 'nur cartridge', 'nur das spiel', 'nur spiel', 'game only',
   'lose', 'loose', 'ohne ovp', 'ohne box', 'ohne karton', 'ohne anleitung', 'ohne hulle', 'ohne huelle', 'ohne case',
   'ohne verpackung', 'ohne originalverpackung', 'ohne manual', 'no box', 'no manual', 'no case', 'unboxed',
+  'ohne handbuch', 'handbuch fehlt', 'kein handbuch', 'ohne heft', 'ohne beiheft', 'ohne booklet', 'booklet fehlt',
   'nur ovp', 'ovp fehlt', 'anleitung fehlt', 'hulle fehlt', 'huelle fehlt', 'ohne inlay', 'kein ovp', 'keine ovp', 'keine anleitung'
 ];
 // Positive Hinweise auf komplett mit OVP
@@ -157,7 +161,7 @@ export function looksComplete(itemTitle, conditionId) {
   const n = ' ' + norm(itemTitle) + ' ';
   return COMPLETE_RE.test(n) || String(conditionId) === '1000';   // 1000 = Neu (originalverpackt)
 }
-const REGION = ['ntsc', 'ntsc j', 'ntsc u', 'jap', 'japan', 'japanisch', 'jpn', 'us import', 'usa', 'us version', 'ntscu', 'ntscj'];
+const REGION = ['super famicom', 'famicom', 'sfc', 'jp version', 'jp import', 'jpn version', 'ntsc', 'ntsc j', 'ntsc u', 'jap', 'japan', 'japanisch', 'jpn', 'us import', 'usa', 'us version', 'ntscu', 'ntscj'];
 
 // Sammel- und Sonderausgaben verfälschen den Preisvergleich – nur erlaubt, wenn der gesuchte Titel sie selbst nennt
 const VARIANT = [
