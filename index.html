@@ -1760,6 +1760,11 @@
   }
   .deal-score.good { border-color: var(--green); color: var(--green); }
   .deal-score.hot { background: var(--green); border-color: var(--green); color: #fff; }
+  .deal-sort { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: -2px 0 12px; font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+  .deal-seg button { font-family: var(--font-body); font-weight: 600; }
+  .deal-seg-sm button { padding: 5px 12px; font-size: 12px; }
+  a.deal-game { display: block; text-decoration: none; }
+  a.deal-game:active { opacity: 0.6; }
   .deal-game { font-family: var(--font-head); font-size: 18px; font-weight: 700; line-height: 1.15; margin-top: 2px; color: var(--text); }
   .deal-title {
     font-size: 12px; line-height: 1.4; color: var(--text-dim); margin-top: 2px;
@@ -2048,6 +2053,7 @@
     <div id="dealStatus"></div>
     <div class="deal-cond" id="dealCond"></div>
     <div class="deal-chips" id="dealChips"></div>
+    <div class="deal-sort" id="dealSort"></div>
     <div class="deal-list" id="dealList"></div>
   </div>
   <div class="check-section">
@@ -4979,7 +4985,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.25</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.26</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5729,7 +5735,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.25',
+    appVersion: 'v2.26',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -6658,6 +6664,9 @@ let dealsList = [];          // alle Deal-Dokumente
 let dealState = null;        // users/{uid}/dealMeta/state
 let dealsUnsub = [];
 let dealFilter = 'all';
+let dealSort = (function() { try { return localStorage.getItem('dealSort') === 'price' ? 'price' : 'new'; } catch(e) { return 'new'; } })();
+function setDealSort(v) { dealSort = v; try { localStorage.setItem('dealSort', v); } catch(e) {} renderDeals(); }
+function dealTime(d) { return Date.parse(d.listedAt || '') || d.firstSeen || 0; }
 let dealTick = null;
 let dealStateErr = null;
 
@@ -6789,9 +6798,12 @@ function renderDeals(err) {
     return true;
   });
   rows.sort(function(a, b) {
-    if ((a.status === 'new') !== (b.status === 'new')) return a.status === 'new' ? -1 : 1;
-    return (a.score || 9) - (b.score || 9);
+    if (dealSort === 'price') return (a.total || 0) - (b.total || 0);
+    return dealTime(b) - dealTime(a);
   });
+  document.getElementById('dealSort').innerHTML = '<span>Sortieren</span><div class="seg deal-seg deal-seg-sm">' +
+    '<button class="' + (dealSort === 'new' ? 'on' : '') + '" onclick="setDealSort(\'new\')">Neuste</button>' +
+    '<button class="' + (dealSort === 'price' ? 'on' : '') + '" onclick="setDealSort(\'price\')">Preis</button></div>';
 
   if (err) { list.innerHTML = '<div class="deal-empty">Deals konnten nicht geladen werden (' + dealEsc(err.code || err.message || err) + ').<br>Firestore-Regeln für <b>users/{uid}/deals</b> prüfen.</div>'; return; }
   if (!dealOpts().enabled && !rows.length) { list.innerHTML = ''; return; }
@@ -6823,7 +6835,7 @@ function dealCardHtml(d) {
     '<div class="deal-body">' +
       '<div class="deal-top"><span class="deal-plat" style="color:' + platCol(cfg.color) + '">' + dealEsc(cfg.label || d.platform) + '</span>' +
         (pct !== null ? '<span class="deal-score' + tier + '">' + pct + ' %</span>' : '') + '</div>' +
-      '<div class="deal-game">' + dealEsc(d.game) + '</div>' +
+      '<a class="deal-game" href="' + dealEsc(ebayUrl(d.kind === 'konvolut' ? ((d.matched || [])[0] || d.game) : d.game, cfg.ebay !== undefined ? cfg.ebay : (cfg.label || d.platform))) + '" target="_blank" rel="noopener" title="Beendete Angebote">' + dealEsc(d.game) + '</a>' +
       '<div class="deal-title">' + dealEsc(d.title) + '</div>' +
       '<div class="deal-price"><b>' + dealEur(d.total) + '</b><span>' + (d.shipKnown === false ? 'Versand unklar (~5 € angesetzt)' : (d.shipping ? 'inkl. ' + dealEur(d.shipping) + ' Versand' : 'versandkostenfrei')) + '</span></div>' +
       '<div class="deal-meta">' + [ref, tgt, cls].filter(Boolean).map(dealEsc).join(' · ') + '</div>' +

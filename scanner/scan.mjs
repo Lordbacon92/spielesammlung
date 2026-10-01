@@ -3,7 +3,7 @@
 // und legt Treffer unter users/{uid}/deals ab. Optional Push über ntfy.sh.
 import {
   PLATFORM_QUERY, CAT_GAMES, buildQuery, titleMatches, platformOk, junkReason, conditionClass,
-  median, parseItem, sellerOk, evaluate, userOpts, dealId, buildTasks, conditionOk, variantReason, quantile
+  median, parseItem, sellerOk, evaluate, userOpts, dealId, buildTasks, conditionOk, variantReason, quantile, contextReason
 } from './lib.mjs';
 
 const REF_MAX_AGE = 14 * 864e5;       // Referenzpreis bleibt 14 Tage gültig
@@ -88,6 +88,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
       if (!platformOk(p.title, platform, false)) continue;
       if (junkReason(p.title, game, opts)) continue;
       if (variantReason(p.title, game)) continue;
+      if (contextReason(p.title, game)) continue;
       if (!sellerOk(p, opts)) continue;
       p.cls = conditionClass(p.title, platform, p.conditionId);
       p.condOk = conditionOk(p.title, p.conditionId, opts);
@@ -182,7 +183,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
     if (found.has(id)) continue;
     const stale = junkReason(old.title || '', old.kind === 'konvolut' ? '' : (old.game || ''), opts) ||
       !conditionOk(old.title || '', old.conditionId, opts) || old.cls === 'std' ||
-      (old.kind !== 'konvolut' && (variantReason(old.title || '', old.game || '') || !platformOk(old.title || '', old.platform, false) || (old.ref && old.score < 0.25)));
+      (old.kind !== 'konvolut' && (variantReason(old.title || '', old.game || '') || contextReason(old.title || '', old.game || '') || !platformOk(old.title || '', old.platform, false) || (old.ref && old.score < 0.25)));
     if (stale) { deletes.push(id); continue; }
     const ended = old.endsAt && Date.parse(old.endsAt) < now - 3600000;
     if (ended || now - (old.lastSeen || 0) > DEAL_TTL) deletes.push(id);

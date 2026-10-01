@@ -51,6 +51,45 @@ export function buildQuery(game, platform) {
   return (words + ' ' + p).trim();
 }
 
+// Wörter, die in Angebotstiteln neben dem Spielnamen üblich sind und nichts über den Titel aussagen
+const GENERIC = new Set((
+  'nintendo sony sega microsoft playstation ps ps1 ps2 ps3 ps4 ps5 psx psone one xbox 360 series snes nes n64 super famicom ' +
+  'gameboy game boy color colour advance gba gbc gb ds 3ds 2ds nds switch gamecube cube ngc wii mega drive megadrive genesis master system ' +
+  'saturn dreamcast atari 2600 7800 amiga c64 commodore pc cd rom dvd windows mac entertainment ' +
+  'ovp cib komplett kompl complete boxed box modul cartridge cart disc disk spiel spiele game games videospiel videogame ' +
+  'pal eu de deutsch deutsche german version uk fr eur ntsc neu new sealed versiegelt gut sehr top zustand gebraucht used mint ' +
+  'selten rare rar retro original orginal originale mit anleitung handbuch manual inkl inklusive und and the der die das von of fur fuer ' +
+  'getestet tested funktioniert funktionsfahig ok a b c usk pegi ab jahre 3 6 12 16 18 rpg shooter jump run adventure action racing ' +
+  'rennspiel sport sports mmorpg strategie strategy puzzle platformer jrpg klassiker classic kult edition big hulle huelle case ' +
+  'konami capcom bethesda ubisoft ea sierra square enix squaresoft namco bandai hudson acclaim eidos activision thq blizzard ' +
+  'rockstar vivendi infogrames ocean midway atlus koei taito sunsoft tecmo nintendo64 playstation1 playstation2 sammler ' +
+  'vom im in zu zum for with a an spielesammlung top zustand gepflegt sauber vollstandig vollstaendig blitzversand versand ' +
+  'player spieler multiplayer coop co op teil part volume vol elder scrolls special pikachu tom clancy s clancys sid meiers disney'
+).split(' '));
+function isGenericTok(t) { return GENERIC.has(t) || /^(19|20)\d\d$/.test(t) || t.length <= 1; }
+
+// Wie viele „fremde“ Wörter stehen direkt vor / nach dem Spielnamen? (z. B. "Elder Scrolls Online Morrowind", "Starcraft Wings of Liberty")
+export function contextReason(itemTitle, game) {
+  const it = norm(itemTitle).split(' ');
+  for (const toks of gameAlternatives(game)) {
+    let pos = -1, start = -1;
+    for (const t of toks) {
+      const i = it.indexOf(t, pos + 1);
+      if (i < 0) { pos = -2; break; }
+      if (start < 0) start = i;
+      pos = i;
+    }
+    if (pos < 0) continue;
+    const gameSet = new Set(toks);
+    const before = it.slice(Math.max(0, start - 3), start).filter(t => !isGenericTok(t) && !gameSet.has(t));
+    const after = it.slice(pos + 1, pos + 4).filter(t => !isGenericTok(t) && !gameSet.has(t));
+    if (before.length >= 1) return 'vorne: ' + before.join(' ');
+    if (after.length >= 2) return 'hinten: ' + after.join(' ');
+    return null;
+  }
+  return null;
+}
+
 // Steht der Spieltitel (alle wichtigen Wörter) im Angebotstitel? Fortsetzungen werden ausgeschlossen.
 export function titleMatches(itemTitle, game) {
   const it = norm(itemTitle).split(' ');
@@ -94,7 +133,9 @@ const PLAT_PATTERNS = [
   ['Atari', /\b(atari|2600|7800)\b/],
   ['Amiga 500', /\bamiga\b/],
   ['Commodore 64', /\b(c64|commodore)\b/],
-  ['Xbox', /\bxbox\b/],
+  ['Xbox 360', /\bxbox ?360\b/],
+  ['Xbox One', /\bxbox (one|series)\b|\bseries [xs]\b/],
+  ['Xbox', /\bxbox\b(?! ?(360|one|series))/],
   ['PC', /\b(pc|cd rom|dvd rom|windows|win 95|win 98|win xp|mac os|big box)\b/],
 ];
 export function detectPlatforms(itemTitle) {
@@ -135,6 +176,8 @@ const JUNK = [
   'ersatzhulle', 'ersatzhuelle', 'ersatz hulle', 'ersatz huelle', 'ersatzteil', 'ersatzteile', 'ersatz', 'replacement',
   'gehause', 'gehaeuse', 'shell', 'housing', 'batteriedeckel', 'akkudeckel', 'battery cover', 'tasche', 'sleeve',
   'hulle fur', 'huelle fuer', 'case fur', 'case fuer', 'nur cover', 'reparatur', 'repair', 'kabel only', 'nur kabel',
+  // Werkzeug
+  'screwdriver', 'schraubendreher', 'schraubenzieher', 'werkzeug', 'tool', 'tools', 'opening', 'bit', 'bits', 'gamebit', 'triwing', 'tri wing',
   // Deko / Merchandise
   'plakette', 'deko', 'dekoration', 'wandbild', 'bild', 'schild', 'blechschild', 'lampe', 'leuchte', 'figur', 'figuren', 'tasse',
   'shirt', 't shirt', 'merch', 'merchandise', 'miniatur', 'magnet', 'kuhlschrankmagnet', 'mousepad', 'mauspad', 'kissen', 'puzzle', 'lego'
