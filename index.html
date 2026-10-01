@@ -1831,6 +1831,13 @@
   .deal-tg-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 12px; color: var(--text-dim); }
   .deal-tg-bulk span { flex: 1 0 100%; margin-bottom: 2px; }
   .deal-tg-take { color: var(--purple); text-decoration: underline; }
+  .deal-star { flex: none; background: none; border: none; font-size: 20px; line-height: 1; color: var(--text-dim); cursor: pointer; padding: 2px 6px 2px 0; }
+  .deal-star.on { color: #E8B400; }
+  .deal-tg-name { flex: 1; min-width: 0; color: var(--text); }
+  .deal-hide-why { flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+  .deal-hide-why span { flex: 1 0 100%; font-size: 12px; color: var(--text-dim); }
+  .deal-badge2.b-fav { border-color: #E8B400; color: #E8B400; }
+  .deal-badge2.b-src { border-color: var(--value); color: var(--value); }
   .deal-tg-val { flex: none; display: flex; align-items: center; gap: 6px; }
   .deal-tg-in { width: 76px; text-align: right; }
   @media (max-width: 600px) {
@@ -2069,7 +2076,7 @@
   </div>
   <div class="check-section">
     <details class="deal-details" id="dealTargetsWrap" ontoggle="if(this.open)renderDealTargets()">
-      <summary>Zielpreise je Titel</summary>
+      <summary>Titel: Favoriten, Zielpreise, Alias</summary>
       <div id="dealTargets"></div>
     </details>
     <details class="deal-details">
@@ -4996,7 +5003,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.28</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.29</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5746,7 +5753,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.28',
+    appVersion: 'v2.29',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -6852,6 +6859,9 @@ function dealCardHtml(d) {
   const tgt = d.target ? 'Zielpreis ' + dealEur(d.target) : '';
   const seller = d.seller ? 'Verkäufer ' + (d.sellerFb != null ? d.sellerFb : '?') + (d.sellerPct != null ? ' (' + String(d.sellerPct).replace('.', ',') + ' %)' : '') : '';
   const badges = [];
+  if (d.fav) badges.push('<span class="deal-badge2 b-fav">★ Favorit</span>');
+  const SRC = { typo: 'Tippfehler im Titel', nocat: 'Falsch einsortiert', alias: 'Anderer Titel', aufl: 'Auflösung' };
+  if (SRC[d.src]) badges.push('<span class="deal-badge2 b-src">' + SRC[d.src] + '</span>');
   if (d.sellerType === 'INDIVIDUAL') badges.push('<span class="deal-badge2 b-priv">Privat</span>');
   else if (d.sellerType === 'BUSINESS') badges.push('<span class="deal-badge2 b-biz">Händler</span>');
   if (d.pickup) badges.push('<span class="deal-badge2 b-pick">📍 Abholung' + (d.city ? ' · ' + dealEsc(d.city) : (d.postal ? ' · ' + dealEsc(d.postal) : '')) + '</span>');
@@ -6876,7 +6886,14 @@ function dealCardHtml(d) {
       '<div class="deal-actions">' +
         '<a class="deal-btn deal-btn-open" href="' + dealEsc(d.url) + '" target="_blank" rel="noopener">Bei eBay öffnen &#8599;</a>' +
         (d.kind !== 'konvolut' ? '<button class="deal-btn" onclick="dealBought(\'' + id + '\')">Gekauft</button>' : '') +
-        '<button class="deal-btn" onclick="dealSetStatus(\'' + id + '\', \'' + (hidden ? 'seen' : 'hidden') + '\')">' + (hidden ? 'Einblenden' : 'Ausblenden') + '</button>' +
+        (hidden ? '<button class="deal-btn" onclick="dealSetStatus(\'' + id + '\', \'seen\')">Einblenden</button>'
+                : '<button class="deal-btn" onclick="dealAskHide(this)">Ausblenden</button>') +
+      '</div>' +
+      '<div class="deal-hide-why" style="display:none"><span>Warum?</span>' +
+        '<button class="deal-btn" onclick="dealHide(\'' + id + '\', \'wrong\')">Falsches Spiel</button>' +
+        '<button class="deal-btn" onclick="dealHide(\'' + id + '\', \'incomplete\')">Unvollständig</button>' +
+        '<button class="deal-btn" onclick="dealHide(\'' + id + '\', \'expensive\')">Zu teuer</button>' +
+        '<button class="deal-btn" onclick="dealHide(\'' + id + '\', \'\')">Nur ausblenden</button>' +
       '</div>' +
     '</div></div>';
 }
@@ -6894,6 +6911,19 @@ function markDealsSeen(rows) {
   }, 2500);
 }
 
+function dealAskHide(btn) {
+  const card = btn.closest('.deal-card');
+  const why = card && card.querySelector('.deal-hide-why');
+  if (why) why.style.display = why.style.display === 'none' ? 'flex' : 'none';
+}
+function dealHide(id, reason) {
+  if (!currentUserDocRef) return;
+  const card = document.getElementById('deal-' + id);
+  if (card) card.classList.add('leaving');
+  currentUserDocRef.collection('deals').doc(id).update({ status: 'hidden', hideReason: reason || '' })
+    .then(function() { if (reason) showToast('Gemerkt – ähnliche Angebote kommen nicht wieder'); })
+    .catch(function(e) { showToast('Fehler: ' + e.message, true); if (card) card.classList.remove('leaving'); });
+}
 function dealSetStatus(id, status) {
   if (!currentUserDocRef) return;
   const card = document.getElementById('deal-' + id);
@@ -6981,7 +7011,10 @@ function renderDealTargets() {
   const plats = Object.keys(br).filter(function(p) { return (br[p] || []).length; });
   if (!plats.length) { el.innerHTML = '<div class="deal-empty">Deine Brauchen-Liste ist leer.</div>'; return; }
   const nRef = dealTargetCandidates().length;
-  el.innerHTML = '<p class="deal-hint">Was dir ein Titel maximal wert ist (inkl. Versand). Liegt ein Angebot darunter, ist es immer ein Deal.</p>' +
+  const favs = dealOpts().favs || {};
+  const aliases = dealOpts().aliases || {};
+  const nFav = Object.keys(favs).filter(function(k) { return favs[k]; }).length;
+  el.innerHTML = '<p class="deal-hint"><b>★ Favorit</b>: wird bei jedem Scan geprüft statt reihum (' + nFav + '/15). <b>Zielpreis</b>: Was dir der Titel maximal wert ist (inkl. Versand) – darunter ist es immer ein Deal. <b>Alias</b>: andere Namen, unter denen das Spiel verkauft wird.</p>' +
     (nRef ? '<div class="deal-tg-bulk"><span>' + nRef + ' leere Felder automatisch füllen:</span>' +
       '<button class="deal-btn deal-btn-open" onclick="dealFillTargets(0.8)">Markt −20 %</button>' +
       '<button class="deal-btn" onclick="dealFillTargets(0.7)">Markt −30 %</button></div>' : '') +
@@ -6991,7 +7024,11 @@ function renderDealTargets() {
       return '<div class="deal-tg-plat" style="color:' + platCol(cfg.color) + '">' + dealEsc(cfg.label || p) + '</div>' + games.map(function(g) {
         const k = p + '::' + g;
         const r = dealRefFor(k);
-        return '<div class="deal-tg-row"><span>' + dealEsc(g) + (r ? '<small>Markt ' + dealEur0(r) + (targets[k] ? '' : ' · <a href="#" class="deal-tg-take" onclick="event.preventDefault();dealTakeTarget(\'' + dealEsc(k).replace(/'/g, '\\\'') + '\', ' + Math.round(r * 0.8) + ')">' + Math.round(r * 0.8) + ' € übernehmen</a>') + '</small>' : '') + '</span>' +
+        const meta = [];
+        if (r) meta.push('Markt ' + dealEur0(r) + (targets[k] ? '' : ' · <a href="#" class="deal-tg-take" onclick="event.preventDefault();dealTakeTarget(this, ' + Math.round(r * 0.8) + ')">' + Math.round(r * 0.8) + ' € übernehmen</a>'));
+        meta.push('<a href="#" class="deal-tg-take" onclick="event.preventDefault();dealEditAlias(this)">' + (aliases[k] ? 'Alias: ' + dealEsc(aliases[k]) : '+ Alias') + '</a>');
+        return '<div class="deal-tg-row" data-k="' + dealEsc(k) + '"><button class="deal-star' + (favs[k] ? ' on' : '') + '" title="Favorit" onclick="dealToggleFav(this)">' + (favs[k] ? '★' : '☆') + '</button>' +
+          '<span class="deal-tg-name">' + dealEsc(g) + '<small>' + meta.join(' · ') + '</small></span>' +
           '<span class="deal-tg-val"><input class="deal-input deal-tg-in" type="number" inputmode="decimal" min="0" step="1" placeholder="–" value="' + (targets[k] || '') + '" data-k="' + dealEsc(k) + '" onchange="setDealTarget(this)"> €</span></div>';
       }).join('');
     }).join('');
@@ -7023,7 +7060,36 @@ function dealWriteTargets(pairs) {
   pairs.forEach(function(x) { t[x[0]] = x[1]; args.push(new firebase.firestore.FieldPath('dealScan', 'targets', x[0]), x[1]); });
   return currentUserDocRef.update.apply(currentUserDocRef, args);
 }
+function dealRowKey(el) { const row = el.closest('[data-k]'); return row ? row.getAttribute('data-k') : null; }
+function dealToggleFav(btn) {
+  const k = dealRowKey(btn); if (!k) return;
+  const favs = Object.assign({}, dealOpts().favs || {});
+  const on = !favs[k];
+  if (on && Object.keys(favs).filter(function(x) { return favs[x]; }).length >= 15) { showToast('Maximal 15 Favoriten', true); return; }
+  currentUserData.dealScan = Object.assign({}, currentUserData.dealScan || {});
+  if (on) favs[k] = true; else delete favs[k];
+  currentUserData.dealScan.favs = favs;
+  currentUserDocRef.update(new firebase.firestore.FieldPath('dealScan', 'favs', k), on ? true : firebase.firestore.FieldValue.delete())
+    .then(function() { showToast(on ? 'Favorit ★' : 'Kein Favorit mehr'); })
+    .catch(function(e) { showToast('Fehler: ' + e.message, true); });
+  renderDealTargets();
+}
+function dealEditAlias(a) {
+  const k = dealRowKey(a); if (!k) return;
+  const cur = (dealOpts().aliases || {})[k] || '';
+  const v = prompt('Andere Namen für „' + k.split('::')[1] + '“ (mehrere mit ; trennen):', cur);
+  if (v === null) return;
+  const val = v.split(';').map(function(x) { return x.trim(); }).filter(Boolean).join('; ');
+  currentUserData.dealScan = Object.assign({}, currentUserData.dealScan || {});
+  const al = currentUserData.dealScan.aliases = Object.assign({}, currentUserData.dealScan.aliases || {});
+  if (val) al[k] = val; else delete al[k];
+  currentUserDocRef.update(new firebase.firestore.FieldPath('dealScan', 'aliases', k), val || firebase.firestore.FieldValue.delete())
+    .then(function() { showToast('Alias gespeichert ✓'); })
+    .catch(function(e) { showToast('Fehler: ' + e.message, true); });
+  renderDealTargets();
+}
 function dealTakeTarget(k, v) {
+  if (typeof k !== 'string') k = dealRowKey(k);
   dealWriteTargets([[k, v]]).then(function() { showToast('Zielpreis ' + v + ' € ✓'); renderDealTargets(); })
     .catch(function(e) { showToast('Fehler: ' + e.message, true); });
 }

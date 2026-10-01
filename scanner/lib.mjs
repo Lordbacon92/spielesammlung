@@ -423,15 +423,107 @@ export function userOpts(dealScan) {
 export function dealId(itemId) { return String(itemId).replace(/[^A-Za-z0-9_-]/g, '_'); }
 
 // Liste der Suchaufträge für einen Nutzer (stabil sortiert, damit der Cursor reihum läuft)
-export function buildTasks(brauchen, opts) {
+// ── Alternative Titel ───────────────────────────────────────────────────────
+// Bekannte Unterschiede DE/EU/US. Gilt in beide Richtungen, Abgleich auf normalisierte Wörter.
+const ALIAS_PAIRS = [
+  ['probotector', 'contra'], ['turm von babel', 'infernal machine'], ['illusion of time', 'illusion of gaia'],
+  ['pokemon gelb', 'pokemon yellow'], ['pokemon rot', 'pokemon red'], ['pokemon blau', 'pokemon blue'],
+  ['pokemon silberne edition', 'pokemon silver'], ['pokemon silber', 'pokemon silver'], ['pokemon goldene edition', 'pokemon gold'],
+  ['pokemon kristall', 'pokemon crystal'], ['pokemon smaragd', 'pokemon emerald'], ['pokemon rubin', 'pokemon ruby'],
+  ['pokemon saphir', 'pokemon sapphire'], ['pokemon feuerrot', 'pokemon firered'], ['pokemon blattgrun', 'pokemon leafgreen'],
+  ['pokemon stadium', 'pokemon stadium'], ['teenage mutant hero turtles', 'teenage mutant ninja turtles'],
+  ['mega man', 'megaman'], ['street fighter 2', 'street fighter ii'], ['zelda', 'legend of zelda'],
+  ['super mario land 2', 'super mario land 2 6 golden coins'], ['donkey kong country 2', 'diddy s kong quest'],
+  ['castlevania bloodlines', 'castlevania the new generation'],
+  ['silent hill', 'silent hill'], ['biohazard', 'resident evil'], ['conker s bad fur day', 'conker bad fur day']
+];
+function lite(s) {
+  return String(s || '').toLowerCase().replace(/ß/g, 'ss').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+export function aliasNames(game, userAliases) {
+  const names = [String(game)];
+  const add = x => { x = String(x || '').trim(); if (x && !names.some(y => norm(y) === norm(x))) names.push(x); };
+  const alts = String(game).replace(/\([^)]*\)/g, ' ').split('/').map(lite).filter(Boolean);
+  for (const n of alts) {
+    const pad = ' ' + n + ' ';
+    for (const [a, b] of ALIAS_PAIRS) {
+      if (pad.includes(' ' + a + ' ')) add(pad.replace(' ' + a + ' ', ' ' + b + ' '));
+      if (pad.includes(' ' + b + ' ')) add(pad.replace(' ' + b + ' ', ' ' + a + ' '));
+    }
+    // "Mega Man" ↔ "Megaman", "Star Fox" ↔ "Starfox": zwei kurze Wörter am Anfang
+    const toks = n.split(' ');
+    if (toks.length >= 2 && /^[a-z]{2,4}$/.test(toks[0]) && /^[a-z]{2,4}$/.test(toks[1]) && !STOP.has(toks[0]) && !STOP.has(toks[1])) add([toks[0] + toks[1], ...toks.slice(2)].join(' '));
+    if (toks.length >= 1 && /^[a-z]{6,9}$/.test(toks[0])) {
+      const m = toks[0].match(/^(mega|star|street|super|game)(\w{3,})$/);
+      if (m) add([m[1], m[2], ...toks.slice(1)].join(' '));
+    }
+  }
+  // Nur der Untertitel ("Turm von Babel"), wenn er für sich eindeutig genug ist
+  const sub = String(game).replace(/\([^)]*\)/g, '').split(/\s*:\s+|\s+[–-]\s+/)[1];
+  if (sub && lite(sub).split(' ').filter(t => !STOP.has(t)).length >= 2 && lite(sub).length >= 10) add(lite(sub));
+  String(userAliases || '').split(/[;\n]/).map(x => x.trim()).filter(Boolean).forEach(add);
+  return names;
+}
+
+// Passt der Angebotstitel zu einem der Namen? Gibt den passenden Namen zurück
+export function matchGame(itemTitle, names) {
+  for (const nm of names) if (titleMatches(itemTitle, nm) && !contextReason(itemTitle, nm)) return nm;
+  return null;
+}
+
+// ── Tippfehler ──────────────────────────────────────────────────────────────
+// Für das längste Wort typische Tippfehler bilden: vertauschte, fehlende, doppelte Buchstaben
+export function typoVariants(game, max = 6) {
+  const toks = gameAlternatives(game)[0] || [];
+  const word = toks.filter(t => !/^\d+$/.test(t)).sort((a, b) => b.length - a.length)[0];
+  if (!word || word.length < 6) return null;
+  const v = new Set();
+  for (let i = 1; i < word.length - 2; i++) v.add(word.slice(0, i) + word[i + 1] + word[i] + word.slice(i + 2));   // vertauscht
+  for (let i = 1; i < word.length - 1; i++) if (word[i] === word[i - 1]) v.add(word.slice(0, i) + word.slice(i + 1)); // Doppelbuchstabe weg
+  [['ie', 'ei'], ['ei', 'ie'], ['ck', 'k'], ['ph', 'f'], ['th', 't'], ['y', 'i'], ['c', 'k']].forEach(([a, b]) => { if (word.includes(a)) v.add(word.replace(a, b)); });
+  for (let i = 2; i < word.length - 1; i += 2) v.add(word.slice(0, i) + word.slice(i + 1));                    // Buchstabe fehlt
+  v.delete(word);
+  const list = [...v].slice(0, max);
+  return list.length ? { word, variants: list } : null;
+}
+// Tippfehler im Angebotstitel zurück auf das richtige Wort drehen (nur für den Abgleich)
+export function fixTypos(itemTitle, typo) {
+  if (!typo) return itemTitle;
+  const set = new Set(typo.variants);
+  return norm(itemTitle).split(' ').map(t => set.has(t) ? typo.word : t).join(' ');
+}
+
+// ── Gelerntes aus „Ausblenden“ ─────────────────────────────────────────────
+// Wörter im Angebot, die nicht zum Spiel gehören → künftig für diesen Titel sperren
+export function foreignWords(itemTitle, game) {
+  const g = new Set(norm(game).split(' '));
+  return [...new Set(norm(itemTitle).split(' ').filter(t => t.length >= 3 && !g.has(t) && !isGenericTok(t) && !/^\d+$/.test(t)))];
+}
+export function learnedBlock(itemTitle, learn) {
+  if (!learn || !learn.words || !learn.words.length) return null;
+  const toks = new Set(norm(itemTitle).split(' '));
+  return learn.words.find(w => toks.has(w)) || null;
+}
+
+export const AUFL_WORDS = '(dachbodenfund, nachlass, haushaltsauflösung, kinderzimmer, sammlungsauflösung, sammlung auflösen, kellerfund, flohmarkt)';
+
+export function buildTasks(brauchen, opts, extra) {
+  extra = extra || {};
   const tasks = [];
   const plats = Object.keys(brauchen || {}).sort();
   for (const platform of plats) {
     const games = [...new Set((brauchen[platform] || []).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
     for (const game of games) {
+      const k = platform + '::' + game;
       tasks.push({ kind: 'new', platform, game });
       tasks.push({ kind: 'end', platform, game });
+      if (platform !== 'Konsole/Parts') tasks.push({ kind: 'nocat', platform, game });
+      const names = aliasNames(game, (extra.aliases || {})[k]);
+      names.slice(1, 3).forEach(alias => tasks.push({ kind: 'alias', platform, game, alias }));
+      if (extra.typoKeys && extra.typoKeys.has(k)) tasks.push({ kind: 'typo', platform, game });
     }
+    if (games.length && PLATFORM_QUERY[platform] && platform !== 'Konsole/Parts') tasks.push({ kind: 'aufl', platform, games });
     if (opts.zip && games.length && PLATFORM_QUERY[platform]) {
       tasks.push({ kind: 'pickup', platform, games });
     }

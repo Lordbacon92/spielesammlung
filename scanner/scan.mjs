@@ -2,9 +2,9 @@
 // Sucht für jeden Titel der Brauchen-Liste auf eBay.de nach Angeboten deutlich unter Marktpreis
 // und legt Treffer unter users/{uid}/deals ab. Optional Push über ntfy.sh.
 import {
-  PLATFORM_QUERY, CAT_GAMES, buildQuery, titleMatches, platformOk, junkReason, conditionClass,
+  PLATFORM_QUERY, CAT_GAMES, buildQuery, titleMatches, platformOk, detectPlatforms, junkReason, conditionClass,
   median, parseItem, sellerOk, evaluate, userOpts, dealId, buildTasks, conditionOk, variantReason, quantile, contextReason,
-  descriptionReason, htmlToText
+  descriptionReason, htmlToText, norm, aliasNames, matchGame, typoVariants, fixTypos, foreignWords, learnedBlock, AUFL_WORDS
 } from './lib.mjs';
 
 const REF_MAX_AGE = 14 * 864e5;       // Referenzpreis bleibt 14 Tage gültig
@@ -76,11 +76,39 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
   const opts = userOpts(userDoc.dealScan);
   const targets = (userDoc.dealScan && userDoc.dealScan.targets) || {};
   const brauchen = (userDoc.data && userDoc.data.Brauchen) || {};
-  const tasks = buildTasks(brauchen, opts);
+  const ds = userDoc.dealScan || {};
+  const aliases = ds.aliases || {};
+  const favs = Object.keys(ds.favs || {}).filter(k => ds.favs[k]);
   const state = Object.assign({ cursor: 0, refs: {} }, await store.getState());
+  const learn = state.learn || {};                       // k → { words: [], tight: Zahl }
+  const nameCache = {};
+  const namesFor = (platform, game) => nameCache[platform + '::' + game] || (nameCache[platform + '::' + game] = aliasNames(game, aliases[platform + '::' + game]));
   const badItems = state.badItems || {};                 // itemId → Zeitpunkt (Beschreibung durchgefallen)
   const refs = state.refVersion === 2 ? (state.refs || {}) : {};       // v2: 40-%-Quantil, ohne Sonderausgaben
+  // Tippfehler-Suche für wertvolle Titel und Favoriten
+  const typoKeys = new Set(favs);
+  for (const p of Object.keys(brauchen)) for (const g of brauchen[p] || []) {
+    const k = p + '::' + g;
+    const r = refs[k + '|cib'] || refs[k + '|modul'] || refs[k + '|sealed'];
+    if ((r && r.median >= 30) || Number((ds.targets || {})[k]) >= 30) typoKeys.add(k);
+  }
+  const tasks = buildTasks(brauchen, opts, { aliases, typoKeys });
   const existing = await store.listDeals();            // Map dealId → doc
+  // Aus „Ausblenden mit Grund“ lernen
+  const learnedUpd = [];
+  for (const [id, d] of existing) {
+    if (d.status !== 'hidden' || !d.hideReason || d.learned || d.kind === 'konvolut') continue;
+    const k = d.platform + '::' + d.game;
+    const L = learn[k] = learn[k] || { words: [] };
+    if (d.hideReason === 'wrong') {
+      L.words = [...new Set([...L.words, ...foreignWords(d.title, d.game).slice(0, 4)])].slice(-30);
+    } else if (d.hideReason === 'expensive' && d.score) {
+      L.tight = Math.min(L.tight || 9, Math.max(0.25, d.score - 0.05));
+    } else if (d.hideReason === 'incomplete') {
+      badItems[d.itemId] = now;
+    }
+    learnedUpd.push(id);
+  }
   const found = new Map();                             // dealId → deal (dieser Lauf)
   const seen = new Set();
   let used = 0, done = 0, cursor = state.cursor % Math.max(1, tasks.length);
@@ -97,15 +125,22 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
     if (prev && now - prev.at < REF_MAX_AGE && n < 8) m = (prev.median + med) / 2;   // wenig Daten → glätten
     refs[k] = { median: Math.round(m * 100) / 100, n, at: now };
   }
-  function filterMatched(items, platform, game) {
+  function filterMatched(items, platform, game, mode) {
     const out = [];
+    const names = namesFor(platform, game);
+    const typo = mode && mode.typo;
+    const L = learn[platform + '::' + game];
     for (const raw of items) {
       const p = parseItem(raw);
-      if (!titleMatches(p.title, game)) continue;
+      if (mode && mode.nocat && (raw.categories || []).some(c => String(c.categoryId) === CAT_GAMES)) continue;   // schon in der normalen Suche
+      const mt = typo ? fixTypos(p.title, typo) : p.title;
+      const nm = matchGame(mt, names);
+      if (!nm) continue;
       if (!platformOk(p.title, platform, false)) continue;
-      if (junkReason(p.title, game, opts)) continue;
-      if (variantReason(p.title, game)) continue;
-      if (contextReason(p.title, game)) continue;
+      if (mode && mode.nocat && !detectPlatforms(p.title).size) continue;   // außerhalb der Kategorie muss die Plattform dastehen
+      if (junkReason(p.title, nm, opts)) continue;
+      if (variantReason(mt, nm)) continue;
+      if (learnedBlock(p.title, L)) continue;
       if (!sellerOk(p, opts)) continue;
       p.cls = conditionClass(p.title, platform, p.conditionId);
       p.condOk = conditionOk(p.title, p.conditionId, opts);
@@ -122,21 +157,37 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
   }
 
   const searchBudget = Math.floor(budget * 0.8);           // Rest für Beschreibungen
-  while (done < tasks.length && used < searchBudget) {
-    const t = tasks[cursor];
-    cursor = (cursor + 1) % tasks.length; done++;
+  // Favoriten: in jedem Lauf neue Angebote prüfen (max. 15)
+  const favTasks = favs.slice(0, 15).map(k => { const i = k.indexOf('::'); return { kind: 'new', platform: k.slice(0, i), game: k.slice(i + 2), fav: true }; })
+    .filter(t => (brauchen[t.platform] || []).includes(t.game));
+  let fi = 0;
+  stats.favs = favTasks.length;
+  while (used < searchBudget && (fi < favTasks.length || done < tasks.length)) {
+    let t;
+    if (fi < favTasks.length) t = favTasks[fi++];
+    else { t = tasks[cursor]; cursor = (cursor + 1) % tasks.length; done++; if (t.kind === 'new' && favs.includes(t.platform + '::' + t.game)) continue; }
     try {
       const parts = t.platform === 'Konsole/Parts';
-      if (t.kind === 'new' || t.kind === 'end') {
+      if (t.kind === 'new' || t.kind === 'end' || t.kind === 'nocat' || t.kind === 'alias' || t.kind === 'typo') {
+        let q, mode = null, src = null;
+        if (t.kind === 'alias') { q = buildQuery(t.alias, t.platform); src = 'alias'; }
+        else if (t.kind === 'typo') {
+          const ty = typoVariants(t.game);
+          if (!ty) continue;
+          const rest = buildQuery(t.game, t.platform).split(' ').filter(w => norm(w) !== ty.word).join(' ');
+          q = '(' + ty.variants.join(', ') + ') ' + rest;
+          mode = { typo: ty }; src = 'typo';
+        } else q = buildQuery(t.game, t.platform);
+        if (t.kind === 'nocat') { mode = { nocat: true }; src = 'nocat'; }
         const items = await ebay.search({
-          q: buildQuery(t.game, t.platform),
-          sort: t.kind === 'new' ? 'newlyListed' : 'endingSoonest',
+          q,
+          sort: t.kind === 'end' ? 'endingSoonest' : 'newlyListed',
           auctionOnly: t.kind === 'end',
-          category: parts ? null : CAT_GAMES,
+          category: parts || t.kind === 'nocat' ? null : CAT_GAMES,
           limit: t.kind === 'new' ? 200 : 100
         });
         used++; stats.tasks++; stats.items += items.length;
-        const matched = filterMatched(items, t.platform, t.game);
+        const matched = filterMatched(items, t.platform, t.game, mode);
         stats.matched += matched.length;
         if (t.kind === 'new') {
           // Marktreferenz: Median der Sofortkauf-Gesamtpreise je Zustand
@@ -148,13 +199,18 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
         for (const p of matched) {
           if (!p.condOk) continue;
           const ev = evaluate(p, refFor(t.platform, t.game, p.cls), target, opts, now);
-          if (ev) addDeal(p, Object.assign({ kind: 'title', platform: t.platform, game: t.game }, ev));
+          if (!ev) continue;
+          const L = learn[t.platform + '::' + t.game];
+          if (L && L.tight && ev.ref && ev.score > L.tight && !(ev.target && p.total <= ev.target)) continue;   // gelernt: zu teuer
+          addDeal(p, Object.assign({ kind: 'title', platform: t.platform, game: t.game, src: src || (t.fav ? 'fav' : null), fav: !!t.fav || favs.includes(t.platform + '::' + t.game) }, ev));
         }
-      } else if (t.kind === 'konvolut' || t.kind === 'pickup') {
+      } else if (t.kind === 'konvolut' || t.kind === 'pickup' || t.kind === 'aufl') {
         const pickup = t.kind === 'pickup';
         const items = await ebay.search(pickup
           ? { q: PLATFORM_QUERY[t.platform], sort: 'newlyListed', category: t.platform === 'Konsole/Parts' ? null : CAT_GAMES, limit: 200, pickup: { zip: opts.zip, radius: opts.pickupRadius } }
-          : { q: 'Konvolut ' + PLATFORM_QUERY[t.platform], sort: 'newlyListed', category: CAT_GAMES, limit: 100 });
+          : t.kind === 'aufl'
+            ? { q: PLATFORM_QUERY[t.platform] + ' ' + AUFL_WORDS, sort: 'newlyListed', category: null, limit: 100 }
+            : { q: 'Konvolut ' + PLATFORM_QUERY[t.platform], sort: 'newlyListed', category: CAT_GAMES, limit: 100 });
         used++; stats.tasks++; stats.items += items.length;
         for (const raw of items) {
           const p = parseItem(raw);
@@ -163,17 +219,19 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
           if (junkReason(p.title, '', opts) || !sellerOk(p, opts)) continue;
           if (!conditionOk(p.title, p.conditionId, opts)) continue;
           if (!isFinite(p.price) || p.price <= 0) continue;
-          const hits = t.games.filter(g => titleMatches(p.title, g));
+          const hits = t.games.filter(g => namesFor(t.platform, g).some(nm => titleMatches(p.title, nm)));
           if (!hits.length) continue;
           stats.matched++;
           const cls = conditionClass(p.title, t.platform, p.conditionId);
           p.cls = cls;
-          // Abholung, genau ein Titel: normal bewerten, aber großzügiger
-          if (pickup && hits.length === 1) {
+          // Genau ein Titel: wie eine normale Suche bewerten (Abholung etwas großzügiger)
+          if (hits.length === 1) {
             const g = hits[0];
-            if (variantReason(p.title, g) || contextReason(p.title, g) || !platformOk(p.title, t.platform, false)) continue;
-            const ev = evaluate(p, refFor(t.platform, g, cls), Number(targets[t.platform + '::' + g]) || null, opts, now, opts.pickupBonus);
-            if (ev) addDeal(p, Object.assign({ kind: 'title', platform: t.platform, game: g }, ev));
+            const names = namesFor(t.platform, g);
+            const nm = pickup ? matchGame(p.title, names) : names.find(x => titleMatches(p.title, x));   // bei Auflösungen stehen andere Wörter daneben
+            if (!nm || (pickup && variantReason(p.title, nm)) || learnedBlock(p.title, learn[t.platform + '::' + g]) || !platformOk(p.title, t.platform, !pickup)) continue;
+            const ev = evaluate(p, refFor(t.platform, g, cls), Number(targets[t.platform + '::' + g]) || null, opts, now, pickup ? opts.pickupBonus : 0);
+            if (ev) addDeal(p, Object.assign({ kind: 'title', platform: t.platform, game: g, src: t.kind === 'aufl' ? 'aufl' : null }, ev));
             continue;
           }
           let sum = 0, known = 0;
@@ -191,7 +249,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
           const score = p.total / sum, save = sum - p.total;
           if (score > (pickup ? 1 + opts.pickupBonus : 1) || save < opts.minSave) continue;
           addDeal(p, {
-            kind: 'konvolut', platform: t.platform, game: hits.join(' · '), matched: hits, cls,
+            kind: 'konvolut', src: t.kind === 'aufl' ? 'aufl' : null, platform: t.platform, game: hits.join(' · '), matched: hits, cls,
             ref: Math.round(sum * 100) / 100, refN: known, target: null,
             score: Math.round(score * 100) / 100, save: Math.round(save * 100) / 100, suspicious: false, offer: null
           });
@@ -236,6 +294,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
   }
   for (const k of Object.keys(badItems)) if (now - badItems[k] > 14 * 864e5) delete badItems[k];
 
+  for (const id of learnedUpd) if (found.has(id)) found.get(id).learned = true;
   // ── Schreiben ──
   const upserts = [], deletes = [], fresh = [];
   for (const [id, d] of found) {
@@ -255,10 +314,11 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
     const ended = old.endsAt && Date.parse(old.endsAt) < now - 3600000;
     if (ended || now - (old.lastSeen || 0) > DEAL_TTL) deletes.push(id);
   }
+  for (const id of learnedUpd) if (!found.has(id) && !deletes.includes(id)) upserts.push([id, { learned: true }, false]);
   stats.deals = found.size;
   await store.writeDeals(upserts, deletes);
   if (store.setStatus) await store.setStatus({ lastRun: now, lastStats: Object.assign({ calls: used, total: tasks.length }, stats) }).catch(e => log('  ! Status: ' + e.message));
-  await store.setState({ cursor, refs, badItems, refVersion: 2, lastRun: now, lastStats: Object.assign({ calls: used, total: tasks.length, newDeals: fresh.length }, stats) });
+  await store.setState({ cursor, refs, badItems, learn, refVersion: 2, lastRun: now, lastStats: Object.assign({ calls: used, total: tasks.length, newDeals: fresh.length }, stats) });
 
   // ── Push ──
   const notify = fresh.filter(d => d.score <= opts.notifyBelow || (d.target && d.total <= d.target)).sort((a, b) => a.score - b.score);
