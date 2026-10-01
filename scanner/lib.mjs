@@ -151,8 +151,13 @@ const INCOMPLETE = [
 ];
 // Positive Hinweise auf komplett mit OVP
 const COMPLETE_RE = / (ovp|cib|komplett|kompl|complete|completed|vollstandig|vollstaendig|boxed|in box|mit box|mit karton|originalverpackung|original verpackung|mit anleitung|mit hulle|mit huelle|mit case|in hulle|in huelle|sealed|versiegelt|eingeschweisst|neu ovp|new sealed) /;
+// "o. OVP", "ohne Anleitung", "w/o box", "kein Handbuch" …
+const MISSING_RE = / (ohne|o|w o|wo|without|no|kein|keine|keinen|fehlt|fehlende|missing) (original )?(ovp|box|anleitung|handbuch|hulle|huelle|case|karton|manual|cover|booklet|heft|beiheft|inlay|verpackung|originalverpackung|schuber|insert) /;
+const MISSING_AFTER_RE = / (ovp|box|anleitung|handbuch|hulle|huelle|case|manual|cover|booklet) (fehlt|fehlen|missing|nicht dabei|nicht enthalten) /;
 export function incompleteReason(itemTitle) {
   const n = ' ' + norm(itemTitle) + ' ';
+  const m = n.match(MISSING_RE) || n.match(MISSING_AFTER_RE);
+  if (m) return m[0].trim();
   for (const w of INCOMPLETE) if (n.includes(' ' + w + ' ')) return w;
   return null;
 }
@@ -280,14 +285,14 @@ export function evaluate(p, ref, target, opts, nowMs) {
     if (!(left > 0 && left <= opts.auctionHours)) hit = false;   // nur kurz vor Ende interessant
   }
   if (!hit) return null;
-  if (med && score < 0.15 && !(target && p.total <= target)) return null;   // so billig ist fast immer ein anderer Artikel
+  if (med && score < 0.25 && !(target && p.total <= target)) return null;   // so billig ist fast immer ein anderer Artikel
   return {
     ref: med ? r2(med) : null,
     refN: ref ? ref.n : 0,
     target: target || null,
     score: Math.round(score * 100) / 100,
     save: r2(save),
-    suspicious: !!(med && score < 0.2 && med >= 20)          // zu gut, um wahr zu sein?
+    suspicious: !!(med && score < 0.35 && med >= 20)          // zu gut, um wahr zu sein?
   };
 }
 

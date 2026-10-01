@@ -182,7 +182,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
     if (found.has(id)) continue;
     const stale = junkReason(old.title || '', old.kind === 'konvolut' ? '' : (old.game || ''), opts) ||
       !conditionOk(old.title || '', old.conditionId, opts) || old.cls === 'std' ||
-      (old.kind !== 'konvolut' && (variantReason(old.title || '', old.game || '') || !platformOk(old.title || '', old.platform, false) || (old.ref && old.score < 0.15)));
+      (old.kind !== 'konvolut' && (variantReason(old.title || '', old.game || '') || !platformOk(old.title || '', old.platform, false) || (old.ref && old.score < 0.25)));
     if (stale) { deletes.push(id); continue; }
     const ended = old.endsAt && Date.parse(old.endsAt) < now - 3600000;
     if (ended || now - (old.lastSeen || 0) > DEAL_TTL) deletes.push(id);
