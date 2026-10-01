@@ -204,6 +204,47 @@ export function incompleteReason(itemTitle) {
   for (const w of INCOMPLETE) if (n.includes(' ' + w + ' ')) return w;
   return null;
 }
+// ── Beschreibung prüfen ─────────────────────────────────────────────────────
+// Text aus HTML-Beschreibung holen
+export function htmlToText(html) {
+  return String(html || '')
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<br\s*\/?>|<\/(p|div|li|tr|h\d)>/gi, '. ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&[a-z]+;/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+const NEG = new Set(['kein', 'keine', 'keinen', 'keiner', 'no', 'not', 'nicht', 'never', 'niemals', 'ohne', 'non', 'garantiert', 'ausgeschlossen']);
+const DESC_FAKE = ['repro', 'reproduction', 'reproduktion', 'nachbau', 'bootleg', 'fake', 'replica', 'replik', 'kopie', 'nachdruck', 'reprint'];
+const DESC_BROKEN = ['defekt', 'kaputt', 'funktioniert nicht', 'startet nicht', 'lauft nicht', 'laeuft nicht', 'gebrochen', 'gerissen', 'starke gebrauchsspuren', 'wasserschaden', 'schimmel'];
+const DESC_MISSING = ['disc only', 'cd only', 'nur disc', 'nur cd', 'nur modul', 'modul only', 'cartridge only', 'game only', 'nur das spiel', 'nur das modul'];
+function negated(toks, i) {
+  for (let k = Math.max(0, i - 3); k < i; k++) if (NEG.has(toks[k])) return true;
+  return false;
+}
+function findPhrase(toks, phrase) {
+  const p = phrase.split(' ');
+  outer: for (let i = 0; i + p.length <= toks.length; i++) {
+    for (let j = 0; j < p.length; j++) if (toks[i + j] !== p[j]) continue outer;
+    if (!negated(toks, i)) return phrase;
+  }
+  return null;
+}
+// Grund, warum die Beschreibung gegen das Angebot spricht – oder null
+export function descriptionReason(text, opts) {
+  const n = norm(text);
+  if (!n) return null;
+  const toks = n.split(' ');
+  for (const w of DESC_FAKE) { const r = findPhrase(toks, w); if (r) return r; }
+  for (const w of DESC_BROKEN) { const r = findPhrase(toks, w); if (r) return r; }
+  if (opts.condition !== 'all') {
+    for (const w of DESC_MISSING) { const r = findPhrase(toks, w); if (r) return r; }
+    const m = (' ' + n + ' ').match(MISSING_RE) || (' ' + n + ' ').match(MISSING_AFTER_RE);
+    if (m) return m[0].trim();
+  }
+  return null;
+}
+
 export function looksComplete(itemTitle, conditionId) {
   if (incompleteReason(itemTitle)) return false;
   const n = ' ' + norm(itemTitle) + ' ';

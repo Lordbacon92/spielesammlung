@@ -3,7 +3,8 @@
 // und legt Treffer unter users/{uid}/deals ab. Optional Push über ntfy.sh.
 import {
   PLATFORM_QUERY, CAT_GAMES, buildQuery, titleMatches, platformOk, junkReason, conditionClass,
-  median, parseItem, sellerOk, evaluate, userOpts, dealId, buildTasks, conditionOk, variantReason, quantile, contextReason
+  median, parseItem, sellerOk, evaluate, userOpts, dealId, buildTasks, conditionOk, variantReason, quantile, contextReason,
+  descriptionReason, htmlToText
 } from './lib.mjs';
 
 const REF_MAX_AGE = 14 * 864e5;       // Referenzpreis bleibt 14 Tage gültig
@@ -51,7 +52,19 @@ export function makeEbay({ clientId, clientSecret, zip }) {
     }
     throw new Error('eBay-Suche: zu viele Fehlversuche');
   }
-  return { search, get calls() { return calls; } };
+  async function getItem(itemId) {
+    const url = 'https://api.ebay.com/buy/browse/v1/item/' + encodeURIComponent(itemId);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      calls++;
+      const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + await getToken(), 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_DE', 'Accept-Language': 'de-DE' } });
+      if (res.status === 429 || res.status >= 500) { await new Promise(r => setTimeout(r, 1500 * (attempt + 1))); continue; }
+      if (res.status === 404) return null;                       // Angebot schon weg
+      if (!res.ok) throw new Error('eBay-Artikel ' + res.status);
+      return res.json();
+    }
+    throw new Error('eBay-Artikel: zu viele Fehlversuche');
+  }
+  return { search, getItem, get calls() { return calls; } };
 }
 
 // ── Ein Nutzer ──────────────────────────────────────────────────────────────
@@ -62,6 +75,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
   const brauchen = (userDoc.data && userDoc.data.Brauchen) || {};
   const tasks = buildTasks(brauchen, opts);
   const state = Object.assign({ cursor: 0, refs: {} }, await store.getState());
+  const badItems = state.badItems || {};                 // itemId → Zeitpunkt (Beschreibung durchgefallen)
   const refs = state.refVersion === 2 ? (state.refs || {}) : {};       // v2: 40-%-Quantil, ohne Sonderausgaben
   const existing = await store.listDeals();            // Map dealId → doc
   const found = new Map();                             // dealId → deal (dieser Lauf)
@@ -96,13 +110,16 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
     }
     return out;
   }
-  function addDeal(p, extra) {
+  const candidates = [];
+  function addDeal(p, extra) { candidates.push([p, extra]); }
+  function acceptDeal(p, extra) {
     const id = dealId(p.itemId);
     seen.add(id);
     found.set(id, Object.assign({}, p, extra));
   }
 
-  while (done < tasks.length && used < budget) {
+  const searchBudget = Math.floor(budget * 0.8);           // Rest für Beschreibungen
+  while (done < tasks.length && used < searchBudget) {
     const t = tasks[cursor];
     cursor = (cursor + 1) % tasks.length; done++;
     try {
@@ -171,6 +188,31 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
     }
   }
 
+  // ── Beschreibung der Kandidaten prüfen ──
+  const descBudget = Math.max(0, budget - used);
+  let descCalls = 0;
+  stats.descChecked = 0; stats.descRejected = 0;
+  const checked = new Set();
+  for (const [p, extra] of candidates) {
+    const id = dealId(p.itemId);
+    if (checked.has(id)) continue;
+    checked.add(id);
+    const old = existing.get(id);
+    if (badItems[p.itemId]) continue;
+    if (old && old.descOk) { acceptDeal(p, Object.assign({ descOk: true }, extra)); continue; }
+    if (!ebay.getItem || descCalls >= descBudget) { if (old) seen.add(id); continue; }   // nächster Lauf
+    try {
+      descCalls++; used++; stats.descChecked++;
+      const it = await ebay.getItem(p.itemId);
+      if (!it) { badItems[p.itemId] = now; continue; }
+      const text = [it.conditionDescription, it.shortDescription, htmlToText(it.description)].filter(Boolean).join(' . ');
+      const why = descriptionReason(text, opts);
+      if (why) { badItems[p.itemId] = now; stats.descRejected++; continue; }
+      acceptDeal(p, Object.assign({ descOk: true }, extra));
+    } catch (e) { stats.errors++; log('  ! Beschreibung ' + p.itemId + ': ' + e.message); if (old) seen.add(id); }
+  }
+  for (const k of Object.keys(badItems)) if (now - badItems[k] > 14 * 864e5) delete badItems[k];
+
   // ── Schreiben ──
   const upserts = [], deletes = [], fresh = [];
   for (const [id, d] of found) {
@@ -181,6 +223,8 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
   }
   for (const [id, old] of existing) {
     if (found.has(id)) continue;
+    if (badItems[old.itemId]) { deletes.push(id); continue; }
+    if (seen.has(id)) continue;                          // Beschreibung noch nicht geprüft – behalten
     const stale = junkReason(old.title || '', old.kind === 'konvolut' ? '' : (old.game || ''), opts) ||
       !conditionOk(old.title || '', old.conditionId, opts) || old.cls === 'std' ||
       (old.kind !== 'konvolut' && (variantReason(old.title || '', old.game || '') || contextReason(old.title || '', old.game || '') || !platformOk(old.title || '', old.platform, false) || (old.ref && old.score < 0.25)));
@@ -190,7 +234,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
   }
   stats.deals = found.size;
   await store.writeDeals(upserts, deletes);
-  await store.setState({ cursor, refs, refVersion: 2, lastRun: now, lastStats: Object.assign({ calls: used, total: tasks.length, newDeals: fresh.length }, stats) });
+  await store.setState({ cursor, refs, badItems, refVersion: 2, lastRun: now, lastStats: Object.assign({ calls: used, total: tasks.length, newDeals: fresh.length }, stats) });
 
   // ── Push ──
   const notify = fresh.filter(d => d.score <= opts.notifyBelow || (d.target && d.total <= d.target)).sort((a, b) => a.score - b.score);

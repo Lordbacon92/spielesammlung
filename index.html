@@ -1774,6 +1774,7 @@
   .deal-price b { font-family: var(--font-mono); font-size: 18px; color: var(--value); }
   .deal-price span { font-size: 11px; color: var(--text-dim); }
   .deal-meta { font-size: 11.5px; line-height: 1.45; color: var(--text-dim); margin-top: 2px; }
+  .deal-ok { font-size: 11.5px; color: var(--green); margin-top: 3px; }
   .deal-warn { font-size: 12px; color: var(--accent); margin-top: 4px; }
   .deal-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
   .deal-btn {
@@ -1820,6 +1821,9 @@
     padding: 6px 0; border-top: 1px solid var(--border); font-size: 14px; color: var(--text-dim);
   }
   .deal-tg-row > span { color: var(--text); min-width: 0; }
+  .deal-tg-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 12px; color: var(--text-dim); }
+  .deal-tg-bulk span { flex: 1 0 100%; margin-bottom: 2px; }
+  .deal-tg-take { color: var(--purple); text-decoration: underline; }
   .deal-tg-val { flex: none; display: flex; align-items: center; gap: 6px; }
   .deal-tg-in { width: 76px; text-align: right; }
   @media (max-width: 600px) {
@@ -4985,7 +4989,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.26</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.27</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5735,7 +5739,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.26',
+    appVersion: 'v2.27',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -6840,6 +6844,7 @@ function dealCardHtml(d) {
       '<div class="deal-price"><b>' + dealEur(d.total) + '</b><span>' + (d.shipKnown === false ? 'Versand unklar (~5 € angesetzt)' : (d.shipping ? 'inkl. ' + dealEur(d.shipping) + ' Versand' : 'versandkostenfrei')) + '</span></div>' +
       '<div class="deal-meta">' + [ref, tgt, cls].filter(Boolean).map(dealEsc).join(' · ') + '</div>' +
       '<div class="deal-meta">' + dealEsc([kind, seller].filter(Boolean).join(' · ')) + '</div>' +
+      (d.descOk ? '<div class="deal-ok">✓ Beschreibung geprüft</div>' : '') +
       (d.suspicious ? '<div class="deal-warn">⚠ Auffällig günstig – Verkäufer und Fotos genau prüfen</div>' : '') +
       '<div class="deal-actions">' +
         '<a class="deal-btn deal-btn-open" href="' + dealEsc(d.url) + '" target="_blank" rel="noopener">Bei eBay öffnen &#8599;</a>' +
@@ -6945,17 +6950,57 @@ function renderDealTargets() {
   const refs = (dealState && dealState.refs) || {};
   const plats = Object.keys(br).filter(function(p) { return (br[p] || []).length; });
   if (!plats.length) { el.innerHTML = '<div class="deal-empty">Deine Brauchen-Liste ist leer.</div>'; return; }
-  el.innerHTML = '<p class="deal-hint">Optional: Was dir ein Titel maximal wert ist (inkl. Versand). Liegt ein Angebot darunter, ist es immer ein Deal – auch wenn der Scanner noch keinen Marktpreis kennt.</p>' +
+  const nRef = dealTargetCandidates().length;
+  el.innerHTML = '<p class="deal-hint">Was dir ein Titel maximal wert ist (inkl. Versand). Liegt ein Angebot darunter, ist es immer ein Deal.</p>' +
+    (nRef ? '<div class="deal-tg-bulk"><span>' + nRef + ' leere Felder automatisch füllen:</span>' +
+      '<button class="deal-btn deal-btn-open" onclick="dealFillTargets(0.8)">Markt −20 %</button>' +
+      '<button class="deal-btn" onclick="dealFillTargets(0.7)">Markt −30 %</button></div>' : '') +
     plats.map(function(p) {
       const cfg = platforms[p] || { label: p, color: '#888888' };
       const games = Array.from(new Set(br[p])).sort(function(a, b) { return a.localeCompare(b, 'de'); });
       return '<div class="deal-tg-plat" style="color:' + platCol(cfg.color) + '">' + dealEsc(cfg.label || p) + '</div>' + games.map(function(g) {
         const k = p + '::' + g;
-        const r = refs[k + '|modul'] || refs[k + '|std'] || refs[k + '|cib'];
-        return '<div class="deal-tg-row"><span>' + dealEsc(g) + (r ? '<small>Markt ' + dealEur0(r.median) + '</small>' : '') + '</span>' +
+        const r = dealRefFor(k);
+        return '<div class="deal-tg-row"><span>' + dealEsc(g) + (r ? '<small>Markt ' + dealEur0(r) + (targets[k] ? '' : ' · <a href="#" class="deal-tg-take" onclick="event.preventDefault();dealTakeTarget(\'' + dealEsc(k).replace(/'/g, '\\\'') + '\', ' + Math.round(r * 0.8) + ')">' + Math.round(r * 0.8) + ' € übernehmen</a>') + '</small>' : '') + '</span>' +
           '<span class="deal-tg-val"><input class="deal-input deal-tg-in" type="number" inputmode="decimal" min="0" step="1" placeholder="–" value="' + (targets[k] || '') + '" data-k="' + dealEsc(k) + '" onchange="setDealTarget(this)"> €</span></div>';
       }).join('');
     }).join('');
+}
+
+// Marktwert passend zum gewählten Zustand
+function dealRefFor(k) {
+  const refs = (dealState && dealState.refs) || {};
+  const r = dealOpts().condition === 'all'
+    ? (refs[k + '|modul'] || refs[k + '|cib'] || refs[k + '|sealed'])
+    : (refs[k + '|cib'] || refs[k + '|sealed']);
+  return r ? r.median : null;
+}
+function dealTargetCandidates() {
+  const br = (data && data.Brauchen) || {};
+  const targets = dealOpts().targets || {};
+  const out = [];
+  Object.keys(br).forEach(function(p) { Array.from(new Set(br[p] || [])).forEach(function(g) {
+    const k = p + '::' + g, r = dealRefFor(k);
+    if (r && !targets[k]) out.push([k, r]);
+  }); });
+  return out;
+}
+function dealWriteTargets(pairs) {
+  if (!pairs.length || !currentUserDocRef) return Promise.resolve();
+  currentUserData.dealScan = Object.assign({}, currentUserData.dealScan || {});
+  const t = currentUserData.dealScan.targets = Object.assign({}, currentUserData.dealScan.targets || {});
+  const args = [];
+  pairs.forEach(function(x) { t[x[0]] = x[1]; args.push(new firebase.firestore.FieldPath('dealScan', 'targets', x[0]), x[1]); });
+  return currentUserDocRef.update.apply(currentUserDocRef, args);
+}
+function dealTakeTarget(k, v) {
+  dealWriteTargets([[k, v]]).then(function() { showToast('Zielpreis ' + v + ' € ✓'); renderDealTargets(); })
+    .catch(function(e) { showToast('Fehler: ' + e.message, true); });
+}
+function dealFillTargets(f) {
+  const pairs = dealTargetCandidates().map(function(x) { return [x[0], Math.max(1, Math.round(x[1] * f))]; });
+  dealWriteTargets(pairs).then(function() { showToast(pairs.length + ' Zielpreise gesetzt ✓'); renderDealTargets(); })
+    .catch(function(e) { showToast('Fehler: ' + e.message, true); });
 }
 
 function setDealTarget(inp) {
