@@ -29,3 +29,4 @@ jobs:
           EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
           EBAY_ZIP: ${{ vars.EBAY_ZIP }}
           MAX_CALLS: ${{ vars.MAX_CALLS || '100' }}
+          DEBUG_DEALS: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}

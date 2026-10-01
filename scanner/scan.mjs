@@ -265,6 +265,7 @@ async function main() {
     console.log('Nutzer ' + u.id.slice(0, 6) + '… (Budget ' + per + ' Abfragen)');
     const res = await scanUser({ userDoc: u.data(), store: firestoreStore(db, u.id), ebay, budget: per });
     console.log('::notice::Nutzer ' + u.id.slice(0, 6) + ': ' + JSON.stringify(res.stats) + ' neu=' + res.fresh.length);
+    if (process.env.DEBUG_DEALS) res.fresh.slice(0, 40).forEach(d => console.log('::notice::DEAL ' + [d.platform, d.game, d.cls, d.type, d.total, d.ref, d.refN, d.score, d.title].join(' | ')));
     if (res.opts.ntfyTopic) await sendNtfy(res.opts.ntfyTopic, res.notify);
   }
   console.log('eBay-Abfragen gesamt: ' + ebay.calls);
