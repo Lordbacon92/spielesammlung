@@ -1,6 +1,6 @@
 // COLLECT – Service Worker (Offline-Modus)
 // Bei jeder Änderung an dieser Datei SHELL_CACHE hochzählen.
-const SHELL_CACHE = 'collect-shell-v2.24';
+const SHELL_CACHE = 'collect-shell-v2.25';
 const COVER_CACHE = 'collect-covers-v1';
 const COVER_MAX = 2500;
 

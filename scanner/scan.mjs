@@ -3,7 +3,7 @@
 // und legt Treffer unter users/{uid}/deals ab. Optional Push über ntfy.sh.
 import {
   PLATFORM_QUERY, CAT_GAMES, buildQuery, titleMatches, platformOk, junkReason, conditionClass,
-  median, parseItem, sellerOk, evaluate, userOpts, dealId, buildTasks
+  median, parseItem, sellerOk, evaluate, userOpts, dealId, buildTasks, conditionOk
 } from './lib.mjs';
 
 const REF_MAX_AGE = 14 * 864e5;       // Referenzpreis bleibt 14 Tage gültig
@@ -89,6 +89,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
       if (junkReason(p.title, game, opts)) continue;
       if (!sellerOk(p, opts)) continue;
       p.cls = conditionClass(p.title, platform, p.conditionId);
+      p.condOk = conditionOk(p.title, p.conditionId, opts);
       out.push(p);
     }
     return out;
@@ -123,6 +124,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
         }
         const target = Number(targets[t.platform + '::' + t.game]) || null;
         for (const p of matched) {
+          if (!p.condOk) continue;
           const ev = evaluate(p, refFor(t.platform, t.game, p.cls), target, opts, now);
           if (ev) addDeal(p, Object.assign({ kind: 'title', platform: t.platform, game: t.game }, ev));
         }
@@ -133,6 +135,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
           const p = parseItem(raw);
           if (!platformOk(p.title, t.platform, true)) continue;
           if (junkReason(p.title, '', opts) || !sellerOk(p, opts)) continue;
+          if (!conditionOk(p.title, p.conditionId, opts)) continue;
           if (!isFinite(p.price) || p.price <= 0) continue;
           const hits = t.games.filter(g => titleMatches(p.title, g));
           if (!hits.length) continue;
@@ -140,7 +143,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
           const cls = conditionClass(p.title, t.platform, p.conditionId);
           let sum = 0, known = 0;
           for (const g of hits) {
-            const r = refFor(t.platform, g, cls) || refFor(t.platform, g, cls === 'std' ? 'std' : 'modul');
+            const r = refFor(t.platform, g, cls) || refFor(t.platform, g, 'modul');
             const tg = Number(targets[t.platform + '::' + g]) || null;
             const v = r ? r.median : tg;
             if (v) { sum += v; known++; }
@@ -176,6 +179,9 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
   }
   for (const [id, old] of existing) {
     if (found.has(id)) continue;
+    const stale = junkReason(old.title || '', old.kind === 'konvolut' ? '' : (old.game || ''), opts) ||
+      !conditionOk(old.title || '', old.conditionId, opts) || old.cls === 'std';
+    if (stale) { deletes.push(id); continue; }
     const ended = old.endsAt && Date.parse(old.endsAt) < now - 3600000;
     if (ended || now - (old.lastSeen || 0) > DEAL_TTL) deletes.push(id);
   }

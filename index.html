@@ -1724,6 +1724,10 @@
     background: var(--green); border: 1.5px solid var(--green); color: #fff; border-radius: var(--radius);
     font-family: var(--font-head); font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
   }
+  .deal-cond { margin-bottom: 12px; }
+  .deal-seg { display: inline-flex; max-width: 100%; }
+  .deal-seg button { padding: 8px 14px; font-size: 13px; }
+  .deal-seg button.on { background: var(--purple); }
   .deal-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px; scrollbar-width: none; }
   .deal-chips::-webkit-scrollbar { display: none; }
   .deal-chip {
@@ -2042,6 +2046,7 @@
   <div class="check-section">
     <div class="check-section-label">&#128176; eBay-Schnäppchen für deine Brauchen-Liste</div>
     <div id="dealStatus"></div>
+    <div class="deal-cond" id="dealCond"></div>
     <div class="deal-chips" id="dealChips"></div>
     <div class="deal-list" id="dealList"></div>
   </div>
@@ -4974,7 +4979,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.24</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.25</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5724,7 +5729,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.24',
+    appVersion: 'v2.25',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -6648,7 +6653,7 @@ async function shareAsText() {
 // DEALS (v2.23) – Schnäppchen-Scanner für die Brauchen-Liste
 // Der Scanner läuft als GitHub Action (scanner/scan.mjs) und schreibt nach users/{uid}/deals.
 // ══════════════════════════════════════════════════════
-const DEAL_DEFAULTS = { enabled: false, threshold: 0.6, minSave: 5, notifyBelow: 0.5, auctionHours: 12, excludeNtsc: true, minSellerPct: 95, minSellerFb: 0, ntfyTopic: '', konvolut: true };
+const DEAL_DEFAULTS = { condition: 'cib', enabled: false, threshold: 0.6, minSave: 5, notifyBelow: 0.5, auctionHours: 12, excludeNtsc: true, minSellerPct: 95, minSellerFb: 0, ntfyTopic: '', konvolut: true };
 let dealsList = [];          // alle Deal-Dokumente
 let dealState = null;        // users/{uid}/dealMeta/state
 let dealsUnsub = [];
@@ -6672,6 +6677,7 @@ function dealVisible() {
   const now = Date.now();
   return dealsList.filter(function(d) {
     if (d.endsAt && Date.parse(d.endsAt) < now) return false;
+    if (dealOpts().condition !== 'all' && d.cls !== 'cib' && d.cls !== 'sealed') return false;   // nur komplett mit OVP
     return dealStillWanted(d);
   });
 }
@@ -6745,8 +6751,18 @@ function renderDealStatus() {
 
 function setDealFilter(f) { dealFilter = f; renderDeals(); }
 
+function renderDealCond() {
+  const el = document.getElementById('dealCond');
+  if (!el) return;
+  const c = dealOpts().condition === 'all' ? 'all' : 'cib';
+  el.innerHTML = '<div class="seg deal-seg">' +
+    '<button class="' + (c === 'cib' ? 'on' : '') + '" onclick="setDealOpt(\'condition\', \'cib\')">Nur komplett mit OVP</button>' +
+    '<button class="' + (c === 'all' ? 'on' : '') + '" onclick="setDealOpt(\'condition\', \'all\')">Auch lose / Disc</button></div>';
+}
+
 function renderDeals(err) {
   renderDealStatus();
+  renderDealCond();
   const list = document.getElementById('dealList');
   const chips = document.getElementById('dealChips');
   if (!list) return;
@@ -6795,7 +6811,8 @@ function dealCardHtml(d) {
   if (d.kind === 'konvolut') kind = 'Konvolut · ' + (d.matched || []).length + ' von deiner Liste';
   else if (d.type === 'auction') kind = 'Auktion · noch ' + dealLeft(d.endsAt) + ' · ' + (d.bids || 0) + ' Gebote';
   else kind = 'Sofortkauf';
-  const cls = { modul: 'Modul', cib: 'CIB', sealed: 'Sealed' }[d.cls] || '';
+  const isCart = ['Atari', 'NES', 'SNES', 'N64', 'Megadrive', 'Mastersystem', 'GB', 'GBC', 'GBA'].indexOf(d.platform) !== -1;
+  const cls = { modul: isCart ? 'Lose (Modul)' : 'Lose', cib: 'Komplett mit OVP', sealed: 'Sealed' }[d.cls] || '';
   const ref = d.ref ? (d.kind === 'konvolut' ? 'Einzelwert ' : 'Markt ') + dealEur0(d.ref) + ' · du sparst ' + dealEur0(d.save) : '';
   const tgt = d.target ? 'Zielpreis ' + dealEur(d.target) : '';
   const seller = d.seller ? 'Verkäufer ' + (d.sellerFb != null ? d.sellerFb : '?') + (d.sellerPct != null ? ' (' + String(d.sellerPct).replace('.', ',') + ' %)' : '') : '';
@@ -6862,6 +6879,8 @@ function setDealOpt(key, val) {
   const upd = {}; upd['dealScan.' + key] = val;
   currentUserDocRef.update(upd).catch(function(e) { showToast('Speichern fehlgeschlagen: ' + e.message, true); });
   if (key === 'enabled') { showToast(val ? 'Deal-Scanner an ✓' : 'Deal-Scanner aus'); renderDealSettings(); }
+  if (key === 'condition') renderDealSettings();
+  if (key === 'condition') showToast(val === 'all' ? 'Zeige auch lose Module & Discs' : 'Nur komplett mit OVP ✓');
   renderDeals();
 }
 
@@ -6882,6 +6901,7 @@ function renderDealSettings() {
     '<div class="deal-set-row"><span>Mindestens sparen</span>' + sel('minSave', [0, 3, 5, 10, 15, 25], function(v) { return v + ' €'; }) + '</div>' +
     '<div class="deal-set-row"><span>Auktionen zeigen<small>nur kurz vor Ende</small></span>' + sel('auctionHours', [2, 6, 12, 24, 48], function(v) { return 'letzte ' + v + ' Std.'; }) + '</div>' +
     '<div class="deal-set-row"><span>Verkäufer-Bewertung ab</span>' + sel('minSellerPct', [0, 90, 95, 98, 99], function(v) { return v ? v + ' %' : 'egal'; }) + '</div>' +
+    '<div class="deal-set-row"><span>Nur komplett mit OVP<small>aus = auch lose Module &amp; Discs</small></span><label class="switch"><input type="checkbox"' + (o.condition !== 'all' ? ' checked' : '') + ' onchange="setDealOpt(\'condition\', this.checked ? \'cib\' : \'all\')"><span></span></label></div>' +
     '<div class="deal-set-row"><span>NTSC / Japan ausblenden</span>' + sw('excludeNtsc') + '</div>' +
     '<div class="deal-set-row"><span>Konvolute durchsuchen</span>' + sw('konvolut') + '</div>' +
     '<div class="deal-set-head">Push aufs Handy (ntfy)</div>' +

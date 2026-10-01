@@ -127,8 +127,34 @@ const JUNK = [
   'nur cover', 'cover only', 'inlay', 'nur inlay',
   'defekt', 'kaputt', 'bastler', 'fur bastler', 'fuer bastler',
   'spieleberater', 'losungsbuch', 'loesungsbuch', 'strategy guide', 'spiele berater', 'poster', 'aufkleber', 'sticker',
-  'schlusselanhanger', 'schluesselanhaenger', 'soundtrack', 'artbook', 'art book', 'magazin', 'zeitschrift', 'pin badge'
+  'schlusselanhanger', 'schluesselanhaenger', 'soundtrack', 'artbook', 'art book', 'magazin', 'zeitschrift', 'pin badge',
+  // Zubehör / Ersatzteile statt des Artikels selbst
+  'folie', 'schutzfolie', 'displayfolie', 'displayschutz', 'display schutz', 'screen protector', 'skin', 'aufkleberset',
+  'ersatzhulle', 'ersatzhuelle', 'ersatz hulle', 'ersatz huelle', 'ersatzteil', 'ersatzteile', 'ersatz', 'replacement',
+  'gehause', 'gehaeuse', 'shell', 'housing', 'batteriedeckel', 'akkudeckel', 'battery cover', 'tasche', 'sleeve',
+  'hulle fur', 'huelle fuer', 'case fur', 'case fuer', 'nur cover', 'reparatur', 'repair', 'kabel only', 'nur kabel'
 ];
+
+// Hinweise auf "nicht komplett" – im OVP-Modus immer raus
+const INCOMPLETE = [
+  'disc only', 'disk only', 'cd only', 'dvd only', 'nur disc', 'nur disk', 'nur cd', 'nur dvd', 'nur die disc', 'nur die cd',
+  'nur modul', 'modul only', 'cartridge only', 'cart only', 'nur cartridge', 'nur das spiel', 'nur spiel', 'game only',
+  'lose', 'loose', 'ohne ovp', 'ohne box', 'ohne karton', 'ohne anleitung', 'ohne hulle', 'ohne huelle', 'ohne case',
+  'ohne verpackung', 'ohne originalverpackung', 'ohne manual', 'no box', 'no manual', 'no case', 'unboxed',
+  'nur ovp', 'ovp fehlt', 'anleitung fehlt', 'hulle fehlt', 'huelle fehlt', 'ohne inlay', 'kein ovp', 'keine ovp', 'keine anleitung'
+];
+// Positive Hinweise auf komplett mit OVP
+const COMPLETE_RE = / (ovp|cib|komplett|kompl|complete|completed|vollstandig|vollstaendig|boxed|in box|mit box|mit karton|originalverpackung|original verpackung|mit anleitung|mit hulle|mit huelle|mit case|in hulle|in huelle|sealed|versiegelt|eingeschweisst|neu ovp|new sealed) /;
+export function incompleteReason(itemTitle) {
+  const n = ' ' + norm(itemTitle) + ' ';
+  for (const w of INCOMPLETE) if (n.includes(' ' + w + ' ')) return w;
+  return null;
+}
+export function looksComplete(itemTitle, conditionId) {
+  if (incompleteReason(itemTitle)) return false;
+  const n = ' ' + norm(itemTitle) + ' ';
+  return COMPLETE_RE.test(n) || String(conditionId) === '1000';   // 1000 = Neu (originalverpackt)
+}
 const REGION = ['ntsc', 'ntsc j', 'ntsc u', 'jap', 'japan', 'japanisch', 'jpn', 'us import', 'usa', 'us version', 'ntscu', 'ntscj'];
 
 export function junkReason(itemTitle, game, opts) {
@@ -144,11 +170,16 @@ export function junkReason(itemTitle, game, opts) {
 
 // ── Zustand ─────────────────────────────────────────────────────────────────
 export function conditionClass(itemTitle, platform, conditionId) {
-  if (!CART_PLATFORMS.includes(platform)) return 'std';
   const n = ' ' + norm(itemTitle) + ' ';
-  if (/ (sealed|versiegelt|eingeschweisst|factory sealed|ungeoffnet|ungeoeffnet) /.test(n) || String(conditionId) === '1000') return 'sealed';
-  if (/ (ovp|cib|komplett|complete|boxed|in box|mit anleitung|mit ovp) /.test(n)) return 'cib';
+  if (/ (sealed|versiegelt|eingeschweisst|factory sealed|ungeoffnet|ungeoeffnet) /.test(n)) return 'sealed';
+  if (looksComplete(itemTitle, conditionId)) return String(conditionId) === '1000' && !/ (ovp|cib|komplett|complete|boxed) /.test(n) ? 'sealed' : 'cib';
   return 'modul';
+}
+
+// Erfüllt das Angebot den gewählten Zustand? ('cib' = nur komplett mit OVP, 'all' = auch lose)
+export function conditionOk(itemTitle, conditionId, opts) {
+  if (opts.condition === 'all') return true;
+  return looksComplete(itemTitle, conditionId);
 }
 
 // ── Preise ──────────────────────────────────────────────────────────────────
@@ -240,10 +271,12 @@ export const DEFAULT_OPTS = {
   minSellerPct: 95,
   minSellerFb: 0,
   ntfyTopic: '',
-  konvolut: true
+  konvolut: true,
+  condition: 'cib'         // 'cib' = nur komplett mit OVP, 'all' = auch lose Module/Discs
 };
 export function userOpts(dealScan) {
   const o = Object.assign({}, DEFAULT_OPTS, dealScan || {});
+  if (o.condition !== 'all') o.condition = 'cib';
   ['threshold', 'minSave', 'notifyBelow', 'auctionHours', 'minSellerPct', 'minSellerFb'].forEach(k => {
     const v = Number(o[k]); o[k] = isFinite(v) ? v : DEFAULT_OPTS[k];
   });
