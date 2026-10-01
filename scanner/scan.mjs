@@ -265,5 +265,5 @@ async function main() {
 }
 
 if (import.meta.url === 'file://' + process.argv[1]) {
-  main().catch(e => { console.error(e); process.exit(1); });
+  main().catch(e => { console.error(e); console.log('::error::' + String(e && e.message || e).replace(/\n/g, ' ')); process.exit(1); });
 }
