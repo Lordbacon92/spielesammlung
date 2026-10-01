@@ -252,13 +252,13 @@ async function main() {
   const ebay = makeEbay({ clientId: process.env.EBAY_CLIENT_ID, clientSecret: process.env.EBAY_CLIENT_SECRET, zip: process.env.EBAY_ZIP || '' });
 
   const users = await db.collection('users').where('dealScan.enabled', '==', true).get();
-  if (users.empty) { console.log('Kein Nutzer hat den Deal-Scanner aktiviert.'); return; }
+  if (users.empty) { console.log('::warning::Kein Nutzer hat den Deal-Scanner aktiviert (dealScan.enabled)'); return; }
   const totalBudget = Number(process.env.MAX_CALLS || 100);
   const per = Math.max(10, Math.floor(totalBudget / users.size));
   for (const u of users.docs) {
     console.log('Nutzer ' + u.id.slice(0, 6) + '… (Budget ' + per + ' Abfragen)');
     const res = await scanUser({ userDoc: u.data(), store: firestoreStore(db, u.id), ebay, budget: per });
-    console.log('  ' + JSON.stringify(res.stats) + ' · neu: ' + res.fresh.length);
+    console.log('::notice::Nutzer ' + u.id.slice(0, 6) + ': ' + JSON.stringify(res.stats) + ' neu=' + res.fresh.length);
     if (res.opts.ntfyTopic) await sendNtfy(res.opts.ntfyTopic, res.notify);
   }
   console.log('eBay-Abfragen gesamt: ' + ebay.calls);

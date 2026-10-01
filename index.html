@@ -4974,7 +4974,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.23</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.24</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5724,7 +5724,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.23',
+    appVersion: 'v2.24',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -6654,6 +6654,7 @@ let dealState = null;        // users/{uid}/dealMeta/state
 let dealsUnsub = [];
 let dealFilter = 'all';
 let dealTick = null;
+let dealStateErr = null;
 
 function dealOpts() { return Object.assign({}, DEAL_DEFAULTS, (currentUserData && currentUserData.dealScan) || {}); }
 function dealEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -6682,11 +6683,12 @@ function dealsStart() {
     dealsList = q.docs.map(function(d) { return Object.assign({ _id: d.id }, d.data()); });
     updateDealBadge();
     if (currentTab === 'deals') renderDeals();
-  }, function(e) { console.warn('Deals:', e.code || e); dealsList = []; if (currentTab === 'deals') renderDeals(e); }));
+  }, function(e) { console.warn('Deals:', e.code || e); dealsList = []; dealStateErr = dealStateErr || e; if (currentTab === 'deals') renderDeals(e); }));
   dealsUnsub.push(currentUserDocRef.collection('dealMeta').doc('state').onSnapshot(function(s) {
     dealState = s.exists ? s.data() : null;
+    dealStateErr = null;
     if (currentTab === 'deals') renderDealStatus();
-  }, function() {}));
+  }, function(e) { dealStateErr = e; console.warn('Deal-Status:', e.code || e); if (currentTab === 'deals') renderDealStatus(); }));
 }
 function dealsStop() {
   dealsUnsub.forEach(function(u) { try { u(); } catch(e) {} });
@@ -6727,6 +6729,10 @@ function renderDealStatus() {
   if (!o.enabled) {
     el.innerHTML = '<div class="deal-off"><b>Deal-Scanner ist aus.</b> Wenn du ihn einschaltest, durchsucht er alle 30 Minuten eBay.de nach jedem Titel deiner Brauchen-Liste (' + watched + ' Titel) und zeigt hier alles, was deutlich unter Marktpreis liegt.' +
       '<button class="deal-on-btn" onclick="setDealOpt(\'enabled\', true)">Scanner einschalten</button></div>';
+    return;
+  }
+  if (dealStateErr) {
+    el.innerHTML = '<div class="deal-hint">Scanner-Status kann nicht gelesen werden (' + dealEsc(dealStateErr.code || dealStateErr.message) + '). Die Firestore-Regeln erlauben den Zugriff auf <b>users/{uid}/dealMeta</b> und <b>/deals</b> noch nicht.</div>';
     return;
   }
   const last = dealState && dealState.lastRun;
