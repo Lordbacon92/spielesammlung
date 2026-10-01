@@ -95,6 +95,7 @@ const PLAT_PATTERNS = [
   ['Amiga 500', /\bamiga\b/],
   ['Commodore 64', /\b(c64|commodore)\b/],
   ['Xbox', /\bxbox\b/],
+  ['PC', /\b(pc|cd rom|dvd rom|windows|win 95|win 98|win xp|mac os|big box)\b/],
 ];
 export function detectPlatforms(itemTitle) {
   const n = norm(itemTitle);
@@ -109,8 +110,9 @@ function samePlat(a, b) {
 }
 // Passt das Angebot zur gewünschten Plattform? (multi = mehrere Plattformen erlaubt, z. B. Konvolut)
 export function platformOk(itemTitle, platform, multi) {
-  if (platform === 'Konsole/Parts' || !PLAT_PATTERNS.some(([p]) => p === platform)) return true;
+  if (platform === 'Konsole/Parts') return true;
   const found = [...detectPlatforms(itemTitle)];
+  if (!PLAT_PATTERNS.some(([p]) => p === platform)) return !found.length;
   if (!found.length) return true;
   const own = found.some(p => samePlat(p, platform));
   if (!own) return false;
@@ -156,6 +158,29 @@ export function looksComplete(itemTitle, conditionId) {
   return COMPLETE_RE.test(n) || String(conditionId) === '1000';   // 1000 = Neu (originalverpackt)
 }
 const REGION = ['ntsc', 'ntsc j', 'ntsc u', 'jap', 'japan', 'japanisch', 'jpn', 'us import', 'usa', 'us version', 'ntscu', 'ntscj'];
+
+// Sammel- und Sonderausgaben verfälschen den Preisvergleich – nur erlaubt, wenn der gesuchte Titel sie selbst nennt
+const VARIANT = [
+  'big box', 'bigbox', 'fat box', 'collector', 'collectors', 'collector s', 'limited', 'steelbook', 'anthology', 'anthologie',
+  'generation', 'compilation', 'collection', 'bundle', 'pack', 'konvolut', 'sammlung', 'paket', 'lot', 'spielesammlung',
+  'spiele', 'games', 'set', 'trilogy', 'trilogie', 'box set', 'boxset', 'premium', 'deluxe', 'gold edition', 'goty',
+  'game of the year', 'special edition', 'sonderedition', 'sonderausgabe', 'promo', 'demo', 'beta', 'prototyp'
+];
+export function variantReason(itemTitle, game) {
+  const n = ' ' + norm(itemTitle) + ' ';
+  const g = ' ' + norm(game) + ' ';
+  for (const w of VARIANT) if (n.includes(' ' + w + ' ') && !g.includes(' ' + w + ' ')) return w;
+  if (/ \+ /.test(' ' + String(itemTitle) + ' ')) return '+';           // mehrere Spiele in einem Angebot
+  return null;
+}
+
+// Vorsichtiger Marktwert: 40-%-Quantil der Angebotspreise (Angebote liegen meist über Verkaufspreisen)
+export function quantile(arr, q) {
+  const a = arr.filter(x => isFinite(x)).sort((x, y) => x - y);
+  if (!a.length) return null;
+  const pos = (a.length - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);
+  return a[lo] + (a[hi] - a[lo]) * (pos - lo);
+}
 
 export function junkReason(itemTitle, game, opts) {
   const n = ' ' + norm(itemTitle) + ' ';
@@ -251,6 +276,7 @@ export function evaluate(p, ref, target, opts, nowMs) {
     if (!(left > 0 && left <= opts.auctionHours)) hit = false;   // nur kurz vor Ende interessant
   }
   if (!hit) return null;
+  if (med && score < 0.15 && !(target && p.total <= target)) return null;   // so billig ist fast immer ein anderer Artikel
   return {
     ref: med ? r2(med) : null,
     refN: ref ? ref.n : 0,
