@@ -1,0 +1,31 @@
+name: Deal-Scanner
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'     # alle 30 Minuten
+  workflow_dispatch: {}          # manuell starten: Actions → Deal-Scanner → Run workflow
+
+concurrency:
+  group: deal-scanner
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: scanner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: node scan.mjs
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
+          EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
+          EBAY_ZIP: ${{ vars.EBAY_ZIP }}
+          MAX_CALLS: ${{ vars.MAX_CALLS || '100' }}

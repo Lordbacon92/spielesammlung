@@ -1,0 +1,7 @@
+{
+  "name": "collect-deal-scanner",
+  "private": true,
+  "type": "module",
+  "scripts": { "scan": "node scan.mjs" },
+  "dependencies": { "firebase-admin": "^12.7.0" }
+}
