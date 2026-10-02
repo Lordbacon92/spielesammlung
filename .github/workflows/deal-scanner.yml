@@ -2,10 +2,10 @@ name: Deal-Scanner
 
 # Läuft als Dauerschleife: ein Lauf scannt ~5,5 Stunden lang alle 30 Minuten
 # und startet sich danach selbst neu. Der Zeitplan unten ist nur das Sicherheitsnetz,
-# falls die Kette einmal abreißt (GitHub-Zeitpläne sind oft stark verspätet).
+# falls die Kette einmal abreißt (stündlich; läuft schon eine Schleife, wartet er bzw. entfällt).
 on:
   schedule:
-    - cron: '7 */3 * * *'
+    - cron: '17 * * * *'
   workflow_dispatch:
     inputs:
       single:
