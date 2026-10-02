@@ -8,6 +8,8 @@ import {
 } from './lib.mjs';
 
 const REF_MAX_AGE = 14 * 864e5;       // Referenzpreis bleibt 14 Tage gültig
+const AUC_MAX_AGE = 90 * 864e5;       // Auktionsergebnisse zählen 90 Tage
+const AUC_MIN = 3;                    // ab 3 Auktionen gilt der Auktions-Durchschnitt
 const DEAL_TTL = 3 * 864e5;           // nicht mehr gesehene Angebote nach 3 Tagen entfernen
 
 // ── eBay ────────────────────────────────────────────────────────────────────
@@ -84,12 +86,16 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
   const nameCache = {};
   const namesFor = (platform, game) => nameCache[platform + '::' + game] || (nameCache[platform + '::' + game] = aliasNames(game, aliases[platform + '::' + game]));
   const badItems = state.badItems || {};                 // itemId → Zeitpunkt (Beschreibung durchgefallen)
-  const refs = state.refVersion === 2 ? (state.refs || {}) : {};       // v2: 40-%-Quantil, ohne Sonderausgaben
+  // Marktwert: v3 = Ø beobachteter Auktions-Endpreise, sonst unteres Viertel der Sofortkauf-Angebote
+  const binRefs = state.refVersion === 3 ? (state.binRefs || {}) : {};
+  const auc = state.auc || {};                           // key|cls → [{ id, p, at }] Auktionen kurz vor Ende
+  const refs = {};                                       // wird unten aus binRefs + auc berechnet
   // Tippfehler-Suche für wertvolle Titel und Favoriten
   const typoKeys = new Set(favs);
   for (const p of Object.keys(brauchen)) for (const g of brauchen[p] || []) {
     const k = p + '::' + g;
-    const r = refs[k + '|cib'] || refs[k + '|modul'] || refs[k + '|sealed'];
+    const old = state.refs || {};
+    const r = old[k + '|cib'] || old[k + '|modul'] || old[k + '|sealed'];
     if ((r && r.median >= 30) || Number((ds.targets || {})[k]) >= 30) typoKeys.add(k);
   }
   const tasks = buildTasks(brauchen, opts, { aliases, typoKeys });
@@ -114,16 +120,41 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
   let used = 0, done = 0, cursor = state.cursor % Math.max(1, tasks.length);
   const stats = { tasks: 0, items: 0, matched: 0, deals: 0, errors: 0 };
 
+  // Ø der Auktionen (bei ≥ 5 Werten ohne höchsten und niedrigsten)
+  function aucRef(k) {
+    const list = (auc[k] || []).filter(x => now - x.at < AUC_MAX_AGE).map(x => x.p).sort((a, b) => a - b);
+    if (list.length < AUC_MIN) return null;
+    const use = list.length >= 5 ? list.slice(1, -1) : list;
+    return { median: Math.round(use.reduce((a, b) => a + b, 0) / use.length * 100) / 100, n: list.length, src: 'auction', at: now };
+  }
   function refFor(platform, game, cls) {
-    const r = refs[platform + '::' + game + '|' + cls];
-    return r && now - r.at < REF_MAX_AGE ? r : null;
+    const k = platform + '::' + game + '|' + cls;
+    if (refs[k]) return refs[k];
+    const a = aucRef(k);
+    if (a) return (refs[k] = a);
+    const b = binRefs[k];
+    if (b && now - b.at < REF_MAX_AGE) return (refs[k] = Object.assign({ src: 'bin' }, b));
+    return null;
   }
   function setRef(platform, game, cls, med, n) {
     const k = platform + '::' + game + '|' + cls;
-    const prev = refs[k];
+    const prev = binRefs[k];
     let m = med;
     if (prev && now - prev.at < REF_MAX_AGE && n < 8) m = (prev.median + med) / 2;   // wenig Daten → glätten
-    refs[k] = { median: Math.round(m * 100) / 100, n, at: now };
+    binRefs[k] = { median: Math.round(m * 100) / 100, n, at: now };
+    if (refs[k] && refs[k].src === 'bin') delete refs[k];
+  }
+  // Laufende Auktion mit Geboten kurz vor Ende = so gut wie verkauft → als Marktpreis merken
+  function noteAuction(platform, game, p) {
+    if (p.type !== 'auction' || !(p.bids >= 1) || !p.endsAt || !isFinite(p.total)) return;
+    const left = (Date.parse(p.endsAt) - now) / 3600000;
+    if (!(left > 0 && left <= 3)) return;
+    const k = platform + '::' + game + '|' + p.cls;
+    const list = auc[k] = (auc[k] || []).filter(x => x.id !== p.itemId && now - x.at < AUC_MAX_AGE);
+    list.push({ id: p.itemId, p: Math.round(p.total * 100) / 100, at: now });
+    if (list.length > 12) list.splice(0, list.length - 12);
+    delete refs[k];
+    stats.aucSeen = (stats.aucSeen || 0) + 1;
   }
   function filterMatched(items, platform, game, mode) {
     const out = [];
@@ -189,11 +220,13 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
         used++; stats.tasks++; stats.items += items.length;
         const matched = filterMatched(items, t.platform, t.game, mode);
         stats.matched += matched.length;
+        // Auktionen kurz vor Ende als Verkaufspreis merken (vor allem aus der „bald endend“-Suche)
+        for (const p of matched) noteAuction(t.platform, t.game, p);
         if (t.kind === 'new') {
-          // Marktreferenz: Median der Sofortkauf-Gesamtpreise je Zustand
+          // Ersatz-Marktwert, solange es zu wenige Auktionen gibt: unteres Viertel der Sofortkauf-Preise
           const byCls = {};
           matched.filter(p => p.type === 'bin').forEach(p => { (byCls[p.cls] = byCls[p.cls] || []).push(p.total); });
-          for (const [cls, arr] of Object.entries(byCls)) if (arr.length >= 5) setRef(t.platform, t.game, cls, quantile(arr, 0.4), arr.length);
+          for (const [cls, arr] of Object.entries(byCls)) if (arr.length >= 5) setRef(t.platform, t.game, cls, quantile(arr, 0.25), arr.length);
         }
         const target = Number(targets[t.platform + '::' + t.game]) || null;
         for (const p of matched) {
@@ -306,6 +339,7 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
   for (const [id, old] of existing) {
     if (found.has(id)) continue;
     if (badItems[old.itemId]) { deletes.push(id); continue; }
+    if (old.ref && !old.refSrc && old.kind !== 'konvolut' && old.status !== 'hidden') { deletes.push(id); continue; }   // alter, zu hoher Marktwert
     if (seen.has(id)) continue;                          // Beschreibung noch nicht geprüft – behalten
     const stale = junkReason(old.title || '', old.kind === 'konvolut' ? '' : (old.game || ''), opts) ||
       !conditionOk(old.title || '', old.conditionId, opts) || old.cls === 'std' ||
@@ -318,7 +352,13 @@ export async function scanUser({ userDoc, store, ebay, budget, now = Date.now(),
   stats.deals = found.size;
   await store.writeDeals(upserts, deletes);
   if (store.setStatus) await store.setStatus({ lastRun: now, lastStats: Object.assign({ calls: used, total: tasks.length }, stats) }).catch(e => log('  ! Status: ' + e.message));
-  await store.setState({ cursor, refs, badItems, learn, refVersion: 2, lastRun: now, lastStats: Object.assign({ calls: used, total: tasks.length, newDeals: fresh.length }, stats) });
+    // Alle Marktwerte für die App zusammenstellen (Auktion vor Angebot)
+  for (const k of new Set([...Object.keys(binRefs), ...Object.keys(auc)])) {
+    const i = k.lastIndexOf('|'), pg = k.slice(0, i), cls = k.slice(i + 1), j = pg.indexOf('::');
+    refFor(pg.slice(0, j), pg.slice(j + 2), cls);
+  }
+  for (const k of Object.keys(auc)) { auc[k] = auc[k].filter(x => now - x.at < AUC_MAX_AGE); if (!auc[k].length) delete auc[k]; }
+  await store.setState({ cursor, refs, binRefs, auc, badItems, learn, refVersion: 3, lastRun: now, lastStats: Object.assign({ calls: used, total: tasks.length, newDeals: fresh.length }, stats) });
 
   // ── Push ──
   const notify = fresh.filter(d => d.score <= opts.notifyBelow || (d.target && d.total <= d.target)).sort((a, b) => a.score - b.score);

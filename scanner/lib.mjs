@@ -385,6 +385,7 @@ export function evaluate(p, ref, target, opts, nowMs, bonus) {
     offer,
     ref: med ? r2(med) : null,
     refN: ref ? ref.n : 0,
+    refSrc: ref && ref.src ? ref.src : null,
     target: target || null,
     score: Math.round(score * 100) / 100,
     save: r2(save),

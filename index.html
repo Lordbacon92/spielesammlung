@@ -5045,7 +5045,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.30</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.31</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5795,7 +5795,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.30',
+    appVersion: 'v2.31',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -6732,7 +6732,8 @@ function dealOpenSettings() {
   d.open = true;
   d.scrollIntoView({ behavior: animsOff() ? 'auto' : 'smooth', block: 'start' });
 }
-function dealTime(d) { return Date.parse(d.listedAt || '') || d.firstSeen || 0; }
+// Neuste = zuletzt vom Scanner gefunden (dann eingestellt)
+function dealTime(d) { return d.firstSeen || Date.parse(d.listedAt || '') || 0; }
 let dealTick = null;
 let dealStateErr = null;
 
@@ -6881,7 +6882,7 @@ function renderDeals(err) {
   rows.sort(function(a, b) {
     if (dealFilter === 'seller' && a.seller !== b.seller) return String(a.seller).localeCompare(String(b.seller));
     if (dealSort === 'price') return (a.total || 0) - (b.total || 0);
-    return dealTime(b) - dealTime(a);
+    return (dealTime(b) - dealTime(a)) || ((Date.parse(b.listedAt || '') || 0) - (Date.parse(a.listedAt || '') || 0));
   });
 
 
@@ -6909,7 +6910,7 @@ function dealCardHtml(d) {
   else if (d.type === 'auction') kind = '⏱ noch ' + dealLeft(d.endsAt) + ' · ' + (d.bids || 0) + ' Gebote';
   else kind = 'Sofortkauf';
   const metaLine = [kind, ship, cls].filter(Boolean).join(' · ');
-  const refTxt = d.ref ? (d.kind === 'konvolut' ? 'Einzeln ' : 'Markt ') + dealEur0(d.ref) : (d.target ? 'Ziel ' + dealEur0(d.target) : '');
+  const refTxt = d.ref ? (d.kind === 'konvolut' ? 'Einzeln ' : (d.refSrc === 'auction' ? 'Ø Auktion ' : 'Markt ')) + dealEur0(d.ref) : (d.target ? 'Ziel ' + dealEur0(d.target) : '');
   // Badges
   const tags = [];
   if (d.fav) tags.push('<span class="dt dt-fav">★ Favorit</span>');
@@ -7081,7 +7082,7 @@ function renderDealTargets() {
         const k = p + '::' + g;
         const r = dealRefFor(k);
         const meta = [];
-        if (r) meta.push('Markt ' + dealEur0(r) + (targets[k] ? '' : ' · <a href="#" class="deal-tg-take" onclick="event.preventDefault();dealTakeTarget(this, ' + Math.round(r * 0.8) + ')">' + Math.round(r * 0.8) + ' € übernehmen</a>'));
+        if (r) meta.push('Markt ' + dealEur0(r) + ' <i>(' + dealRefSrc(k) + ')</i>' + (targets[k] ? '' : ' · <a href="#" class="deal-tg-take" onclick="event.preventDefault();dealTakeTarget(this, ' + Math.round(r * 0.8) + ')">' + Math.round(r * 0.8) + ' € übernehmen</a>'));
         meta.push('<a href="#" class="deal-tg-take" onclick="event.preventDefault();dealEditAlias(this)">' + (aliases[k] ? 'Alias: ' + dealEsc(aliases[k]) : '+ Alias') + '</a>');
         return '<div class="deal-tg-row" data-k="' + dealEsc(k) + '"><button class="deal-star' + (favs[k] ? ' on' : '') + '" title="Favorit" onclick="dealToggleFav(this)">' + (favs[k] ? '★' : '☆') + '</button>' +
           '<span class="deal-tg-name">' + dealEsc(g) + '<small>' + meta.join(' · ') + '</small></span>' +
@@ -7097,6 +7098,11 @@ function dealRefFor(k) {
     ? (refs[k + '|modul'] || refs[k + '|cib'] || refs[k + '|sealed'])
     : (refs[k + '|cib'] || refs[k + '|sealed']);
   return r ? r.median : null;
+}
+function dealRefSrc(k) {
+  const refs = (dealState && dealState.refs) || {};
+  const r = dealOpts().condition === 'all' ? (refs[k + '|modul'] || refs[k + '|cib'] || refs[k + '|sealed']) : (refs[k + '|cib'] || refs[k + '|sealed']);
+  return r ? (r.src === 'auction' ? 'Ø ' + r.n + ' Auktionen' : 'Angebote') : '';
 }
 function dealTargetCandidates() {
   const br = (data && data.Brauchen) || {};
