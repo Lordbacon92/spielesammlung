@@ -5045,7 +5045,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.31</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.32</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5795,7 +5795,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.31',
+    appVersion: 'v2.32',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -6802,6 +6802,14 @@ function dealLeft(iso) {
   return h ? h + ' Std. ' + m + ' Min.' : m + ' Min.';
 }
 
+// Wie weit ist der aktuelle Durchlauf über alle Titel? (Scanner arbeitet die Liste reihum ab)
+function dealProgress(watched) {
+  const st = (dealState && dealState.lastStats) || {};
+  const total = st.total || 0, cur = dealState && dealState.cursor;
+  if (!total || cur == null) return watched + ' Titel';
+  const pct = Math.max(1, Math.round(cur / total * 100));
+  return 'Durchlauf ' + pct + ' % von ' + watched + ' Titeln';
+}
 function renderDealStatus() {
   const el = document.getElementById('dealStatus');
   if (!el) return;
@@ -6821,7 +6829,7 @@ function renderDealStatus() {
   const last = Math.max((dealState && dealState.lastRun) || 0, us.lastRun || 0) || null;
   const stale = !last || Date.now() - last > 3 * 3600000;
   el.innerHTML = '<div class="deal-status-line' + (stale ? ' stale' : '') + '">' +
-    '<span class="deal-dot"></span><span>Scan ' + dealAgo(last) + ' · ' + watched + ' Titel</span></div>' +
+    '<span class="deal-dot"></span><span>Scan ' + dealAgo(last) + ' · ' + dealProgress(watched) + '</span></div>' +
     (stale ? '<div class="deal-hint">' + (last ? 'Der Scanner hat länger nicht mehr gemeldet.' : 'Noch kein Scan gelaufen.') + ' Prüfe auf GitHub unter <b>Actions → Deal-Scanner</b>, ob der Lauf grün ist.</div>' : '');
 }
 
