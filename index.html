@@ -2570,6 +2570,7 @@ async function init() {
   try {
     const loaded = await apiGet();
     data = loaded;
+    setTimeout(function() { autoRarity().catch(function(e) { console.warn('Auto-Seltenheit:', e); }); }, 2500);
     clearTimeout(warnTimer);
     dataLoaded = true;
     if (videoPct() >= 100) finish();
@@ -2584,6 +2585,48 @@ async function init() {
       '<div style="color:#888;font-size:11px;margin-top:16px;font-family:sans-serif">Seite neu laden zum Wiederholen</div>';
     console.error(e);
   }
+}
+
+// ── Automatische Seltenheit (v2.36) ─────────────────────────────────────────
+// Einmalig: Spiele ohne Farbe bekommen eine nach Marktwert (rarity-prices.json: [lose, CIB]).
+// Rot ab 60 €, Gelb ab 25 €, darunter Grün. Modul = loser Preis, CIB = CIB-Preis, Sealed = doppelter CIB-Preis.
+const AUTO_RARITY_V = 1;
+function rarityFromPrice(eur) { return eur >= 60 ? 'rare' : eur >= 25 ? 'medium' : 'common'; }
+function rarityPriceFor(game, platform, pr) {
+  if (zustandEnabled(platform)) {
+    const z = getZustand(game, platform) || 'modul';
+    return z === 'sealed' ? pr[1] * 2 : z === 'cib' ? pr[1] : pr[0];
+  }
+  const note = (getNote(game, platform) || '').toLowerCase();
+  if (/disc only|nur disc|nur cd|lose|loose|modul|ohne h(ü|ue)lle|ohne ovp/.test(note)) return pr[0];
+  if (/sealed|versiegelt/.test(note)) return pr[1] * 2;
+  return pr[1];
+}
+async function autoRarity() {
+  if (!currentUserData || !currentUserDocRef) return;
+  if ((currentUserData.autoRarityV || 0) >= AUTO_RARITY_V) return;
+  const r = await fetch('rarity-prices.json', { cache: 'no-cache' });
+  if (!r.ok) return;
+  const prices = (await r.json()).prices || {};
+  const haben = (currentUserData.data && currentUserData.data.Haben) || {};
+  const counts = { rare: 0, medium: 0, common: 0 };
+  Object.keys(haben).forEach(function(platform) {
+    (haben[platform] || []).forEach(function(game) {
+      const pr = prices[platform + '::' + game];
+      if (!pr || getRarity(game, platform)) return;
+      const rar = rarityFromPrice(rarityPriceFor(game, platform, pr));
+      const k = metaKey(game, platform);
+      metaCache[k] = cleanMeta(Object.assign({}, metaCache[k] || {}, { rarity: rar }));
+      counts[rar]++;
+    });
+  });
+  currentUserData.meta = metaCache;
+  currentUserData.autoRarityV = AUTO_RARITY_V;
+  await persistUserDoc();
+  currentUserDocRef.update({ autoRarityV: AUTO_RARITY_V }).catch(function() {});
+  const n = counts.rare + counts.medium + counts.common;
+  try { if (currentPlatform) renderGames(); } catch(e) {}
+  if (n) showToast('Seltenheit gesetzt: ' + n + ' Spiele (' + counts.rare + ' rot · ' + counts.medium + ' gelb · ' + counts.common + ' grün)');
 }
 
 // ── Power-On-Boot beim App-Start (v2.14) ─────────────────────────────────
@@ -5200,7 +5243,7 @@ function renderLoans() {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.35</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.36</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5950,7 +5993,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.35',
+    appVersion: 'v2.36',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
