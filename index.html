@@ -1654,6 +1654,30 @@
   .ctx-chip { font-size: 11px; padding: 3px 8px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; }
   .ctx-chip.active { border-color: var(--text); color: var(--text); font-weight: 600; }
 
+  /* ── VERLIEHEN (v2.33) ── */
+  .loan-count { font-family: var(--font-mono); font-size: 11px; opacity: 0.8; }
+  .loan-form { display: flex; flex-direction: column; gap: 8px; }
+  .loan-input { width: 100%; padding: 9px 11px; border: 1.5px solid var(--border); border-radius: var(--radius); background: var(--surface2); color: var(--text); font-family: var(--font-body); font-size: 15px; outline: none; }
+  .loan-input:focus { border-color: var(--accent2); }
+  .loan-search { position: relative; }
+  .loan-ac { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); max-height: 240px; overflow-y: auto; }
+  .loan-ac.open { display: block; }
+  .loan-ac-item { padding: 10px 11px; font-size: 14px; color: var(--text); cursor: pointer; border-bottom: 1px solid var(--bg2); display: flex; justify-content: space-between; gap: 10px; }
+  .loan-ac-item:last-child { border-bottom: none; }
+  .loan-ac-item:hover, .loan-ac-item.active { background: var(--surface2); }
+  .loan-ac-empty { padding: 10px 11px; font-size: 13px; color: var(--text-dim); }
+  .loan-plat { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); white-space: nowrap; align-self: center; }
+  .loan-row2 { display: flex; gap: 8px; }
+  .loan-row2 .loan-input { flex: 1; min-width: 0; }
+  .loan-add { white-space: nowrap; padding: 8px 14px; }
+  .loan-err { font-size: 12px; color: var(--accent); min-height: 16px; }
+  .loan-item { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--bg2); }
+  .loan-info { flex: 1; min-width: 0; }
+  .loan-game { font-size: 14px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+  .loan-who { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .loan-who b { color: var(--text); font-weight: 600; }
+  .loan-back { flex-shrink: 0; padding: 6px 12px; font-size: 12px; }
+
   /* ── SHEETS (Daten prüfen / Wertverlauf) ── */
   .sheet-modal { display: none; position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 16px; }
   .sheet-modal.open { display: flex; }
@@ -2391,6 +2415,8 @@ async function apiGet() {
     if (!currentUserData.valueHistory) currentUserData.valueHistory = {};
   }
   metaCache = currentUserData.meta;
+  if (!Array.isArray(currentUserData.loans)) currentUserData.loans = [];
+  setTimeout(function() { if (typeof updateLoanCount === 'function') updateLoanCount(); }, 0);
   if (migratePlatColors()) {
     currentUserDocRef.update({ platforms: currentUserData.platforms, platColorsV: PLAT_COLOR_V }).catch(function(e) { console.warn('Farb-Migration:', e); });
   }
@@ -4989,7 +5015,129 @@ function onBarcodeFound(ean) {
   <button class="theme-toggle" onclick="exportBackup()" title="Komplette Sammlung als Datei sichern">&#11015; Backup exportieren</button>
   <button class="theme-toggle" onclick="document.getElementById('backupImportInput').click()" title="Sammlung aus Backup-Datei wiederherstellen">&#11014; Backup importieren</button>
   <input type="file" id="backupImportInput" accept="application/json,.json" style="display:none" onchange="handleBackupImport(event)">
+  <button class="theme-toggle" onclick="openLoans()" title="Verliehene Spiele anzeigen">&#128228; Verliehen <span class="loan-count" id="loanCount"></span></button>
 </div>
+
+<div id="loanModal" class="sheet-modal" onclick="if(event.target===this)closeLoans()">
+  <div class="sheet-box" role="dialog" aria-label="Verliehene Spiele">
+    <h3>Verliehen</h3>
+    <div class="loan-form">
+      <div class="loan-search">
+        <input type="text" id="loanGame" class="loan-input" placeholder="Spiel suchen …" autocomplete="off" oninput="loanSearch()" onkeydown="loanSearchKey(event)">
+        <div id="loanAc" class="loan-ac"></div>
+      </div>
+      <div class="loan-row2">
+        <input type="text" id="loanPerson" class="loan-input" placeholder="Name der Person" autocomplete="off" list="loanPersons" oninput="document.getElementById('loanErr').textContent=''" onkeydown="if(event.key==='Enter')addLoan()">
+        <datalist id="loanPersons"></datalist>
+        <button class="modal-btn confirm loan-add" onclick="addLoan()">Hinzuf&uuml;gen</button>
+      </div>
+      <div class="loan-err" id="loanErr"></div>
+    </div>
+    <div class="mt-list" id="loanList"></div>
+    <button class="modal-btn cancel" onclick="closeLoans()">Schlie&szlig;en</button>
+  </div>
+</div>
+
+<script>
+// ── Verliehen (v2.33) – Ausleihen werden im User-Dokument unter "loans" gespeichert ──
+let loanSel = null, loanAcIdx = -1, loanAcHits = [];
+function loanEsc(t) { return String(t).replace(/[&<>"']/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function getLoans() { if (!currentUserData) return []; if (!Array.isArray(currentUserData.loans)) currentUserData.loans = []; return currentUserData.loans; }
+function updateLoanCount() { const n = getLoans().length; const el = document.getElementById('loanCount'); if (el) el.textContent = n ? '(' + n + ')' : ''; }
+function saveLoans() {
+  const w = currentUserDocRef.update({ loans: getLoans() });
+  w.catch(function(e) { console.warn('Verliehen-Sync:', e); showToast('Speichern fehlgeschlagen', true); });
+  updateLoanCount();
+}
+function isLoaned(game, plat) { return getLoans().some(function(l) { return l.game === game && l.platform === plat; }); }
+function openLoans() {
+  if (!currentUserData) { showToast('Bitte zuerst einloggen', true); return; }
+  loanSel = null;
+  document.getElementById('loanGame').value = '';
+  document.getElementById('loanPerson').value = '';
+  document.getElementById('loanErr').textContent = '';
+  closeLoanAc();
+  renderLoans();
+  document.getElementById('loanModal').classList.add('open');
+}
+function closeLoans() { document.getElementById('loanModal').classList.remove('open'); closeLoanAc(); }
+function closeLoanAc() { const ac = document.getElementById('loanAc'); ac.classList.remove('open'); ac.innerHTML = ''; loanAcIdx = -1; loanAcHits = []; }
+function loanSearch() {
+  loanSel = null;
+  document.getElementById('loanErr').textContent = '';
+  const q = document.getElementById('loanGame').value.trim().toLowerCase();
+  const ac = document.getElementById('loanAc');
+  if (!q) { closeLoanAc(); return; }
+  const haben = (currentUserData.data && currentUserData.data.Haben) || {};
+  const hits = [];
+  Object.keys(haben).forEach(function(plat) {
+    (haben[plat] || []).forEach(function(g) {
+      if (typeof g === 'string' && g.toLowerCase().indexOf(q) !== -1 && !isLoaned(g, plat)) hits.push({ game: g, platform: plat, pos: g.toLowerCase().indexOf(q) });
+    });
+  });
+  hits.sort(function(a, b) { return (a.pos === 0 ? 0 : 1) - (b.pos === 0 ? 0 : 1) || a.game.localeCompare(b.game, 'de'); });
+  loanAcHits = hits.slice(0, 30);
+  loanAcIdx = -1;
+  ac.innerHTML = loanAcHits.length
+    ? loanAcHits.map(function(h, i) { return '<div class="loan-ac-item" data-i="' + i + '" onmousedown="event.preventDefault();pickLoanGame(' + i + ')"><span>' + loanEsc(h.game) + '</span><span class="loan-plat">' + loanEsc(h.platform) + '</span></div>'; }).join('')
+    : '<div class="loan-ac-empty">Nicht in der Haben-Liste</div>';
+  ac.classList.add('open');
+}
+function loanSearchKey(e) {
+  if (!loanAcHits.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    loanAcIdx = (loanAcIdx + (e.key === 'ArrowDown' ? 1 : -1) + loanAcHits.length) % loanAcHits.length;
+    document.querySelectorAll('#loanAc .loan-ac-item').forEach(function(el, i) { el.classList.toggle('active', i === loanAcIdx); if (i === loanAcIdx) el.scrollIntoView({ block: 'nearest' }); });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    pickLoanGame(loanAcIdx >= 0 ? loanAcIdx : 0);
+  } else if (e.key === 'Escape') { closeLoanAc(); }
+}
+function pickLoanGame(i) {
+  const h = loanAcHits[i]; if (!h) return;
+  loanSel = { game: h.game, platform: h.platform };
+  document.getElementById('loanGame').value = h.game + ' (' + h.platform + ')';
+  closeLoanAc();
+  document.getElementById('loanPerson').focus();
+}
+function addLoan() {
+  const err = document.getElementById('loanErr');
+  if (!loanSel) { err.textContent = 'Wähle ein Spiel aus der Liste aus.'; document.getElementById('loanGame').focus(); return; }
+  const person = document.getElementById('loanPerson').value.trim();
+  if (!person) { err.textContent = 'Gib den Namen der Person ein.'; document.getElementById('loanPerson').focus(); return; }
+  if (isLoaned(loanSel.game, loanSel.platform)) { err.textContent = 'Das Spiel ist schon verliehen.'; return; }
+  getLoans().unshift({ game: loanSel.game, platform: loanSel.platform, person: person, date: new Date().toISOString().slice(0, 10) });
+  saveLoans();
+  showToast(loanSel.game + ' an ' + person + ' verliehen ✓');
+  loanSel = null;
+  document.getElementById('loanGame').value = '';
+  document.getElementById('loanPerson').value = '';
+  renderLoans();
+}
+function returnLoan(i) {
+  const l = getLoans()[i]; if (!l) return;
+  getLoans().splice(i, 1);
+  saveLoans();
+  showToast(l.game + ' ist zurück ✓');
+  renderLoans();
+}
+function renderLoans() {
+  const loans = getLoans();
+  const list = document.getElementById('loanList');
+  list.innerHTML = loans.length
+    ? loans.map(function(l, i) {
+        const d = l.date ? l.date.split('-').reverse().join('.') : '';
+        return '<div class="loan-item"><div class="loan-info"><div class="loan-game">' + loanEsc(l.game) + ' <span class="loan-plat">' + loanEsc(l.platform) + '</span></div>' +
+          '<div class="loan-who">bei <b>' + loanEsc(l.person) + '</b>' + (d ? ' · seit ' + d : '') + '</div></div>' +
+          '<button class="modal-btn cancel loan-back" onclick="returnLoan(' + i + ')">&#8617; Zurück</button></div>';
+      }).join('')
+    : '<div class="mt-empty">Gerade ist nichts verliehen.</div>';
+  const names = Array.from(new Set(loans.map(function(l) { return l.person; }).concat(currentUserData.loanPersons || [])));
+  document.getElementById('loanPersons').innerHTML = names.map(function(n) { return '<option value="' + loanEsc(n) + '">'; }).join('');
+  updateLoanCount();
+}
+</script>
 
 <div id="maintModal" class="sheet-modal" onclick="if(event.target===this)closeMaintenance()">
   <div class="sheet-box">
@@ -5045,7 +5193,7 @@ function onBarcodeFound(ean) {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.32</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.33</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5795,7 +5943,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.32',
+    appVersion: 'v2.33',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
@@ -5803,6 +5951,7 @@ function exportBackup() {
     platforms: currentUserData.platforms || [],
     covers: currentUserData.covers || {},
     valueHistory: currentUserData.valueHistory || {},
+    loans: currentUserData.loans || [],
     images: platformImages || {}
   };
   const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
@@ -5857,6 +6006,7 @@ async function applyBackup(obj) {
     currentUserData.platforms = Array.isArray(obj.platforms) ? obj.platforms : [];
     currentUserData.covers = (obj.covers && typeof obj.covers === 'object') ? obj.covers : {};
     if (obj.valueHistory && typeof obj.valueHistory === 'object') currentUserData.valueHistory = obj.valueHistory;
+    if (Array.isArray(obj.loans)) { currentUserData.loans = obj.loans; currentUserDocRef.update({ loans: obj.loans }).catch(function() {}); if (typeof updateLoanCount === 'function') updateLoanCount(); }
     data = currentUserData.data;
     metaCache = currentUserData.meta;
     currentUserData.platforms.forEach(function(p) {
