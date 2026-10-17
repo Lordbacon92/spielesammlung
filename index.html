@@ -947,6 +947,9 @@
   [data-theme="dark"] .game-item-wrap.rarity-rare   .game-item { border-left-color: #E8483A; border-right-color: #E8483A; background: rgba(232,72,58,0.07); }
   [data-theme="dark"] .game-item-wrap.rarity-medium .game-item { border-left-color: #D4921A; border-right-color: #D4921A; background: rgba(212,146,26,0.07); }
   [data-theme="dark"] .game-item-wrap.rarity-common .game-item { border-left-color: #2ECC71; border-right-color: #2ECC71; background: rgba(46,204,113,0.07); }
+  /* Verliehen (v2.34) – überdeckt die Seltenheitsfarbe, solange das Spiel weg ist */
+  .game-item-wrap.loaned .game-item { border-left-color: #2563EB !important; border-right: 3px solid #2563EB; background: rgba(37,99,235,0.12); }
+  [data-theme="dark"] .game-item-wrap.loaned .game-item { border-left-color: #5B8DEF !important; border-right-color: #5B8DEF; background: rgba(91,141,239,0.16); }
 
   /* ── SWIPE ACTIONS ── */
   .game-item-wrap {
@@ -3001,7 +3004,10 @@ function gameItemHtml(name, index, cfg) {
       '<button class="swipe-btn clear"  onclick="setRarity(' + index + ',null)"><span class="swipe-icon">&#10006;</span>Reset</button>' +
     '</div>';
 
-  return '<div class="game-item-wrap' + rarityClass + '" id="giw-' + index + '" oncontextmenu="openRarityMenu(event,' + index + ')">' + itemHtml + notePanelHtml + swipeHtml + '</div>';
+  const loan = (currentTab === 'haben' && currentUserData && Array.isArray(currentUserData.loans)) ? currentUserData.loans.find(function(l) { return l.game === name && l.platform === currentPlatform; }) : null;
+  const loanClass = loan ? ' loaned' : '';
+  const loanTitle = loan ? ' title="Verliehen an ' + String(loan.person).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') + '"' : '';
+  return '<div class="game-item-wrap' + rarityClass + loanClass + '"' + loanTitle + ' id="giw-' + index + '" oncontextmenu="openRarityMenu(event,' + index + ')">' + itemHtml + notePanelHtml + swipeHtml + '</div>';
 }
 
 
@@ -5048,6 +5054,7 @@ function saveLoans() {
   const w = currentUserDocRef.update({ loans: getLoans() });
   w.catch(function(e) { console.warn('Verliehen-Sync:', e); showToast('Speichern fehlgeschlagen', true); });
   updateLoanCount();
+  try { if (currentPlatform && currentTab === 'haben') renderGames(); } catch(e) {}
 }
 function isLoaned(game, plat) { return getLoans().some(function(l) { return l.game === game && l.platform === plat; }); }
 function openLoans() {
@@ -5193,7 +5200,7 @@ function renderLoans() {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.33</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.34</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5943,7 +5950,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.33',
+    appVersion: 'v2.34',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
