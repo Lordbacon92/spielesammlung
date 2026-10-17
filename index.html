@@ -5021,7 +5021,7 @@ function onBarcodeFound(ean) {
   <button class="theme-toggle" onclick="exportBackup()" title="Komplette Sammlung als Datei sichern">&#11015; Backup exportieren</button>
   <button class="theme-toggle" onclick="document.getElementById('backupImportInput').click()" title="Sammlung aus Backup-Datei wiederherstellen">&#11014; Backup importieren</button>
   <input type="file" id="backupImportInput" accept="application/json,.json" style="display:none" onchange="handleBackupImport(event)">
-  <button class="theme-toggle" onclick="openLoans()" title="Verliehene Spiele anzeigen">&#128228; Verliehen <span class="loan-count" id="loanCount"></span></button>
+  <button class="theme-toggle" onclick="openLoans()" title="Verliehene Spiele anzeigen">Verliehen <span class="loan-count" id="loanCount"></span></button>
 </div>
 
 <div id="loanModal" class="sheet-modal" onclick="if(event.target===this)closeLoans()">
@@ -5200,7 +5200,7 @@ function renderLoans() {
   </div>
 </div>
 
-<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.34</div>
+<div style="text-align:center;padding:12px 0 20px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#333;position:relative;z-index:1">v2.35</div>
 
 <div id="offlinePill">OFFLINE</div>
 
@@ -5950,7 +5950,7 @@ function exportBackup() {
   const payload = {
     app: 'COLLECT',
     format: 1,
-    appVersion: 'v2.34',
+    appVersion: 'v2.35',
     exportedAt: new Date().toISOString(),
     displayName: currentUserData.displayName || '',
     data: currentUserData.data,
